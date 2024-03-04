@@ -23,8 +23,6 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
-    - name: realtek_hifi4
-      url-base: ssh://ctcsoc.rtkbf.com:29418/zephyr
 
   group-filter: [-babblesim, -optional]
 
@@ -256,7 +254,8 @@ manifest:
     - name: hal_xtensa
       revision: e6da34fc07dfe96161ab8743f5dbeb6e6307ab93
       path: modules/hal/xtensa
-      remote: realtek_hifi4
+      groups:
+        - hal
     - name: libmetal
       revision: b91611a6f47dd29fb24c46e5621e797557f80ec6
       path: modules/hal/libmetal
