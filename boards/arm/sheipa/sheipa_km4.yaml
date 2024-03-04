@@ -1,0 +1,10 @@
+identifier: sheipa_km4
+name: Sheipa Platform for ARM
+type: qemu
+simulation: qemu
+arch: arm
+toolchain:
+  - rsdk
+ram: 256
+testing:
+  default: true

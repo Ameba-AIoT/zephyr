@@ -1,0 +1,6 @@
+config SOC_SERIES_SHEIPA
+	bool "ARM SEHIPA MCU Series"
+	select ARM
+	select SOC_FAMILY_ARM
+	help
+	    Enable support for ARM SHEIPA MCU Series

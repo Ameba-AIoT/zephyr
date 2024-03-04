@@ -54,9 +54,9 @@ if(("zephyr" STREQUAL ${ZEPHYR_TOOLCHAIN_VARIANT}) OR
     # To support Zephyr SDK tools (DTC, and other tools) with 3rd party toolchains
     # then we keep track of current toolchain variant.
     set(ZEPHYR_CURRENT_TOOLCHAIN_VARIANT ${ZEPHYR_TOOLCHAIN_VARIANT})
-    find_package(Zephyr-sdk ${Zephyr-sdk_FIND_VERSION}
-                 REQUIRED QUIET CONFIG HINTS ${ZEPHYR_SDK_INSTALL_DIR}
-    )
+#    find_package(Zephyr-sdk ${Zephyr-sdk_FIND_VERSION}
+#                 REQUIRED QUIET CONFIG HINTS ${ZEPHYR_SDK_INSTALL_DIR}
+#    )
     if(DEFINED ZEPHYR_CURRENT_TOOLCHAIN_VARIANT)
       set(ZEPHYR_TOOLCHAIN_VARIANT ${ZEPHYR_CURRENT_TOOLCHAIN_VARIANT})
     endif()
