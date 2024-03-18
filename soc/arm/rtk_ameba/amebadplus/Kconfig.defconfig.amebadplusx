@@ -1,0 +1,9 @@
+if SOC_AMEBADPLUSX
+
+config SOC
+	default "SOC_AMEBADPLUSX"
+
+config NUM_IRQS
+	default 96
+
+endif # SOC_AMEBADPLUSX

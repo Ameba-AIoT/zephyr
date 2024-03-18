@@ -1,0 +1,60 @@
+#include <mem.h>
+#include <freq.h>
+#include <arm/armv8-m.dtsi>
+
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-m33";
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+	};
+
+	clocks {
+		clk_sys: clk_sys {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(260)>;
+		};
+	};
+
+	soc {
+		sram0: memory@20010020 {
+			compatible = "mmio-sram";
+			reg = <0x20010020 0x00030000>;
+		};
+
+		flash0: flash@e000020 {
+			compatible = "soc-nv-flash";
+		};
+
+		ram_image2_entry: memory@20004da0 {
+			compatible = "zephyr,memory-region";
+			reg = <0x20004da0 0x20>;
+			zephyr,memory-region = "KM4_IMG2_ENTRY";
+		};
+
+		uart0: serial@4100f000 {
+			compatible = "realtek,amebadplus-uart";
+			reg = <0x4100f000 0x100>;
+			clock-frequency = <25000000>;
+			current-speed = <1500000>;
+			interrupts = <36 0>;
+			status = "disabled";
+		};
+	};
+};
+
+&nvic {
+	arm,num-irq-priority-bits = <3>;
+};
+
+&flash0 {
+	reg = <0x0e000020 DT_SIZE_M(4)>;
+};

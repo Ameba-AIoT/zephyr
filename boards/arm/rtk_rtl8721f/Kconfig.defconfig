@@ -1,0 +1,14 @@
+# Kconfig - Formosa board configuration
+#
+# Copyright (c) 2023 Realtek Semiconductor, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_RTK_RTL8721F
+
+config BOARD
+        default "RTK RTL8721F"
+
+config BUILD_WITH_TFM
+        default y if TRUSTED_EXECUTION_NONSECURE
+
+endif

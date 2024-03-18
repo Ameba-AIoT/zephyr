@@ -1,0 +1,10 @@
+identifier: rtk_rtl8721f
+name: rtk_rtl8721f
+type: mcu
+arch: arm
+toolchain:
+  - gnuarmemb
+ram: 512
+supported:
+testing:
+  default: true
