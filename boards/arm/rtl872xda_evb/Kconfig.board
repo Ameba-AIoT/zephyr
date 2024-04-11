@@ -3,6 +3,6 @@
 # Copyright (c) 2023 Realtek Semiconductor, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-config BOARD_RTK_RTL8721F
-        bool "RealTek RTL8721F Board"
-        depends on SOC_AMEBADPLUSX
+config BOARD_REALTEK_RTL872XDA_EVB
+        bool "Realtek AmebaDplus RTL872XDA EVB"
+        depends on SOC_AMEBADPLUS

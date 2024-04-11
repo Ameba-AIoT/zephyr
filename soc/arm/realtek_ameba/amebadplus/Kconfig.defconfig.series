@@ -25,6 +25,6 @@ config SOC_SERIES
 config SYS_CLOCK_HW_CYCLES_PER_SEC
         default $(dt_node_int_prop_int,/clocks/clk_sys,clock-frequency)
 
-rsource "Kconfig.defconfig.amebadplus*"
+rsource "Kconfig.defconfig.amebadplus"
 
 endif #SOC_SERIES_AMEBADPLUS

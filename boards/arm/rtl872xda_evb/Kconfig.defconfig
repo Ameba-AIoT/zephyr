@@ -3,10 +3,10 @@
 # Copyright (c) 2023 Realtek Semiconductor, Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-if BOARD_RTK_RTL8721F
+if BOARD_REALTEK_RTL872XDA_EVB
 
 config BOARD
-        default "RTK RTL8721F"
+        default "Realtek AmebaDplus RTL872XDA EVB"
 
 config BUILD_WITH_TFM
         default y if TRUSTED_EXECUTION_NONSECURE

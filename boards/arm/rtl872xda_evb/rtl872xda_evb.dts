@@ -9,8 +9,8 @@
 #include <realtek/amebadplus/amebadplus.dtsi>
 
  / {
-	model = "RealTek rtl8721f";
-	compatible = "realtek,rtk_rtl8721f";
+	model = "RealTek AmebaDplus RTL872XDA EVB";
+	compatible = "realtek,rtl872xda_evb";
 
 	chosen {
 		zephyr,console = &uart0;

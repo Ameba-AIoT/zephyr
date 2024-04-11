@@ -2,16 +2,16 @@
 # Copyright (c) 2016 Open-RnD Sp. z o.o.
 # SPDX-License-Identifier: Apache-2.0
 
-config SOC_FAMILY_RTK_AMEBA
+config SOC_FAMILY_REALTEK_AMEBA
 	bool
 	select BUILD_OUTPUT_HEX
 
-if SOC_FAMILY_RTK_AMEBA
+if SOC_FAMILY_REALTEK_AMEBA
 
 config SOC_FAMILY
 	string
-	default "rtk_ameba"
+	default "realtek_ameba"
 
 rsource "*/Kconfig.soc"
 
-endif # SOC_FAMILY_RTK_AMEBA
+endif # SOC_FAMILY_REALTEK_AMEBA

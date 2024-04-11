@@ -21,8 +21,8 @@ choice
 	prompt "AmebaDplus MUC Selection"
 	depends on SOC_SERIES_AMEBADPLUS
 
-config SOC_AMEBADPLUSX
-	bool "KM4 on AMEBADPLUS"
+config SOC_AMEBADPLUS
+	bool "Real-M300 on AMEBADPLUS"
 	select CPU_CORTEX_M33
 	select CPU_HAS_ARM_SAU
 
