@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 SECTIONS
 {
     PROVIDE(__rom_stdlib_text_start__ = 0x33000);

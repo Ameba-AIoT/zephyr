@@ -1,5 +1,8 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
 config SOC_SERIES_AMEBADPLUS
-	bool "AMEBADPLUS Series MCU"
+	bool "AmebaDplus Series MCU"
 	select ARM
 	select CPU_CORTEX_M33
 	# select CPU_HAS_ARM_SAU
@@ -10,4 +13,4 @@ config SOC_SERIES_AMEBADPLUS
 	# select SHARED_MULTI_HEAP
 	# select SYSTICK_USE_EXTERNAL_CLOCK
 	help
-	    Enable support for AMEBADPLUS Series MCU
+	    Enable support for AmebaDplus Series MCU

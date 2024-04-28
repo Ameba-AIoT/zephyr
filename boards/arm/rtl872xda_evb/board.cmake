@@ -1,3 +1,4 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
 board_runner_args(jlink "--device=Cortex-M33" "--speed=4000")

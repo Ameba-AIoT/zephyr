@@ -23,10 +23,8 @@ manifest:
       url-base: https://github.com/zephyrproject-rtos
     - name: babblesim
       url-base: https://github.com/BabbleSim
-    - name: nuwa
-      url-base: ssh://rswn.rtkbf.com:29418/iot/nuwa
 
-  group-filter: [-babblesim, -nuwa, -optional]
+  group-filter: [-babblesim, -optional]
 
   #
   # Please add items below based on alphabetical order
@@ -211,12 +209,6 @@ manifest:
       revision: b3a66fe6d04d87fd1533a5c8de51d0599fcd08d0
       path: modules/hal/quicklogic
       repo-path: hal_quicklogic
-      groups:
-        - hal
-    - name: hal_realtek
-      remote: nuwa
-      path: modules/hal/realtek
-      revision: b8f0c72b6f76e9a5c7042c28d0654693592f1aa8
       groups:
         - hal
     - name: hal_renesas
