@@ -1,0 +1,57 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Realtek pinctrl node.
+
+compatible: "realtek,amebadplus-pinctrl"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: false
+child-binding:
+  description: |
+    Realtek pin controller pin group for a pinctrl state.
+  child-binding:
+    description: |
+      Realtek pin controller pin configuration node.
+    include:
+      - name: pincfg-node.yaml
+        property-allowlist:
+          - bias-disable
+          - bias-pull-down
+          - bias-pull-up
+          - input-schmitt-disable
+    properties:
+      pinmux:
+        required: true
+        type: array
+        description: |
+          Pin mux selections for this group. An array of pins sharing the same group properties.
+          Each element of the array is an integer constructed from the pin number and the alternative function of the pin.
+      slew-rate:
+        default: "fast"
+        type: string
+        enum:
+          - "fast"
+          - "slow"
+        description: |
+          Pin output slew rate.If not set, default value is fast.
+      drive-strength:
+        default: "high"
+        type: string
+        description: |
+          Drive strength of the output pin.If not set, default value is high.
+        enum:
+          - "high"
+          - "low"
+      digital-input:
+        type: boolean
+        description: |
+          Enable the digital input function.
+      swd-off:
+        type: boolean
+        description: |
+          Disable the SWD function.

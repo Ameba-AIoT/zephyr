@@ -8,6 +8,8 @@
 #include <freq.h>
 #include <arm/armv8-m.dtsi>
 
+#include <realtek/amebadplus/amebadplus-pinctrl.dtsi>
+
 / {
 	cpus {
 		#address-cells = <1>;
