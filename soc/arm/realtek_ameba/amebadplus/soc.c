@@ -7,19 +7,14 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <soc.h>
+#include "ameba_soc.h"
+
 
 #define SECTION(_name)      __attribute__ ((__section__(_name)))
 
 #define IMAGE2_ENTRY_SECTION                     \
         SECTION(".image2.entry.data")
 
-typedef struct {
-	void (*RamStartFun)(void);
-	void (*RamWakeupFun)(void);
-	uint32_t VectorNS;
-} RAM_START_FUNCTION, *PRAM_START_FUNCTION;
-
-uint32_t NewVectorTable[2];
 
 void z_arm_reset(void);
 
@@ -36,6 +31,18 @@ static int amebadplus_init(void)
 	/* At reset, system core clock is set to 4 MHz from MSI */
 	// SystemCoreClock = 4000000;
 
+	/* do xtal/osc clk init */
+	SystemCoreClockUpdate();
+
+	XTAL_INIT();
+
+	if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) { /* Only Asic need OSC Calibration */
+		OSC4M_Init();
+		OSC4M_Calibration(30000);
+		if ((((BOOT_Reason()) & AON_BIT_RSTF_DSLP) == FALSE) && (RTCIO_IsEnabled() == FALSE)) {
+			OSC131K_Calibration(30000); /* PPM=30000=3% *//* 7.5ms */
+		}
+	}
 	return 0;
 }
 

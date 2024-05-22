@@ -9,6 +9,8 @@
  */
 
 #include <ameba_soc.h>
+#include <zephyr/drivers/clock_control/ameba_clock_control.h>
+#include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/irq.h>
@@ -23,8 +25,39 @@
 
 /* Device data structure */
 struct ameba_loguart_data {
+	/* clock device */
+	const struct device *clock;
+
 	struct uart_config config;
 };
+
+/**
+ * @brief Enable the loguart clock.
+ *
+ * @param dev UART device struct
+ *
+ * @return 0 on success.
+ */
+static int uart_ameba_loguart_clock_enable(const struct device *dev)
+{
+	const uint32_t idx = DT_CLOCKS_CELL_BY_IDX(DT_NODELABEL(loguart), 0, idx);
+	struct ameba_loguart_data *data = dev->data;
+	int err = 0;
+
+	data->clock = AMEBA_CLOCK_CONTROL_DEV;
+
+	if (!device_is_ready(data->clock)) {
+		return -ENODEV;
+	}
+
+	/* enable clock */
+	err = clock_control_on(data->clock, (clock_control_subsys_t)&idx);
+	if (err != 0) {
+		return err;
+	}
+
+	return 0;
+}
 
 /**
  * @brief Poll the device for input.
@@ -34,7 +67,6 @@ struct ameba_loguart_data {
  *
  * @return 0 if a character arrived, -1 if the input buffer if empty.
  */
-
 static int uart_ameba_loguart_poll_in(const struct device *dev, unsigned char *c)
 {
 	ARG_UNUSED(dev);
@@ -66,10 +98,14 @@ static void uart_ameba_loguart_poll_out(const struct device *dev, unsigned char 
  */
 static int uart_ameba_loguart_init(const struct device *dev)
 {
+	int err;
 	struct ameba_loguart_data *data = dev->data;
 	LOGUART_InitTypeDef loguart_init_struct;
 
-	RCC_PeriphClockCmd(APBPeriph_LOGUART, APBPeriph_LOGUART_CLOCK, ENABLE);
+	err = uart_ameba_loguart_clock_enable(dev);
+	if (err < 0) {
+		return err;
+	}
 
 	Pinmux_UartLogCtrl(PINMUX_S0, ON);
 
