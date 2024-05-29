@@ -48,21 +48,14 @@
 			zephyr,memory-region = "KM4_IMG2_ENTRY";
 		};
 
-		uart0: serial@4100f000 {
-			compatible = "realtek,amebadplus-uart";
+		loguart: serial@4100f000 {
+			compatible = "realtek,ameba-loguart";
 			reg = <0x4100f000 0x100>;
-			clock-frequency = <25000000>;
 			current-speed = <1500000>;
-			interrupts = <36 0>;
-			status = "disabled";
 		};
 	};
 };
 
 &nvic {
 	arm,num-irq-priority-bits = <3>;
-};
-
-&flash0 {
-	reg = <0x0e000020 DT_SIZE_M(4)>;
 };

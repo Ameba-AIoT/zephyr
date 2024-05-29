@@ -1,8 +1,8 @@
 # Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-description: AMEBADPLUS UART.
-compatible: "realtek,amebadplus-uart"
+description: Ameba LOGUART
+compatible: "realtek,ameba-loguart"
 
 include: [uart-controller.yaml, base.yaml, pinctrl-device.yaml]
 
@@ -13,21 +13,16 @@ properties:
     required: true
 
   clocks:
-    required: true
+    required: false
 
   interrupts:
-    required: true
+    required: false
 
   pinctrl-0:
-    required: true
+    required: false
 
   pinctrl-1:
     required: false
 
   pinctrl-names:
-    required: true
-
-  flow-ctrl:
-    type: boolean
-    description: |
-      Enable cts and rts or not.
+    required: false
