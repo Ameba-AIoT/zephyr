@@ -37,7 +37,6 @@ struct ameba_div_params {
 	uint32_t shift; /* div bit offset */
 };
 
-static void ameba_rcc_cksl_func(u32 src, void *params);
 static void ameba_rcc_lsys_cksl_uart0(u32 src, void *params);
 static void ameba_rcc_lsys_cksl_uart1(u32 src, void *params);
 static void ameba_rcc_lsys_cksl_uart2(u32 src, void *params);
@@ -46,8 +45,6 @@ static void ameba_rcc_soc_cksl_psram(u32 src, void *params);
 static void ameba_rcc_soc_cksl_sport0(u32 src, void *params);
 static void ameba_rcc_soc_cksl_sport1(u32 src, void *params);
 static void ameba_rcc_lsys_cksl_ctc(u32 src, void *params);
-static void ameba_rcc_lsys_cksl_gpio(u32 src, void *params);
-static void ameba_rcc_lsys_cksl_adc(u32 src, void *params);
 static void ameba_rcc_lsys_cksl_loguart(u32 src, void *params);
 
 /* Ameba clock control structure */
@@ -127,9 +124,7 @@ RTK_CLK_BASIC(aon_atim_clk,    APBPeriph_ATIM_CLOCK,     APBPeriph_ATIM);
 RTK_CLK_BASIC(aon_sdm_clk,     APBPeriph_SDM_CLOCK,      APBPeriph_SDM);
 RTK_CLK_BASIC(aon_rtc_clk,     APBPeriph_RTC_CLOCK,      APBPeriph_RTC);
 RTK_CLK_BASIC(aon_iwdg_clk,    APBPeriph_CLOCK_NULL,     APBPeriph_IWDG);
-RTK_CLK_MUX(aon_otpc_clk,      APBPeriph_OTPC_CLOCK,     APBPeriph_OTPC,
-			AMEBA_RCC_PARENT_GATE_INVALID,
-			ameba_rcc_cksl_func, REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_OTPC, 14);
+RTK_CLK_BASIC(aon_otpc_clk,    APBPeriph_OTPC_CLOCK,     APBPeriph_OTPC);
 
 /* SYSON Domain Clock */
 /* Clock enable by default
@@ -162,17 +157,11 @@ RTK_CLK_DEFINE(lsys_loguart_clk,    APBPeriph_LOGUART_CLOCK,  APBPeriph_LOGUART,
 			   AMEBA_RCC_PARENT_GATE_INVALID,
 			   ameba_rcc_lsys_cksl_loguart, 0, 0, 0,
 			   REG_LSYS_CKD_GRP1,          LSYS_MASK_CKD_LOGUART,       16);
-RTK_CLK_DEFINE(lsys_dtim_clk,       APBPeriph_DTIM_CLOCK,     APBPeriph_DTIM,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_lsys_cksl_adc,    REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_DTIM, 11,
-			   REG_LSYS_CKD_GRP1,           0x3F,               6);
-RTK_CLK_DEFINE(lsys_adc_clk,        APBPeriph_ADC_CLOCK,      APBPeriph_ADC,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_lsys_cksl_adc,    REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_ADC, 9,
-			   REG_LSYS_CKD_GRP1,           0x0F,               12);
-RTK_CLK_MUX(lsys_gpio_clk,          APBPeriph_GPIO_CLOCK,     APBPeriph_GPIO,
-			AMEBA_RCC_PARENT_GATE_INVALID,
-			ameba_rcc_lsys_cksl_gpio, REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_GPIO, 8);
+RTK_CLK_DIV(lsys_dtim_clk,       APBPeriph_DTIM_CLOCK,     APBPeriph_DTIM,
+			REG_LSYS_CKD_GRP1,           0x3F,               6);
+RTK_CLK_DIV(lsys_adc_clk,        APBPeriph_ADC_CLOCK,      APBPeriph_ADC,
+			REG_LSYS_CKD_GRP1,           0x0F,               12);
+RTK_CLK_BASIC(lsys_gpio_clk,     APBPeriph_GPIO_CLOCK,     APBPeriph_GPIO);
 
 RTK_CLK_BASIC(lsys_ltim0_clk,       APBPeriph_LTIM0_CLOCK,      APBPeriph_LTIM0);
 RTK_CLK_BASIC(lsys_ltim1_clk,       APBPeriph_LTIM1_CLOCK,      APBPeriph_LTIM1);
@@ -183,12 +172,8 @@ RTK_CLK_BASIC(lsys_ltim5_clk,       APBPeriph_LTIM5_CLOCK,      APBPeriph_LTIM5)
 RTK_CLK_BASIC(lsys_ltim6_clk,       APBPeriph_LTIM6_CLOCK,      APBPeriph_LTIM6);
 RTK_CLK_BASIC(lsys_ltim7_clk,       APBPeriph_LTIM7_CLOCK,      APBPeriph_LTIM7);
 
-RTK_CLK_MUX(lsys_ptim0_clk,         APBPeriph_PTIM0_CLOCK,      APBPeriph_PTIM0,
-			AMEBA_RCC_PARENT_GATE_INVALID,
-			ameba_rcc_cksl_func, REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_PTIM, 7);
-RTK_CLK_MUX(lsys_ptim1_clk,         APBPeriph_PTIM1_CLOCK,      APBPeriph_PTIM1,
-			AMEBA_RCC_PARENT_GATE_INVALID,
-			ameba_rcc_cksl_func, REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_PTIM, 7);
+RTK_CLK_BASIC(lsys_ptim0_clk,       APBPeriph_PTIM0_CLOCK,      APBPeriph_PTIM0);
+RTK_CLK_BASIC(lsys_ptim1_clk,       APBPeriph_PTIM1_CLOCK,      APBPeriph_PTIM1);
 /* RTK_CLK_BASIC(lsys_aux32k_clk,   APBPeriph_CLOCK_NULL,       APBPeriph_NULL); */
 RTK_CLK_BASIC(lsys_wlon_clk,        APBPeriph_WLON_CLOCK,       APBPeriph_WLON);
 
@@ -213,16 +198,12 @@ RTK_CLK_MUX(lsys_sic_clk,          APBPeriph_SIC_CLOCK,         APBPeriph_SIC,
 			AMEBA_RCC_MUX_API_NULL, 0, 0, 0);
 
 /* SOC Domain Clock */
-RTK_CLK_DEFINE(soc_hp_clk,         APBPeriph_HP_CLOCK,          APBPeriph_NULL,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_cksl_func,    REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_HP, 2,
-			   REG_LSYS_CKD_GRP0,           0x07,               0);
+RTK_CLK_DIV(soc_hp_clk,            APBPeriph_HP_CLOCK,          APBPeriph_NULL,
+			REG_LSYS_CKD_GRP0,           0x07,               0);
 RTK_CLK_DIV(soc_sram_clk,          APBPeriph_SRAM_CLOCK,        APBPeriph_NULL,
 			REG_LSYS_CKD_GRP0,          LSYS_MASK_CKD_SRAM,         16);
-RTK_CLK_DEFINE(soc_peri_hclk,      APBPeriph_HPERI_CLOCK,       APBPeriph_NULL,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_cksl_func,    REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_HPERI, 3,
-			   REG_LSYS_CKD_GRP0,           0x07,               8);
+RTK_CLK_DIV(soc_peri_hclk,         APBPeriph_HPERI_CLOCK,       APBPeriph_NULL,
+			REG_LSYS_CKD_GRP0,           0x07,               8);
 
 RTK_CLK_MUX(soc_dmac_clk,        APBPeriph_DMAC_CLOCK,         APBPeriph_DMAC,    AMEBA_PERI_HCLK,
 			AMEBA_RCC_MUX_API_NULL, 0, 0, 0);
@@ -274,14 +255,10 @@ RTK_CLK_DIV(soc_qspi_clk,         APBPeriph_QSPI_CLOCK,       APBPeriph_QSPI,
 			REG_LSYS_CKD_GRP0,          LSYS_MASK_CKD_QSPI,         28);
 RTK_CLK_DIV(soc_utmifs_clk,       APBPeriph_CLOCK_NULL,       APBPeriph_NULL,
 			REG_LSYS_CKD_GRP0,          LSYS_MASK_CKD_UTMIFS,         20);
-RTK_CLK_DEFINE(soc_irda_clk,      APBPeriph_IRDA_CLOCK,       APBPeriph_IRDA,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_cksl_func,    REG_LSYS_CKSL_GRP0, LSYS_BIT_CKSL_IRDA, 13,
-			   REG_LSYS_CKD_GRP0,           LSYS_MASK_CKD_IRDA,               12);
-RTK_CLK_DEFINE(soc_lp_clk,        APBPeriph_LP_CLOCK,         APBPeriph_NULL,
-			   AMEBA_RCC_PARENT_GATE_INVALID,
-			   ameba_rcc_cksl_func,    REG_LSYS_CKSL_GRP0, LSYS_MASK_CKSL_LP, 0,
-			   REG_LSYS_CKD_GRP0,           LSYS_MASK_CKD_LP,               4);
+RTK_CLK_DIV(soc_irda_clk,      APBPeriph_IRDA_CLOCK,       APBPeriph_IRDA,
+			REG_LSYS_CKD_GRP0,           LSYS_MASK_CKD_IRDA,               12);
+RTK_CLK_DIV(soc_lp_clk,        APBPeriph_LP_CLOCK,         APBPeriph_NULL,
+			REG_LSYS_CKD_GRP0,           LSYS_MASK_CKD_LP,               4);
 
 /* SW do not ctrl the nogated clk
 RTK_CLK_BASIC(soc_peri_ng_clk,     APBPeriph_LPERI_CLOCK,         APBPeriph_NULL);*/
@@ -459,16 +436,6 @@ static const struct rtk_clk *ameba_rcc_clk_array[1 + AMEBA_CLK_MAX] = {
  * @param params clock mux
  *
  */
-static void ameba_rcc_cksl_func(u32 src, void *_mux)
-{
-	u32 reg_val = 0;
-	struct ameba_mux_params *mux = (struct ameba_mux_params *)_mux;
-
-	reg_val = HAL_READ32(SYSTEM_CTRL_BASE, mux->reg);
-	reg_val &= ~(mux->mask);
-	reg_val |= (src << mux->shift) & mux->mask;
-	HAL_WRITE32(SYSTEM_CTRL_BASE, mux->reg, reg_val);
-}
 
 static void ameba_rcc_lsys_cksl_uart0(u32 src, void *params)
 {
@@ -494,22 +461,10 @@ static void ameba_rcc_lsys_cksl_loguart(u32 src, void *params)
 	RCC_PeriphClockSource_LOGUART_ROM(src);
 }
 
-static void ameba_rcc_lsys_cksl_adc(u32 src, void *params)
-{
-	ARG_UNUSED(params);
-	RCC_PeriphClockSource_ADC(src);
-}
-
 static void ameba_rcc_lsys_cksl_ctc(u32 src, void *params)
 {
 	ARG_UNUSED(params);
 	RCC_PeriphClockSource_CTC(src);
-}
-
-static void ameba_rcc_lsys_cksl_gpio(u32 src, void *params)
-{
-	ARG_UNUSED(params);
-	RCC_PeriphClockSource_GPIO(src);
 }
 
 static void ameba_rcc_soc_cksl_spic(u32 src, void *params)
@@ -628,10 +583,6 @@ static enum clock_control_status ameba_clock_get_status(const struct device *dev
 {
 	uint32_t *offset = (uint32_t *)(sub_system);
 	struct rtk_clk *phandle = NULL;
-	uint32_t apb_peri_clk = 0U;
-	uint32_t clk_reg_idx = 0U;
-	uint32_t temp_val = 0U;
-	uint32_t reg = 0U;
 
 	ARG_UNUSED(dev);
 	if (offset == NULL) {
@@ -644,26 +595,8 @@ static enum clock_control_status ameba_clock_get_status(const struct device *dev
 
 	phandle = (struct rtk_clk *)ameba_rcc_clk_array[*offset];
 
-	clk_reg_idx = AMEBA_RCC_GET_CLK_GRP_IDX(phandle->cke);
-	apb_peri_clk = AMEBA_RCC_GET_CLK_IDX(phandle->cke);
-
-	switch (clk_reg_idx) {
-	case 0x0:
-		reg = REG_LSYS_CKE_GRP0;
-		break;
-	case 0x1:
-		reg = REG_LSYS_CKE_GRP1;
-		break;
-	case 0x3:
-		reg = REG_AON_CLK;
-		break;
-	}
-
-	if (phandle->cke != APBPeriph_CLOCK_NULL) {
-		temp_val = HAL_READ32(SYSTEM_CTRL_BASE, reg);
-		if (temp_val &= apb_peri_clk) {
-			return CLOCK_CONTROL_STATUS_ON;
-		}
+	if (RCC_PeriphClockEnableChk(phandle->cke)) {
+		return CLOCK_CONTROL_STATUS_ON;
 	}
 
 	return CLOCK_CONTROL_STATUS_OFF;
@@ -689,6 +622,7 @@ static int ameba_clock_configure(const struct device *dev,
 	struct ameba_clock_config *cfg = (struct ameba_clock_config *)data;
 	uint32_t *offset = (uint32_t *)sub_system;
 	struct ameba_div_params *pdiv = NULL;
+	struct Rcc_ClkDiv div_param;
 	clk_src_func choose_clk_src = NULL;
 	struct rtk_clk *phandle = NULL;
 	uint32_t reg_temp = 0U;
@@ -717,10 +651,12 @@ static int ameba_clock_configure(const struct device *dev,
 			return 0;
 		}
 
-		reg_temp = HAL_READ32(SYSTEM_CTRL_BASE, pdiv->reg);
-		reg_temp &= ~(pdiv->mask);
-		reg_temp |= ((cfg->param_value) << (pdiv->shift)) & (pdiv->mask);
-		HAL_WRITE32(SYSTEM_CTRL_BASE, pdiv->reg, reg_temp);
+		div_param.CkdGroupOfs = pdiv->reg;
+		div_param.BitMask = pdiv->mask;
+		div_param.DivShift = pdiv->shift;
+		div_param.DivVal = cfg->param_value;
+
+		RCC_PeriphClockDivSet(&div_param);
 	}
 
 	return 0;

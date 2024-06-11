@@ -24,3 +24,18 @@ GROUP_END(KM4_IMG2_ENTRY)
 		. = ALIGN(32);
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 
+	SECTION_PROLOGUE(.psram_image2.text.data,,SUBALIGN(32))
+	{
+		 __image2_backtrace_start__ = .;
+
+		 . = ALIGN (4);
+		 __ipc_table_start__ = .;
+		 KEEP(*(*.ipc.table.data*))
+		 __ipc_table_end__ = .;
+
+		/*-----------------*/
+		__image2_backtrace_end__ = .;
+
+		. = ALIGN (32);
+	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+
