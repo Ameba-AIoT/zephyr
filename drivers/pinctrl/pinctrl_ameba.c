@@ -5,21 +5,21 @@
  */
 
 #include <zephyr/drivers/pinctrl.h>
-#include <zephyr/dt-bindings/pinctrl/realtek-rtl8721f-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/realtek-amebadplus-pinctrl.h>
 #include "ameba_soc.h"
 
-#define GPIO_PINNAME(PORT, PIN)			(((PORT) << 5) | ((PIN) & 0x1F))
+#define AMEBA_GPIO_PINNAME(PORT, PIN)			(((PORT) << 5) | ((PIN) & 0x1F))
 
-static int realtek_configure_pin(const pinctrl_soc_pin_t *pin)
+static int ameba_configure_pin(const pinctrl_soc_pin_t *pin)
 {
 	uint32_t port_idx, pin_idx;
 	uint8_t gpio_pin;
 	uint32_t function_id;
 
-	port_idx = GET_PORT_NUM(pin->pinmux);
-	pin_idx = GET_PIN_NUM(pin->pinmux);
-	function_id = GET_PIMNUX_ID(pin->pinmux);
-	gpio_pin = GPIO_PINNAME(port_idx, pin_idx);
+	port_idx = AMEBA_GET_PORT_NUM(pin->pinmux);
+	pin_idx = AMEBA_GET_PIN_NUM(pin->pinmux);
+	function_id = AMEBA_GET_PIMNUX_ID(pin->pinmux);
+	gpio_pin = AMEBA_GPIO_PINNAME(port_idx, pin_idx);
 
 	Pinmux_Config(gpio_pin, function_id);
 
@@ -33,7 +33,6 @@ static int realtek_configure_pin(const pinctrl_soc_pin_t *pin)
 		PAD_PullCtrl(gpio_pin, GPIO_PuPd_NOPULL);
 		PAD_SleepPullCtrl(gpio_pin, GPIO_PuPd_NOPULL);
 	}
-
 
 	if (pin->slew_rate) {
 		PAD_SlewRateCtrl(gpio_pin, ENABLE);
@@ -52,7 +51,6 @@ static int realtek_configure_pin(const pinctrl_soc_pin_t *pin)
 	}
 
 	return 0;
-
 }
 
 int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintptr_t reg)
@@ -62,7 +60,7 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 	ARG_UNUSED(reg);
 
 	for (int i = 0; i < pin_cnt; i++) {
-		ret = realtek_configure_pin(&pins[i]);
+		ret = ameba_configure_pin(&pins[i]);
 
 		if (ret < 0) {
 			return ret;

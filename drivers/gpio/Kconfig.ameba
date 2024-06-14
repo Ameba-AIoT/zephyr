@@ -1,0 +1,9 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config GPIO_AMEBA
+	bool "GPIO controller driver for Realtek Ameba series SoC"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_GPIO_ENABLED
+	help
+	  Enable GPIO controller driver for Realtek Ameba series SoC

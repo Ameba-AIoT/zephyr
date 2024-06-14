@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Realtek pinctrl node.
+  Realtek Ameba pinctrl node.
 
-compatible: "realtek,amebadplus-pinctrl"
+compatible: "realtek,ameba-pinctrl"
 
 include: base.yaml
 
@@ -13,10 +13,10 @@ properties:
     required: false
 child-binding:
   description: |
-    Realtek pin controller pin group for a pinctrl state.
+    Realtek Ameba pin controller pin group for a pinctrl state.
   child-binding:
     description: |
-      Realtek pin controller pin configuration node.
+      Realtek Ameba pin controller pin configuration node.
     include:
       - name: pincfg-node.yaml
         property-allowlist:

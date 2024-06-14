@@ -4,21 +4,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <dt-bindings/pinctrl/realtek-rtl8721f-pinctrl.h>
+#include <dt-bindings/pinctrl/realtek-amebadplus-pinctrl.h>
 
 / {
 	soc {
 		pinctrl: pinctrl@41008800 {
-			compatible = "realtek,amebadplus-pinctrl";
+			compatible = "realtek,ameba-pinctrl";
 			reg = <0x41008800 0x200>;
 
 			loguart_pins: loguart{
 				group0 {
-					pinmux =<REALTEK_PINMUX('B', 4, LOG_UART)>,        /* RXD */
-							<REALTEK_PINMUX('B', 5, LOG_UART)>;        /* TXD */
+					pinmux =<AMEBA_PINMUX('B', 4, AMEBA_LOG_UART)>,        /* RXD */
+							<AMEBA_PINMUX('B', 5, AMEBA_LOG_UART)>;        /* TXD */
 					bias-pull-up;
 				};
 			};
 		};
+
+		gpioa: gpio@41010000 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x41010000 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <28 0>;
+			interrupt-controller;
+		};
+
+		gpiob: gpio@41010400 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x41010400 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <29 0>;
+			interrupt-controller;
+		};
+
+
 	};
 };
