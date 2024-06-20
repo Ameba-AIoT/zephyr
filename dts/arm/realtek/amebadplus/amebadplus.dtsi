@@ -66,11 +66,38 @@
 			current-speed = <1500000>;
 		};
 
+		uart0: serial@4100c000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4100c000 0x60>;
+			clocks = <&rcc AMEBA_UART0_TCLK>;
+			interrupts = <24 0>;
+			current-speed = <115200>;
+			status = "okay";
+		};
+
+		uart1: serial@4100d000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4100d000 0x60>;
+			clocks = <&rcc AMEBA_UART1_TCLK>;
+			interrupts = <25 0>;
+			current-speed = <115200>;
+			status = "okay";
+		};
+
+		uart2: serial@4100e000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4100e000 0x60>;
+			clocks = <&rcc AMEBA_UART2_TCLK>;
+			interrupts = <26 0>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
 		spi0: spi@40124000 {
 			compatible = "realtek,ameba-spi";
 			reg = <0x40124000 0x100>;
 			interrupts = <42 0>;
-			//clocks = <&cctl APB_CLK(SPI0)>;
+			clocks = <&rcc AMEBA_SPI0_BCLK>;
 			status = "okay";
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -80,7 +107,7 @@
 			compatible = "realtek,ameba-spi";
 			reg = <0x40125000 0x100>;
 			interrupts = <43 0>;
-			//clocks = <&cctl APB_CLK(SPI1)>;
+			clocks = <&rcc AMEBA_SPI1_BCLK>;
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
