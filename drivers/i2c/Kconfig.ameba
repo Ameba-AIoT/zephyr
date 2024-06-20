@@ -1,0 +1,11 @@
+# AMEBA I2C configuration options
+
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config I2C_AMEBA
+	bool "AMEBA I2C driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_I2C_ENABLED
+	help
+	  Enables the AMEBA I2C driver

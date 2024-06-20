@@ -22,3 +22,5 @@ CONFIG_UART_AMEBA_LOGUART=y
 
 #enable spi Temporary
 CONFIG_SPI=y
+#enable i2c Temporary
+CONFIG_I2C=y
