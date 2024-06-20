@@ -65,6 +65,27 @@
 			clocks = <&rcc AMEBA_LOGUART_CLK>;
 			current-speed = <1500000>;
 		};
+
+		spi0: spi@40124000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x40124000 0x100>;
+			interrupts = <42 0>;
+			//clocks = <&cctl APB_CLK(SPI0)>;
+			status = "okay";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
+		spi1: spi@40125000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x40125000 0x100>;
+			interrupts = <43 0>;
+			//clocks = <&cctl APB_CLK(SPI1)>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+
 	};
 };
 
