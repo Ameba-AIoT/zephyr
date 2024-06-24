@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/pinctrl/realtek-amebadplus-pinctrl.h>
+
+&pinctrl {
+	compatible = "realtek,ameba-pinctrl";
+
+	loguart_pins: loguart {
+		group1 {
+			pinmux =<AMEBA_PINMUX('B', 4, AMEBA_LOG_UART)>,        /* RXD */
+					<AMEBA_PINMUX('B', 5, AMEBA_LOG_UART)>;        /* TXD */
+			bias-pull-up;
+		};
+	};
+
+	uart0_default: uart0_default {
+		group1 {
+			pinmux =<AMEBA_PINMUX('A', 12, AMEBA_UART0_TXD)>,
+					<AMEBA_PINMUX('A', 13, AMEBA_UART0_RXD)>;
+			bias-pull-up;
+		};
+	};
+
+	uart1_default: uart1_default {
+		group1 {
+			pinmux =<AMEBA_PINMUX('A', 26, AMEBA_UART1_TXD)>,
+					<AMEBA_PINMUX('A', 27, AMEBA_UART1_RXD)>;
+			bias-pull-up;
+		};
+	};
+
+	uart2_default: uart2_default {
+		group1 {
+			pinmux =<AMEBA_PINMUX('B', 17, AMEBA_UART2_TXD)>,
+					<AMEBA_PINMUX('B', 18, AMEBA_UART2_RXD)>;
+			bias-pull-up;
+		};
+	};
+
+};
+
+&uart0 {
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

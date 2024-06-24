@@ -10,8 +10,6 @@
 
 #include <arm/armv8-m.dtsi>
 
-#include <realtek/amebadplus/amebadplus-pinctrl.dtsi>
-
 / {
 	cpus {
 		#address-cells = <1>;
@@ -59,6 +57,11 @@
 			zephyr,memory-region = "KM4_IMG2_ENTRY";
 		};
 
+		pinctrl: pinctrl@41008800 {
+			compatible = "realtek,ameba-pinctrl";
+			reg = <0x41008800 0x200>;
+		};
+
 		loguart: serial@4100f000 {
 			compatible = "realtek,ameba-loguart";
 			reg = <0x4100f000 0x100>;
@@ -72,7 +75,7 @@
 			clocks = <&rcc AMEBA_UART0_RCLK>;
 			interrupts = <24 0>;
 			current-speed = <115200>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		uart1: serial@4100d000 {
@@ -81,7 +84,7 @@
 			clocks = <&rcc AMEBA_UART1_RCLK>;
 			interrupts = <25 0>;
 			current-speed = <115200>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		uart2: serial@4100e000 {
@@ -131,6 +134,22 @@
 			status = "disabled";
 			#address-cells = <1>;
 			#size-cells = <0>;
+		};
+
+		gpioa: gpio@41010000 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x41010000 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <28 0>;
+		};
+
+		gpiob: gpio@41010400 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x41010400 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <29 0>;
 		};
 
 	};

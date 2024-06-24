@@ -16,13 +16,13 @@ properties:
     required: true
 
   interrupts:
-    required: false
+    required: true
 
   pinctrl-0:
-    required: false
+    required: true
 
   pinctrl-1:
     required: false
 
   pinctrl-names:
-    required: false
+    required: true
