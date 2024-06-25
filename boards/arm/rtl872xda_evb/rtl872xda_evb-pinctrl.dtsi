@@ -20,28 +20,20 @@
 
 	uart0_default: uart0_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('A', 12, AMEBA_UART0_TXD)>,
-					 <AMEBA_PINMUX('A', 13, AMEBA_UART0_RXD)>;
+			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_UART0_TXD)>,
+					 <AMEBA_PINMUX('A', 27, AMEBA_UART0_RXD)>;
 			bias-pull-up;
 		};
 	};
 
 	uart1_default: uart1_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_UART1_TXD)>,
-					 <AMEBA_PINMUX('A', 27, AMEBA_UART1_RXD)>;
+			pinmux = <AMEBA_PINMUX('A', 28, AMEBA_UART1_TXD)>,
+					 <AMEBA_PINMUX('A', 29, AMEBA_UART1_RXD)>;
 			bias-pull-up;
 		};
 	};
-
-	uart2_default: uart2_default {
-		group1 {
-			pinmux = <AMEBA_PINMUX('B', 17, AMEBA_UART2_TXD)>,
-					 <AMEBA_PINMUX('B', 18, AMEBA_UART2_RXD)>;
-			bias-pull-up;
-		};
-	};
-
+        
 	spi1_default: spi1_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_SPI1_CLK)>,
@@ -76,6 +68,12 @@
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&uart1 {
+	pinctrl-0 = <&uart1_default>;
+	pinctrl-names = "default";
+	status = "disabled";
 };
 
 &spi1 {

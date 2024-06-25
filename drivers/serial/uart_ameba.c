@@ -15,9 +15,9 @@
 
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/device.h>
-#include <soc.h>
 #include <zephyr/drivers/uart.h>
-
+#include <ameba_soc.h>
+#include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
 #include <errno.h>
 #include <zephyr/sys/util.h>
@@ -25,6 +25,8 @@
 LOG_MODULE_REGISTER(uart_ameba, CONFIG_UART_LOG_LEVEL);
 
 struct uart_ameba_config {
+	UART_TypeDef *uart;
+	int uart_idx;
 	const struct device *clock_dev;
 	const struct pinctrl_dev_config *pcfg;
 	const clock_control_subsys_t clock_subsys;
@@ -52,23 +54,248 @@ struct uart_ameba_data {
 #endif
 };
 
-static int uart_ameba_poll_in(const struct device *dev, unsigned char *p_char)
+static int uart_ameba_poll_in(const struct device *dev, unsigned char *c)
 {
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+
+	if (!UART_Readable(uart)) {
+		return -1;
+	}
+
+	UART_CharGet(uart, (uint8_t *)c);
+
 	return 0;
 }
 
 static void uart_ameba_poll_out(const struct device *dev, unsigned char c)
 {
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
 
+	while (!UART_Writable(uart)) {
+	}
+
+	UART_CharPut(uart, (uint8_t)c);
 }
 
 static int uart_ameba_err_check(const struct device *dev)
 {
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+
+	uint32_t err = 0U;
+
+	if (UART_LineStatusGet(uart) & RUART_BIT_OVR_ERR) {
+		err |= UART_ERROR_OVERRUN;
+	}
+
+	if (UART_LineStatusGet(uart) & RUART_BIT_PAR_ERR) {
+		err |= UART_ERROR_PARITY;
+	}
+
+	if (UART_LineStatusGet(uart) & RUART_BIT_FRM_ERR) {
+		err |= UART_ERROR_FRAMING;
+	}
+
+	if (UART_LineStatusGet(uart) & RUART_BIT_BREAK_INT) {
+		err |= UART_BREAK;
+	}
+
+	return err;
+}
+
+static int rtl_cfg_parity(UART_InitTypeDef *uart_struct, uint32_t parity)
+{
+	switch (parity) {
+	case UART_CFG_PARITY_NONE:
+		uart_struct->Parity = RUART_PARITY_DISABLE;
+		break;
+	case UART_CFG_PARITY_ODD:
+		uart_struct->Parity = RUART_PARITY_ENABLE;
+		uart_struct->ParityType = RUART_ODD_PARITY;
+		uart_struct->StickParity = RUART_STICK_PARITY_DISABLE;
+		break;
+	case UART_CFG_PARITY_EVEN:
+		uart_struct->Parity = RUART_PARITY_ENABLE;
+		uart_struct->ParityType = RUART_EVEN_PARITY;
+		uart_struct->StickParity = RUART_STICK_PARITY_DISABLE;
+		break;
+	case UART_CFG_PARITY_MARK:
+		uart_struct->Parity = RUART_PARITY_ENABLE;
+		uart_struct->ParityType = RUART_ODD_PARITY;
+		uart_struct->StickParity = RUART_STICK_PARITY_ENABLE;
+		break;
+	case UART_CFG_PARITY_SPACE:
+		uart_struct->Parity = RUART_PARITY_ENABLE;
+		uart_struct->ParityType = RUART_EVEN_PARITY;
+		uart_struct->StickParity = RUART_STICK_PARITY_ENABLE;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
 	return 0;
 }
 
+static int rtl_cfg_data_bits(UART_InitTypeDef *uart_struct, uint32_t data_bits)
+{
+	switch (data_bits) {
+	case UART_CFG_DATA_BITS_7:
+		uart_struct->WordLen = RUART_WLS_7BITS;
+		break;
+	case UART_CFG_DATA_BITS_8:
+		uart_struct->WordLen = RUART_WLS_8BITS;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+static int rtl_cfg_stop_bits(UART_InitTypeDef *uart_struct, uint32_t stop_bits)
+{
+	switch (stop_bits) {
+	case UART_CFG_STOP_BITS_1:
+		uart_struct->StopBit = RUART_STOP_BIT_1;
+		break;
+	case UART_CFG_STOP_BITS_2:
+		uart_struct->StopBit = RUART_STOP_BIT_2;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+static int rtl_cfg_flow_ctrl(UART_InitTypeDef *uart_struct, uint32_t flow_ctrl)
+{
+	switch (flow_ctrl) {
+	case UART_CFG_FLOW_CTRL_NONE:
+		uart_struct->FlowControl = DISABLE;
+		break;
+	case UART_CFG_FLOW_CTRL_RTS_CTS:
+		uart_struct->FlowControl = ENABLE;
+		break;
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
+static int uart_ameba_configure(const struct device *dev, const struct uart_config *cfg)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	int ret;
+
+	UART_InitTypeDef UART_InitStruct;
+	UART_TypeDef *uart = config->uart;
+
+	UART_StructInit(&UART_InitStruct);
+
+	ret = rtl_cfg_parity(&UART_InitStruct, cfg->parity);
+	if (ret < 0) {
+		LOG_ERR("Unsupported UART Parity Type (%d)", ret);
+		return ret;
+	}
+
+	ret = rtl_cfg_data_bits(&UART_InitStruct, cfg->data_bits);
+	if (ret < 0) {
+		LOG_ERR("Unsupported UART Data Bit (%d)", ret);
+		return ret;
+	}
+
+	ret = rtl_cfg_stop_bits(&UART_InitStruct, cfg->stop_bits);
+	if (ret < 0) {
+		LOG_ERR("Unsupported UART Stop Bit (%d)", ret);
+		return ret;
+	}
+
+	ret = rtl_cfg_flow_ctrl(&UART_InitStruct, cfg->flow_ctrl);
+	if (ret < 0) {
+		LOG_ERR("Unsupported UART Flow Control (%d)", ret);
+		return ret;
+	}
+
+	UART_Init(uart, &UART_InitStruct);
+	UART_SetBaud(uart, cfg->baudrate);
+	UART_RxCmd(uart, ENABLE);
+
+	return 0;
+}
+
+#ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
+static int uart_ameba_config_get(const struct device *dev,
+								 struct uart_config *cfg)
+{
+	struct uart_ameba_data *data = dev->data;
+
+	*cfg = data->uart_config;
+
+	return 0;
+}
+#endif /* CONFIG_UART_USE_RUNTIME_CONFIGURE */
+
 static int uart_ameba_init(const struct device *dev)
 {
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+
+	int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (!device_is_ready(config->clock_dev)) {
+		LOG_ERR("Clock control device not ready");
+		return -ENODEV;
+	}
+
+	if (clock_control_on(config->clock_dev, &(config->clock_subsys))) {
+		LOG_ERR("Could not enable UART clock");
+		return -EIO;
+	}
+
+	ret = uart_ameba_configure(dev, &data->uart_config);
+
+	if (ret < 0) {
+		LOG_ERR("Error configuring UART (%d)", ret);
+		return ret;
+	}
+
+#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API
+	ret = esp_intr_alloc(config->irq_source,
+						 config->irq_priority,
+						 (ISR_HANDLER)uart_ameba_isr,
+						 (void *)dev,
+						 NULL);
+	if (ret < 0) {
+		LOG_ERR("Error allocating UART interrupt (%d)", ret);
+		return ret;
+	}
+#endif
+#if CONFIG_UART_ASYNC_API
+	if (config->dma_dev) {
+		if (!device_is_ready(config->dma_dev)) {
+			LOG_ERR("DMA device is not ready");
+			return -ENODEV;
+		}
+
+		clock_control_on(config->clock_dev, (clock_control_subsys_t)ESP32_UHCI0_MODULE);
+		uhci_ll_init(data->uhci_dev);
+		uhci_ll_set_eof_mode(data->uhci_dev, UHCI_RX_IDLE_EOF | UHCI_RX_LEN_EOF);
+		uhci_ll_attach_uart_port(data->uhci_dev, config->uart_id);
+		data->uart_dev = dev;
+
+		k_work_init_delayable(&data->async.tx_timeout_work, uart_ameba_async_tx_timeout);
+		k_work_init_delayable(&data->async.rx_timeout_work, uart_ameba_async_rx_timeout);
+	}
+#endif
 	return 0;
 }
 
@@ -77,8 +304,8 @@ static const struct uart_driver_api uart_ameba_api = {
 	.poll_out = uart_ameba_poll_out,
 	.err_check = uart_ameba_err_check,
 #ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
-	// .configure = uart_ameba_configure,
-	// .config_get = uart_ameba_config_get,
+	.configure = uart_ameba_configure,
+	.config_get = uart_ameba_config_get,
 #endif
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	.fifo_fill = uart_ameba_fifo_fill,
@@ -113,8 +340,12 @@ static const struct uart_driver_api uart_ameba_api = {
 #endif
 
 #define AMEBA_UART_INIT(n)   \
-     						 \
+	PINCTRL_DT_INST_DEFINE(n);  \
+								\
 	static const struct uart_ameba_config uart_ameba_config##n = {              \
+		.uart = (UART_TypeDef *)DT_INST_REG_ADDR(n),                            \
+		.uart_idx = n,                                                          \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                              \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
 		.irq_source = DT_INST_IRQN(n),                                          \
@@ -126,12 +357,7 @@ static const struct uart_driver_api uart_ameba_api = {
 				.parity = UART_CFG_PARITY_NONE,                                 \
 				.stop_bits = UART_CFG_STOP_BITS_1,                              \
 				.data_bits = UART_CFG_DATA_BITS_8,                              \
-				.flow_ctrl = MAX(COND_CODE_1(DT_INST_PROP(n, hw_rs485_hd_mode), \
-							     (UART_CFG_FLOW_CTRL_RS485),           \
-							     (UART_CFG_FLOW_CTRL_NONE)),           \
-						 COND_CODE_1(DT_INST_PROP(n, hw_flow_control), \
-							     (UART_CFG_FLOW_CTRL_RTS_CTS),         \
-							     (UART_CFG_FLOW_CTRL_NONE)))},         \
+				.flow_ctrl = UART_CFG_FLOW_CTRL_NONE},                          \
 	};          \
 				\
 	DEVICE_DT_INST_DEFINE(n, &uart_ameba_init, NULL, &uart_ameba_data_##n,      \
