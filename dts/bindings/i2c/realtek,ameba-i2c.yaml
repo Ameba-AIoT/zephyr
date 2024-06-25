@@ -11,8 +11,14 @@ properties:
   reg:
     required: true
 
+  clocks:
+    required: true
+
+  interrupts:
+    required: true
+
   pinctrl-0:
-    required: false
+    required: true
 
   pinctrl-names:
-    required: false
+    required: true

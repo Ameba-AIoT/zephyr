@@ -123,7 +123,7 @@
 			clocks = <&rcc AMEBA_I2C0_BCLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		i2c1: i2c1@4110a000 {
