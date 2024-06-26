@@ -22,6 +22,8 @@
 #include <errno.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/irq.h>
+
 LOG_MODULE_REGISTER(uart_ameba, CONFIG_UART_LOG_LEVEL);
 
 struct uart_ameba_config {
@@ -32,6 +34,9 @@ struct uart_ameba_config {
 	const clock_control_subsys_t clock_subsys;
 	int irq_source;
 	int irq_priority;
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
+	uart_irq_config_func_t irq_config_func;
+#endif
 #if CONFIG_UART_ASYNC_API
 	const struct device *dma_dev;
 	uint8_t tx_dma_channel;
@@ -44,8 +49,10 @@ struct uart_ameba_config {
 struct uart_ameba_data {
 	struct uart_config uart_config;
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
-	uart_irq_callback_user_data_t irq_cb;
-	void *irq_cb_data;
+	uart_irq_callback_user_data_t user_cb;
+	void *user_data;
+	bool tx_int_en;
+	bool rx_int_en;
 #endif
 #if CONFIG_UART_ASYNC_API
 	struct uart_ameba_async_data async;
@@ -83,23 +90,29 @@ static int uart_ameba_err_check(const struct device *dev)
 {
 	const struct uart_ameba_config *config = dev->config;
 	UART_TypeDef *uart = config->uart;
-
+	uint32_t lsr = UART_LineStatusGet(uart);
 	uint32_t err = 0U;
 
-	if (UART_LineStatusGet(uart) & RUART_BIT_OVR_ERR) {
+	/* Check for errors */
+	if (lsr & RUART_BIT_OVR_ERR) {
 		err |= UART_ERROR_OVERRUN;
 	}
 
-	if (UART_LineStatusGet(uart) & RUART_BIT_PAR_ERR) {
+	if (lsr & RUART_BIT_PAR_ERR) {
 		err |= UART_ERROR_PARITY;
 	}
 
-	if (UART_LineStatusGet(uart) & RUART_BIT_FRM_ERR) {
+	if (lsr & RUART_BIT_FRM_ERR) {
 		err |= UART_ERROR_FRAMING;
 	}
 
-	if (UART_LineStatusGet(uart) & RUART_BIT_BREAK_INT) {
+	if (lsr & RUART_BIT_BREAK_INT) {
 		err |= UART_BREAK;
+	}
+
+	/* Clear errors */
+	if (lsr & UART_ALL_RX_ERR) {
+		UART_INT_Clear(uart, RUART_BIT_RLSICF);
 	}
 
 	return err;
@@ -189,7 +202,6 @@ static int rtl_cfg_flow_ctrl(UART_InitTypeDef *uart_struct, uint32_t flow_ctrl)
 static int uart_ameba_configure(const struct device *dev, const struct uart_config *cfg)
 {
 	const struct uart_ameba_config *config = dev->config;
-	struct uart_ameba_data *data = dev->data;
 	int ret;
 
 	UART_InitTypeDef UART_InitStruct;
@@ -240,6 +252,163 @@ static int uart_ameba_config_get(const struct device *dev,
 }
 #endif /* CONFIG_UART_USE_RUNTIME_CONFIGURE */
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+
+static int uart_ameba_fifo_fill(const struct device *dev, const uint8_t *tx_data, int len)
+{
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+	uint8_t num_tx = 0U;
+	unsigned int key;
+
+	if (!UART_Writable(uart)) {
+		return num_tx;
+	}
+
+	/* Lock interrupts to prevent nested interrupts or thread switch */
+
+	key = irq_lock();
+
+	while ((len - num_tx > 0) && UART_Writable(uart)) {
+		UART_CharPut(uart, (uint8_t)tx_data[num_tx++]);
+	}
+
+	irq_unlock(key);
+
+	return num_tx;
+}
+
+static int uart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data,
+								const int size)
+{
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+	uint8_t num_rx = 0U;
+
+	while ((size - num_rx > 0) && UART_Readable(uart)) {
+		UART_CharGet(uart, (uint8_t *)(rx_data + num_rx++));
+	}
+
+	/* Clear timeout int flag */
+	if (UART_LineStatusGet(uart) & RUART_BIT_TIMEOUT_INT) {
+		UART_INT_Clear(uart, RUART_BIT_TOICF);
+	}
+
+	return num_rx;
+}
+
+static void uart_ameba_irq_tx_enable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ETBEI, ENABLE);
+	data->tx_int_en = true;
+}
+
+static void uart_ameba_irq_tx_disable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ETBEI, DISABLE);
+	data->tx_int_en = false;
+}
+
+static int uart_ameba_irq_tx_ready(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	return (UART_LineStatusGet(uart) & RUART_BIT_TX_EMPTY) &&
+		   data->tx_int_en;
+}
+
+static int uart_ameba_irq_tx_complete(const struct device *dev)
+{
+	return uart_ameba_irq_tx_ready(dev);
+}
+
+static void uart_ameba_irq_rx_enable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, ENABLE);
+	data->rx_int_en = true;
+}
+
+static void uart_ameba_irq_rx_disable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, DISABLE);
+	data->rx_int_en = false;
+}
+
+static int uart_ameba_irq_rx_ready(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	return (UART_LineStatusGet(uart) &
+			(RUART_BIT_RXFIFO_INT | RUART_BIT_TIMEOUT_INT)) &&
+		   data->rx_int_en;
+}
+
+static void uart_ameba_irq_err_enable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ELSI, ENABLE);
+}
+
+static void uart_ameba_irq_err_disable(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+
+	UART_INTConfig(uart, RUART_BIT_ELSI, DISABLE);
+}
+
+static int uart_ameba_irq_is_pending(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+	UART_TypeDef *uart = config->uart;
+
+	return ((UART_LineStatusGet(uart) & RUART_BIT_TX_EMPTY) &&
+			data->tx_int_en) ||
+		   ((UART_LineStatusGet(uart) &
+			 (RUART_BIT_RXFIFO_INT | RUART_BIT_TIMEOUT_INT)) &&
+			data->rx_int_en);
+}
+
+static int uart_ameba_irq_update(const struct device *dev)
+{
+	return 1;
+}
+
+static void uart_ameba_irq_callback_set(const struct device *dev,
+										uart_irq_callback_user_data_t cb,
+										void *cb_data)
+{
+	struct uart_ameba_data *data = dev->data;
+
+	data->user_cb = cb;
+	data->user_data = cb_data;
+}
+
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 static int uart_ameba_init(const struct device *dev)
 {
 	const struct uart_ameba_config *config = dev->config;
@@ -268,17 +437,10 @@ static int uart_ameba_init(const struct device *dev)
 		return ret;
 	}
 
-#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API
-	ret = esp_intr_alloc(config->irq_source,
-						 config->irq_priority,
-						 (ISR_HANDLER)uart_ameba_isr,
-						 (void *)dev,
-						 NULL);
-	if (ret < 0) {
-		LOG_ERR("Error allocating UART interrupt (%d)", ret);
-		return ret;
-	}
-#endif
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
+	config->irq_config_func(dev);
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API */
+
 #if CONFIG_UART_ASYNC_API
 	if (config->dma_dev) {
 		if (!device_is_ready(config->dma_dev)) {
@@ -298,6 +460,42 @@ static int uart_ameba_init(const struct device *dev)
 #endif
 	return 0;
 }
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
+#define AMEBA_UART_IRQ_HANDLER_DECL(n)               \
+    static void uart_ameba_irq_config_func_##n(const struct device *dev);
+#define AMEBA_UART_IRQ_HANDLER(n)                    \
+    static void uart_ameba_irq_config_func_##n(const struct device *dev) \
+    {                                   \
+        IRQ_CONNECT(DT_INST_IRQN(n),                \
+                    DT_INST_IRQ(n, priority),               \
+                    uart_ameba_isr, DEVICE_DT_INST_GET(n),       \
+                    0);                         \
+        irq_enable(DT_INST_IRQN(n));                \
+    }
+#define AMEBA_UART_IRQ_HANDLER_FUNC(n)               \
+    .irq_config_func = uart_ameba_irq_config_func_##n,
+#else
+#define AMEBA_UART_IRQ_HANDLER_DECL(n) /* Not used */
+#define AMEBA_UART_IRQ_HANDLER(n) /* Not used */
+#define AMEBA_UART_IRQ_HANDLER_FUNC(n) /* Not used */
+#endif
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
+
+static void uart_ameba_isr(const struct device *dev)
+{
+	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
+
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	if (data->user_cb) {
+		data->user_cb(dev, data->user_data);
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
+}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API */
 
 static const struct uart_driver_api uart_ameba_api = {
 	.poll_in = uart_ameba_poll_in,
@@ -340,6 +538,8 @@ static const struct uart_driver_api uart_ameba_api = {
 #endif
 
 #define AMEBA_UART_INIT(n)   \
+	AMEBA_UART_IRQ_HANDLER_DECL(n)  \
+									\
 	PINCTRL_DT_INST_DEFINE(n);  \
 								\
 	static const struct uart_ameba_config uart_ameba_config##n = {              \
@@ -350,6 +550,7 @@ static const struct uart_driver_api uart_ameba_api = {
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
 		.irq_source = DT_INST_IRQN(n),                                          \
 		.irq_priority = UART_IRQ_PRIORITY,                                      \
+		AMEBA_UART_IRQ_HANDLER_FUNC(n)				                            \
     };          \
 				\
 	static struct uart_ameba_data uart_ameba_data_##n = {                       \
@@ -362,6 +563,8 @@ static const struct uart_driver_api uart_ameba_api = {
 				\
 	DEVICE_DT_INST_DEFINE(n, &uart_ameba_init, NULL, &uart_ameba_data_##n,      \
 			      &uart_ameba_config##n, PRE_KERNEL_1,                          \
-			      CONFIG_SERIAL_INIT_PRIORITY, &uart_ameba_api);
+			      CONFIG_SERIAL_INIT_PRIORITY, &uart_ameba_api);                \
+				\
+	AMEBA_UART_IRQ_HANDLER(n)
 
 DT_INST_FOREACH_STATUS_OKAY(AMEBA_UART_INIT);
