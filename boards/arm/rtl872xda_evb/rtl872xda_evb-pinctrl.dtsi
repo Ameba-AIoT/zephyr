@@ -33,7 +33,7 @@
 			bias-pull-up;
 		};
 	};
-        
+
 	spi1_default: spi1_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_SPI1_CLK)>,
