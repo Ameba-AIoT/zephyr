@@ -256,7 +256,7 @@ static int uart_ameba_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	if (clock_control_on(config->clock_dev, &(config->clock_subsys))) {
+	if (clock_control_on(config->clock_dev, config->clock_subsys)) {
 		LOG_ERR("Could not enable UART clock");
 		return -EIO;
 	}

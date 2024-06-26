@@ -68,6 +68,7 @@ struct rtk_clk {
 	static struct rtk_clk _struct_name = {                         \
 		.cke            = _cke_bit,                                \
 		.fen            = _fen_bit,                                \
+		.parent         = AMEBA_RCC_PARENT_GATE_INVALID,           \
 	}
 
 #define RTK_CLK_MUX(_struct_name, _cke_bit, _fen_bit,_parent_idx, _mux_cb,        \
@@ -507,20 +508,14 @@ static void ameba_rcc_soc_cksl_sport1(u32 src, void *params)
 static int ameba_clock_on(const struct device *dev,
 						  clock_control_subsys_t sub_system)
 {
-	uint32_t *offset = (uint32_t *)(sub_system);
 	struct rtk_clk *phandle = NULL;
-	uint32_t clk_idx;
+	uint32_t clk_idx = (uint32_t)sub_system;
 
 	ARG_UNUSED(dev);
-	if (offset == NULL) {
-		return -EFAULT;
-	}
 
-	if (*offset >= AMEBA_CLK_MAX) {
-		return -EFAULT;
+	if (clk_idx >= AMEBA_CLK_MAX) {
+		return -ENOTSUP;
 	}
-
-	clk_idx = *offset;
 
 	/* Find the parents,and loop to enable all gating */
 	do {
@@ -548,19 +543,17 @@ static int ameba_clock_on(const struct device *dev,
 static int ameba_clock_off(const struct device *dev,
 						   clock_control_subsys_t sub_system)
 {
-	uint32_t *offset = (uint32_t *)(sub_system);
+	uint32_t clk_idx = (uint32_t)sub_system;
 	struct rtk_clk *phandle;
 
 	ARG_UNUSED(dev);
-	if (offset == NULL) {
-		return -EFAULT;
+
+	if (clk_idx >= AMEBA_CLK_MAX) {
+		return -ENOTSUP;
 	}
 
-	if (*offset >= AMEBA_CLK_MAX) {
-		return -EFAULT;
-	}
 
-	phandle = (struct rtk_clk *)ameba_rcc_clk_array[*offset];
+	phandle = (struct rtk_clk *)ameba_rcc_clk_array[clk_idx];
 	if (phandle == NULL) {
 		return -EFAULT;
 	}
@@ -581,19 +574,16 @@ static int ameba_clock_off(const struct device *dev,
 static enum clock_control_status ameba_clock_get_status(const struct device *dev,
 		clock_control_subsys_t sub_system)
 {
-	uint32_t *offset = (uint32_t *)(sub_system);
+	uint32_t clk_idx = (uint32_t)sub_system;
 	struct rtk_clk *phandle = NULL;
 
 	ARG_UNUSED(dev);
-	if (offset == NULL) {
-		return -EFAULT;
+
+	if (clk_idx >= AMEBA_CLK_MAX) {
+		return -ENOTSUP;
 	}
 
-	if (*offset >= AMEBA_CLK_MAX) {
-		return -EFAULT;
-	}
-
-	phandle = (struct rtk_clk *)ameba_rcc_clk_array[*offset];
+	phandle = (struct rtk_clk *)ameba_rcc_clk_array[clk_idx];
 
 	if (RCC_PeriphClockEnableChk(phandle->cke)) {
 		return CLOCK_CONTROL_STATUS_ON;
@@ -620,7 +610,7 @@ static int ameba_clock_configure(const struct device *dev,
 								 void *data)
 {
 	struct ameba_clock_config *cfg = (struct ameba_clock_config *)data;
-	uint32_t *offset = (uint32_t *)sub_system;
+	uint32_t clk_idx = (uint32_t)sub_system;
 	struct ameba_div_params *pdiv = NULL;
 	struct Rcc_ClkDiv div_param;
 	clk_src_func choose_clk_src = NULL;
@@ -628,15 +618,12 @@ static int ameba_clock_configure(const struct device *dev,
 	uint32_t reg_temp = 0U;
 
 	ARG_UNUSED(dev);
-	if ((offset == NULL) || (cfg == NULL)) {
-		return -EFAULT ;
+
+	if (clk_idx >= AMEBA_CLK_MAX) {
+		return -ENOTSUP;
 	}
 
-	if (*offset >= AMEBA_CLK_MAX) {
-		return -EFAULT;
-	}
-
-	phandle = (struct rtk_clk *)ameba_rcc_clk_array[*offset];
+	phandle = (struct rtk_clk *)ameba_rcc_clk_array[clk_idx];
 
 	if (cfg->is_mux) { /* MUX */
 		choose_clk_src = phandle->mux_api;

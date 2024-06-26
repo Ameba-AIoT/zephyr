@@ -51,7 +51,7 @@ static int uart_ameba_loguart_clock_enable(const struct device *dev)
 	}
 
 	/* enable clock */
-	err = clock_control_on(data->clock, (clock_control_subsys_t)&idx);
+	err = clock_control_on(data->clock, (clock_control_subsys_t)idx);
 	if (err != 0) {
 		return err;
 	}
