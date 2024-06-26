@@ -152,6 +152,61 @@
 			interrupts = <29 0>;
 		};
 
+		timer0: counter@41017000 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017000 0x84>;
+			interrupts = <10 0>;
+			status = "okay";
+		};
+
+		timer1: counter@41017200 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017200 0x84>;
+			interrupts = <11 0>;
+			status = "disabled";
+		};
+
+		timer2: counter@41017400 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017400 0x84>;
+			interrupts = <12 0>;
+			status = "disabled";
+		};
+
+		timer3: counter@41017600 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017600 0x84>;
+			interrupts = <13 0>;
+			status = "disabled";
+		};
+
+		timer4: counter@41017800 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017800 0x84>;
+			interrupts = <14 0>;
+			status = "disabled";
+		};
+
+		timer5: counter@41017a00 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017a00 0x84>;
+			interrupts = <15 0>;
+			status = "disabled";
+		};
+
+		timer6: counter@41017c00 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017c00 0x84>;
+			interrupts = <16 0>;
+			status = "disabled";
+		};
+
+		timer7: counter@41017e00 {
+			compatible = "realtek,ameba-counter";
+			reg = <0x41017e00 0x84>;
+			interrupts = <17 0>;
+			status = "disabled";
+		};
 	};
 };
 

@@ -25,3 +25,5 @@ CONFIG_PINCTRL=y
 CONFIG_SPI=y
 #enable i2c Temporary
 CONFIG_I2C=y
+#enable timer Temporary
+CONFIG_COUNTER=y
