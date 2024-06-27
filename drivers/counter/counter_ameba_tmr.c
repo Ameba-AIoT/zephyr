@@ -15,7 +15,9 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_counter, CONFIG_COUNTER_LOG_LEVEL);
 
+#if 0
 static void counter_ameba_isr(void *arg);
+#endif
 
 typedef bool (*timer_isr_t)(void *);
 
@@ -41,8 +43,8 @@ static int counter_ameba_init(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
 	struct counter_ameba_data *data = dev->data;
-
-
+	ARG_UNUSED(data);
+	ARG_UNUSED(cfg);
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 
@@ -55,6 +57,7 @@ static int counter_ameba_init(const struct device *dev)
 static int counter_ameba_start(const struct device *dev)
 {
 	struct counter_ameba_data *data = dev->data;
+	ARG_UNUSED(data);
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 	k_spin_unlock(&lock, key);
@@ -65,6 +68,7 @@ static int counter_ameba_start(const struct device *dev)
 static int counter_ameba_stop(const struct device *dev)
 {
 	struct counter_ameba_data *data = dev->data;
+	ARG_UNUSED(data);
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 	k_spin_unlock(&lock, key);
@@ -75,6 +79,7 @@ static int counter_ameba_stop(const struct device *dev)
 static int counter_ameba_get_value(const struct device *dev, uint32_t *ticks)
 {
 	struct counter_ameba_data *data = dev->data;
+	ARG_UNUSED(data);
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 	k_spin_unlock(&lock, key);
@@ -88,7 +93,7 @@ static int counter_ameba_set_alarm(const struct device *dev, uint8_t chan_id,
 	ARG_UNUSED(chan_id);
 	struct counter_ameba_data *data = dev->data;
 	uint32_t now;
-
+	ARG_UNUSED(data);
 	counter_ameba_get_value(dev, &now);
 
 	k_spinlock_key_t key = k_spin_lock(&lock);
@@ -104,7 +109,7 @@ static int counter_ameba_cancel_alarm(const struct device *dev, uint8_t chan_id)
 {
 	ARG_UNUSED(chan_id);
 	struct counter_ameba_data *data = dev->data;
-
+	ARG_UNUSED(data);
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 	k_spin_unlock(&lock, key);
@@ -127,7 +132,7 @@ static int counter_ameba_set_top_value(const struct device *dev,
 static uint32_t counter_ameba_get_pending_int(const struct device *dev)
 {
 	struct counter_ameba_data *data = dev->data;
-
+	ARG_UNUSED(data);
 
 	return 0;
 }
@@ -150,12 +155,14 @@ static const struct counter_driver_api counter_api = {
 	.get_top_value = counter_ameba_get_top_value,
 };
 
+#if 0
 static void counter_ameba_isr(void *arg)
 {
 	const struct device *dev = (const struct device *)arg;
 	struct counter_ameba_data *data = dev->data;
-
+	ARG_UNUSED(data);
 }
+#endif
 
 #define AMEBA_COUNTER_INIT(idx)			 \
 										 \

@@ -3,9 +3,8 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#include <ameba_soc.h>
 #include <soc.h>
+#include <ameba_soc.h>
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
