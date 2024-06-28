@@ -11,6 +11,9 @@ properties:
   reg:
     required: true
 
+  clock-frequency:
+    required: true
+
   clocks:
     required: true
 

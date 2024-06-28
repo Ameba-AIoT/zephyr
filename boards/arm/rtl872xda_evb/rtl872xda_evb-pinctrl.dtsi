@@ -49,8 +49,8 @@
 
 	i2c0_default: i2c0_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('B', 15, AMEBA_I2C0_SDA)>,
-					 <AMEBA_PINMUX('B', 16, AMEBA_I2C0_SCL)>;
+			pinmux = <AMEBA_PINMUX('A', 20, AMEBA_I2C0_SDA)>,
+					 <AMEBA_PINMUX('A', 23, AMEBA_I2C0_SCL)>;
 			bias-pull-up;
 		};
 	};
