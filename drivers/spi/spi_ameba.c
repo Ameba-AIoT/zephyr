@@ -35,7 +35,8 @@ struct spi_ameba_data {
 	const struct device *dev;
 	bool   initialized;
 	uint32_t datasize; /* real dfs */
-#ifdef CONFIG_SPI_DMA
+	uint8_t fifo_diff;	/* cannot be bigger than FIFO depth */
+#ifdef CONFIG_SPI_AMEBA_DMA
 //
 #endif
 };
@@ -58,6 +59,12 @@ struct spi_ameba_config {
 	void (*irq_configure)();
 #endif
 };
+
+static inline bool spi_ameba_is_slave(struct spi_ameba_data *spi)
+{
+	return (IS_ENABLED(CONFIG_SPI_SLAVE) &&
+			spi_context_is_slave(&spi->ctx));
+}
 
 static bool spi_ameba_transfer_ongoing(struct spi_ameba_data *data)
 {
@@ -129,7 +136,6 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 			return EINVAL;
 		}
 	}
-
 	spi_context_update_rx(ctx, dfs, 1);
 
 	return spi_ameba_get_err(dev_config);
@@ -142,21 +148,168 @@ static void spi_ameba_complete(const struct device *dev, int status)
 	const struct spi_ameba_config *dev_config = dev->config;
 	SPI_TypeDef *spi = (SPI_TypeDef *)dev_config->reg;
 
-	SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, DISABLE);
+	uint32_t int_mask = SPI_GetINTConfig(spi);
 
-#ifdef CONFIG_SPI_DMA
+	SSI_INTConfig(spi, int_mask, DISABLE);
+
+#ifdef CONFIG_SPI_AMEBA_DMA
 	//
 #endif
 
 	spi_context_complete(&dev_data->ctx, dev, status);
 }
 
+#ifdef CONFIG_SPI_AMEBA_INTERRUPT
+static void spi_ameba_receive_data(const struct device *dev)
+{
+	const struct spi_ameba_config *cfg = dev->config;
+	struct spi_ameba_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->reg;
+
+	uint32_t rxlevel;
+	int err = 0;
+	uint32_t datalen = data->datasize;/* data bit 4 ~ 16 */
+	int dfs = ((datalen - 1) >> 3) + 1;/* data number 1, 2 bytes */
+
+	// DiagPrintf("@@@ spi_ameba_receive_data line%d \r\n", __LINE__);
+	volatile uint32_t readable = SSI_Readable(spi);
+
+	while (readable) {
+		rxlevel = SSI_GetRxCount(spi);
+
+		while (rxlevel--) {
+			if (spi_context_rx_buf_on(ctx)) {
+				if (data->ctx.rx_buf != NULL) {
+					if (datalen <= 8) {
+						/* 8~4 bits mode */
+						*(uint8_t *)data->ctx.rx_buf = (uint8_t)SSI_ReadData(spi);
+					} else {
+						/* 16~9 bits mode */
+						*(uint16_t *)data->ctx.rx_buf = (uint16_t)SSI_ReadData(spi);
+					}
+				} else {
+					/* for Master mode, doing TX also will got RX data, so drop the dummy data */
+					(void) SSI_ReadData(spi);
+				}
+				/* spi_context_update_rx(ctx, dfs, 1); */
+			} else if (spi_context_rx_on(
+						   ctx)) {/* fix for case: rx half end: buf1 is null but len1 !=0, skip len1 and rx into buf2  */
+				(void) SSI_ReadData(spi);
+			}
+
+			spi_context_update_rx(ctx, dfs, 1);
+			data->fifo_diff--;
+
+			if (!spi_context_rx_on(ctx)) {
+				break;
+			}
+		}
+
+		if (!spi_context_rx_on(ctx)) {
+			break;
+		}
+
+		readable = SSI_Readable(spi);
+	}
+	// DiagPrintf("@@@ spi_ameba_receive_data line%d \r\n", __LINE__);
+}
+
+static void spi_ameba_send_data(const struct device *dev)
+{
+	const struct spi_ameba_config *cfg = dev->config;
+	struct spi_ameba_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+	int err = 0;
+	uint32_t txdata = 0U;
+	uint32_t txmax;
+	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->reg;
+
+	uint32_t datalen = data->datasize;/* data bit 4 ~ 16 */
+	int dfs = ((datalen - 1) >> 3) + 1;/* data number 1, 2 bytes */
+
+	u32 writeable = SSI_Writeable(spi);
+
+	if (spi_context_rx_on(ctx)) {/* fix for rx bigger than tx */
+		txmax = SSI_TX_FIFO_DEPTH - SSI_GetTxCount(spi) - SSI_GetRxCount(spi);
+		if ((int)txmax < 0) {
+			txmax = 0U; /* if rx-fifo is full, hold off tx */
+		}
+	} else {
+		txmax = SSI_TX_FIFO_DEPTH - SSI_GetTxCount(spi);
+	}
+
+	// DiagPrintf("@@@ spi_ameba_send_data line%d \r\n", __LINE__);
+	if (writeable) {
+		/* Disable Tx FIFO Empty IRQ */
+		SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
+
+		while (txmax) {
+			if (spi_context_tx_buf_on(ctx)) {
+				if (datalen <= 8) {
+					/* 8~4 bits mode */
+					if (data->ctx.tx_buf != NULL) {
+						txdata = *((uint8_t *)(data->ctx.tx_buf));
+					} else {
+						// For master mode: Push a dummy to TX FIFO for Read
+						if (!spi_ameba_is_slave(data)) {
+							txdata = (uint8_t) 0;// Dummy byte
+						}
+					}
+				} else {
+					/* 16~9 bits mode */
+					if (data->ctx.tx_buf != NULL) {
+						txdata = *((uint16_t *)(data->ctx.tx_buf));
+					} else {
+						// For master mode: Push a dummy to TX FIFO for Read
+						if (!spi_ameba_is_slave(data)) {
+							txdata = (uint16_t) 0;// Dummy byte
+						}
+					}
+				}
+				// spi_context_update_tx(ctx, dfs, 1);
+			} else if (spi_context_rx_on(ctx)) {/* rx bigger than tx */
+				/* No need to push more than necessary */
+				if ((int)(data->ctx.rx_len - data->fifo_diff) <= 0) {
+					break;
+				}
+				txdata = 0U;
+
+			} else if (spi_context_tx_on(&data->ctx)) {/* fix for txbuf is NULL but txlen != 0 */
+				txdata = 0U;
+			} else {
+				/* Nothing to push anymore */
+				break;
+			}
+
+			SSI_WriteData(spi, txdata);
+
+			spi_context_update_tx(ctx, dfs, 1);
+			data->fifo_diff++;
+
+			txmax--;
+		}
+
+		/* Enable Tx FIFO Empty IRQ */
+		SSI_INTConfig(spi, SPI_BIT_TXEIM, ENABLE);
+	}
+	// DiagPrintf("@@@ spi_ameba_send_data line%d \r\n", __LINE__);
+}
+#endif
+
 static void spi_ameba_isr(struct device *dev)
 {
 	const struct spi_ameba_config *cfg = dev->config;
 	struct spi_ameba_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+
+	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->reg;
 	int err = 0;
 
+	uint32_t int_mask = SPI_GetINTConfig(spi);
+	DiagPrintf("[ISR] int_mask 0X%x \r\n", int_mask);
+
+#if 0
 	err = spi_ameba_get_err(cfg);
 	if (err) {
 		spi_ameba_complete(dev, err);
@@ -170,7 +323,37 @@ static void spi_ameba_isr(struct device *dev)
 	if (err || !spi_ameba_transfer_ongoing(data)) {
 		spi_ameba_complete(dev, err);
 	}
+#else
 
+	uint32_t int_status = SSI_GetIsr(spi);
+	SSI_SetIsrClean(spi, int_status);
+
+	if (int_status & (SPI_BIT_TXOIS | SPI_BIT_RXUIS | SPI_BIT_RXOIS | SPI_BIT_TXUIS)) {
+		DiagPrintf("[INT] InterruptStatus %x \n", int_status);
+	}
+
+	if (int_status & SPI_BIT_RXFIS) {
+		DiagPrintf("[ISR] RXFIS \r\n");
+		spi_ameba_receive_data(dev);
+
+		if (!spi_context_rx_on(ctx)) {
+			SSI_INTConfig(spi, SPI_BIT_RXFIM, DISABLE);
+		}
+	}
+
+	if (int_status & SPI_BIT_TXEIS) {
+		DiagPrintf("[ISR] TXEIS \r\n");
+		spi_ameba_send_data(dev);
+
+		if (!spi_context_tx_on(ctx)) {
+			SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
+		}
+	}
+
+	if (!spi_ameba_transfer_ongoing(data)) {
+		spi_ameba_complete(dev, err);
+	}
+#endif
 }
 #endif /* CONFIG_SPI_AMEBA_INTERRUPT */
 
@@ -184,7 +367,7 @@ static int spi_ameba_configure(const struct device *dev,
 	SSI_InitTypeDef spi_init_struct;
 	uint32_t bus_freq;
 
-#ifdef CONFIG_SPI_DMA
+#ifdef CONFIG_SPI_AMEBA_DMA
 	int dma_datasize;
 #endif
 
@@ -237,7 +420,8 @@ static int spi_ameba_configure(const struct device *dev,
 	SSI_StructInit(&spi_init_struct);
 
 	/* ameba config spi role */
-	if (IS_ENABLED(CONFIG_SPI_SLAVE) && spi_context_is_slave(ctx)) {
+	/*if (IS_ENABLED(CONFIG_SPI_SLAVE) && spi_context_is_slave(ctx)) {*/
+	if (spi_ameba_is_slave(data)) {
 		SSI_SetRole(spi, SSI_SLAVE);
 		spi_init_struct.SPI_Role = SSI_SLAVE;
 		LOG_INF(">>>> SPI ROLE: SSI_SLAVE \r\n");
@@ -247,13 +431,13 @@ static int spi_ameba_configure(const struct device *dev,
 		LOG_INF(">>>> SPI ROLE: SSI_MASTER \r\n");
 	}
 
-#ifdef CONFIG_SPI_DMA
+#ifdef CONFIG_SPI_AMEBA_DMA
 //
 #endif
 
 	SSI_Init(spi, &spi_init_struct);
 
-#ifdef CONFIG_SPI_DMA
+#ifdef CONFIG_SPI_AMEBA_DMA
 //
 #endif
 	// DiagPrintf("spi_ameba_configure line%d dfs %d \r\n", __LINE__, SPI_WORD_SIZE_GET(spi_cfg->operation));
@@ -307,6 +491,7 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 	const struct spi_ameba_config *config = dev->config;
 	SPI_TypeDef *spi = (SPI_TypeDef *)config->reg;
 	int ret;
+	uint32_t int_mask;
 
 	spi_context_lock(&data->ctx, asynchronous, cb, userdata, spi_cfg);
 	ret = spi_ameba_configure(dev, spi_cfg);
@@ -314,24 +499,36 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 		// DiagPrintf("spi_ameba_transceive_impl %d ret%d\r\n", __LINE__, ret);
 		goto error;
 	}
-	// DiagPrintf("spi_ameba_transceive_impl %d \r\n", __LINE__);
+
 	SSI_Cmd(spi, ENABLE);
 
 	spi_context_buffers_setup(&data->ctx, tx_bufs, rx_bufs, \
 							  ((data->datasize - 1) >> 3) + 1);
+	data->fifo_diff = 0U;
 
 	spi_context_cs_control(&data->ctx, true);
 
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
-#ifdef CONFIG_SPI_DMA
+#ifdef CONFIG_SPI_AMEBA_DMA
 	if (data->dma_rx.dma_dev && data->dma_tx.dma_dev) {
 //
 	} else
 #endif
 	{
+		//SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, ENABLE);
+		if (tx_bufs) { /* && tx_bufs->buffers*/
+			int_mask = SPI_BIT_TXEIM;
+		}
+
+		if (rx_bufs) {/* && rx_bufs->buffers*/
+			int_mask |= SPI_BIT_RXFIM;
+		}
+
+		DiagPrintf("Set int_mask 0x%x \r\n", int_mask);
 		SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, ENABLE);
 	}
 
+	/* slave take sema forever, master take sema by timeout */
 	ret = spi_context_wait_for_completion(&data->ctx);
 #else
 
@@ -349,6 +546,7 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 #endif
 #endif
 
+	// DiagPrintf("spi_ameba_transceive_impl %d \r\n", __LINE__);
 	while ((!(SSI_GetStatus(spi) & SPI_BIT_TFE)) ||
 		   (SSI_GetStatus(spi) & SPI_BIT_BUSY)) {
 		/* Wait until last frame transfer complete. */
@@ -395,7 +593,7 @@ static int spi_ameba_init(const struct device *dev)
 		return ret;
 	}
 
-#ifdef CONFIG_SPI_DMA
+#ifdef CONFIG_SPI_AMEBA_DMA
 //
 #endif
 
