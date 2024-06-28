@@ -27,3 +27,7 @@ CONFIG_SPI=y
 CONFIG_I2C=y
 #enable timer Temporary
 CONFIG_COUNTER=y
+
+#enable ledc
+CONFIG_LED_STRIP=y
+CONFIG_LEDC_AMEBA=y

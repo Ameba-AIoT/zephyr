@@ -62,6 +62,13 @@
 			bias-pull-up;
 		};
 	};
+
+	ledc_default: ledc_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_LEDC)>;
+			bias-pull-up;
+		};
+	};
 };
 
 &uart0 {
