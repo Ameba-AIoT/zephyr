@@ -233,6 +233,33 @@
 			refresh-time = <0x3FFF>;
 			status = "disabled";
 		};
+
+		/* I2S RX */
+		i2s0: i2s@4012a000 {
+			compatible = "realtek,ameba-i2s";
+			reg = <0x4012a000 0xa00>;
+			interrupts = <44 0>;
+			clocks = <&rcc AMEBA_SPORT0_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			// dmas = <&dma0 2>;
+			dma-names = "rx";
+			status = "disabled";
+		};
+
+		/* I2S TX */
+		i2s1: i2s@4012b000 {
+			compatible = "realtek,ameba-i2s";
+			reg = <0x4012b000 0xa00>;
+			interrupts = <45 0>;
+			clocks = <&rcc AMEBA_SPORT1_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			// dmas = <&dma0 7>;
+			dma-names = "tx";
+			status = "disabled";
+		};
+
 	};
 };
 
