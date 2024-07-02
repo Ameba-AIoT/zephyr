@@ -14,6 +14,9 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/irq.h>
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(loguart_ameba, CONFIG_UART_LOG_LEVEL);
 
 /*
  * Extract information from devicetree.
@@ -23,41 +26,27 @@
  */
 #define DT_DRV_COMPAT	realtek_ameba_loguart
 
-/* Device data structure */
-struct ameba_loguart_data {
+/* Device config structure */
+struct loguart_ameba_config {
 	/* clock device */
 	const struct device *clock;
-
-	struct uart_config config;
+	const clock_control_subsys_t clock_subsys;
+	const struct pinctrl_dev_config *pcfg;
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	uart_irq_config_func_t irq_config_func;
+#endif
 };
 
-/**
- * @brief Enable the loguart clock.
- *
- * @param dev UART device struct
- *
- * @return 0 on success.
- */
-static int uart_ameba_loguart_clock_enable(const struct device *dev)
-{
-	const uint32_t idx = DT_CLOCKS_CELL_BY_IDX(DT_NODELABEL(loguart), 0, idx);
-	struct ameba_loguart_data *data = dev->data;
-	int err = 0;
-
-	data->clock = AMEBA_CLOCK_CONTROL_DEV;
-
-	if (!device_is_ready(data->clock)) {
-		return -ENODEV;
-	}
-
-	/* enable clock */
-	err = clock_control_on(data->clock, (clock_control_subsys_t)idx);
-	if (err != 0) {
-		return err;
-	}
-
-	return 0;
-}
+/* Device data structure */
+struct loguart_ameba_data {
+	struct uart_config config;
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	uart_irq_callback_user_data_t user_cb;
+	void *user_data;
+	bool tx_int_en;
+	bool rx_int_en;
+#endif
+};
 
 /**
  * @brief Poll the device for input.
@@ -67,10 +56,15 @@ static int uart_ameba_loguart_clock_enable(const struct device *dev)
  *
  * @return 0 if a character arrived, -1 if the input buffer if empty.
  */
-static int uart_ameba_loguart_poll_in(const struct device *dev, unsigned char *c)
+static int loguart_ameba_poll_in(const struct device *dev, unsigned char *c)
 {
 	ARG_UNUSED(dev);
-	*c = LOGUART_GetChar(true);
+
+	if (!LOGUART_Readable()) {
+		return -1;
+	}
+
+	*c = LOGUART_GetChar(false);
 	return 0;
 }
 
@@ -80,11 +74,154 @@ static int uart_ameba_loguart_poll_in(const struct device *dev, unsigned char *c
  * @param dev UART device struct
  * @param c Character to send
  */
-static void uart_ameba_loguart_poll_out(const struct device *dev, unsigned char c)
+static void loguart_ameba_poll_out(const struct device *dev, unsigned char c)
 {
 	ARG_UNUSED(dev);
 	LOGUART_PutChar(c);
 }
+
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+
+static int loguart_ameba_fifo_fill(const struct device *dev, const uint8_t *tx_data, int len)
+{
+	ARG_UNUSED(dev);
+
+	uint8_t num_tx = 0U;
+	unsigned int key;
+
+	if (!LOGUART_Writable()) {
+		return num_tx;
+	}
+
+	/* Lock interrupts to prevent nested interrupts or thread switch */
+
+	key = irq_lock();
+
+	while ((len - num_tx > 0) && LOGUART_Writable()) {
+		LOGUART_PutChar((uint8_t)tx_data[num_tx++]);
+	}
+
+	irq_unlock(key);
+
+	return num_tx;
+}
+
+static int loguart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data,
+								   const int size)
+{
+	ARG_UNUSED(dev);
+
+	uint8_t num_rx = 0U;
+
+	while ((size - num_rx > 0) && LOGUART_Readable()) {
+		rx_data[num_rx++] = LOGUART_GetChar(false);
+	}
+
+	/* Clear timeout int flag */
+	if (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TIMEOUT_INT) {
+		LOGUART_INTClear(LOGUART_DEV, LOGUART_BIT_TOICF);
+	}
+
+	return num_rx;
+}
+
+static void loguart_ameba_irq_tx_enable(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	data->tx_int_en = true;
+	/* KM4: TX_PATH1 */
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, ENABLE);
+}
+
+static void loguart_ameba_irq_tx_disable(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, DISABLE);
+	data->tx_int_en = false;
+}
+
+static int loguart_ameba_irq_tx_ready(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	/* KM4: TX_PATH1 */
+	return (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) &&
+		   data->tx_int_en;
+}
+
+static int loguart_ameba_irq_tx_complete(const struct device *dev)
+{
+	return loguart_ameba_irq_tx_ready(dev);
+}
+
+static void loguart_ameba_irq_rx_enable(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	data->rx_int_en = true;
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ERBI | LOGUART_BIT_ETOI, ENABLE);
+}
+
+static void loguart_ameba_irq_rx_disable(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	data->rx_int_en = false;
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ERBI | LOGUART_BIT_ETOI, DISABLE);
+}
+
+static int loguart_ameba_irq_rx_ready(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	return (LOGUART_GetStatus(LOGUART_DEV) &
+			(LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
+		   data->rx_int_en;
+}
+
+static void loguart_ameba_irq_err_enable(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ELSI, ENABLE);
+}
+
+static void loguart_ameba_irq_err_disable(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ELSI, DISABLE);
+}
+
+static int loguart_ameba_irq_is_pending(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	return ((LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) &&
+			data->tx_int_en) ||
+		   ((LOGUART_GetStatus(LOGUART_DEV) &
+			 (LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
+			data->rx_int_en);
+}
+
+static int loguart_ameba_irq_update(const struct device *dev)
+{
+	return 1;
+}
+
+static void loguart_ameba_irq_callback_set(const struct device *dev,
+		uart_irq_callback_user_data_t cb,
+		void *cb_data)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+	data->user_cb = cb;
+	data->user_data = cb_data;
+}
+
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 /**
  * @brief Initialize UART channel
@@ -96,15 +233,20 @@ static void uart_ameba_loguart_poll_out(const struct device *dev, unsigned char 
  *
  * @return 0 on success
  */
-static int uart_ameba_loguart_init(const struct device *dev)
+static int loguart_ameba_init(const struct device *dev)
 {
-	int err;
-	struct ameba_loguart_data *data = dev->data;
+	const struct loguart_ameba_config *config = dev->config;
+	struct loguart_ameba_data *data = dev->data;
 	LOGUART_InitTypeDef loguart_init_struct;
 
-	err = uart_ameba_loguart_clock_enable(dev);
-	if (err < 0) {
-		return err;
+	if (!device_is_ready(config->clock)) {
+		LOG_ERR("Clock control device not ready");
+		return -ENODEV;
+	}
+
+	if (clock_control_on(config->clock, config->clock_subsys)) {
+		LOG_ERR("Could not enable LOGUART clock");
+		return -EIO;
 	}
 
 	Pinmux_UartLogCtrl(PINMUX_S0, ON);
@@ -121,17 +263,83 @@ static int uart_ameba_loguart_init(const struct device *dev)
 	LOGUART_RxCmd(LOGUART_DEV, DISABLE);
 	LOGUART_SetBaud(LOGUART_DEV, data->config.baudrate);
 	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ERBI | LOGUART_BIT_ELSI, DISABLE);
+	LOGUART_INT_NP2AP();
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	config->irq_config_func(dev);
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
 	LOGUART_RxCmd(LOGUART_DEV, ENABLE);
 
 	return 0;
 }
 
-static const struct uart_driver_api uart_ameba_loguart_driver_api = {
-	.poll_in = uart_ameba_loguart_poll_in,
-	.poll_out = uart_ameba_loguart_poll_out,
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+#define AMEBA_LOGUART_IRQ_HANDLER_DECL               \
+    static void loguart_ameba_irq_config_func(void);
+#define AMEBA_LOGUART_IRQ_HANDLER                    \
+    static void loguart_ameba_irq_config_func(void) \
+    {                                   \
+        IRQ_CONNECT(DT_INST_IRQN(0),                \
+                    DT_INST_IRQ(0, priority),               \
+                    loguart_ameba_isr, DEVICE_DT_INST_GET(0),       \
+                    0);                         \
+        irq_enable(DT_INST_IRQN(0));                \
+    }
+#define AMEBA_LOGUART_IRQ_HANDLER_FUNC               \
+    .irq_config_func = loguart_ameba_irq_config_func,
+#else
+#define AMEBA_LOGUART_IRQ_HANDLER_DECL /* Not used */
+#define AMEBA_LOGUART_IRQ_HANDLER /* Not used */
+#define AMEBA_LOGUART_IRQ_HANDLER_FUNC /* Not used */
+#endif
+
+#if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+
+static void loguart_ameba_isr(const struct device *dev)
+{
+	struct loguart_ameba_data *data = dev->data;
+
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	if (data->user_cb) {
+		data->user_cb(dev, data->user_data);
+	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
+}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+
+static const struct uart_driver_api loguart_ameba_driver_api = {
+	.poll_in = loguart_ameba_poll_in,
+	.poll_out = loguart_ameba_poll_out,
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	.fifo_fill = loguart_ameba_fifo_fill,
+	.fifo_read = loguart_ameba_fifo_read,
+	.irq_tx_enable = loguart_ameba_irq_tx_enable,
+	.irq_tx_disable = loguart_ameba_irq_tx_disable,
+	.irq_tx_ready = loguart_ameba_irq_tx_ready,
+	.irq_rx_enable = loguart_ameba_irq_rx_enable,
+	.irq_rx_disable = loguart_ameba_irq_rx_disable,
+	.irq_tx_complete = loguart_ameba_irq_tx_complete,
+	.irq_rx_ready = loguart_ameba_irq_rx_ready,
+	.irq_err_enable = loguart_ameba_irq_err_enable,
+	.irq_err_disable = loguart_ameba_irq_err_disable,
+	.irq_is_pending = loguart_ameba_irq_is_pending,
+	.irq_update = loguart_ameba_irq_update,
+	.irq_callback_set = loguart_ameba_irq_callback_set,
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 };
 
-static struct ameba_loguart_data uart_ameba_loguart_data = {
+AMEBA_LOGUART_IRQ_HANDLER_DECL
+AMEBA_LOGUART_IRQ_HANDLER
+
+static const struct loguart_ameba_config loguart_config = {
+	.clock = AMEBA_CLOCK_CONTROL_DEV,
+	.clock_subsys = (clock_control_subsys_t)DT_CLOCKS_CELL(DT_NODELABEL(loguart), idx),
+	AMEBA_LOGUART_IRQ_HANDLER_FUNC
+};
+
+static struct loguart_ameba_data loguart_data = {
 	.config = {
 		.stop_bits = UART_CFG_STOP_BITS_1,
 		.data_bits = UART_CFG_DATA_BITS_8,
@@ -142,10 +350,10 @@ static struct ameba_loguart_data uart_ameba_loguart_data = {
 };
 
 DEVICE_DT_INST_DEFINE(0,
-					  uart_ameba_loguart_init,
+					  loguart_ameba_init,
 					  NULL,
-					  &uart_ameba_loguart_data,
-					  NULL,
+					  &loguart_data,
+					  &loguart_config,
 					  PRE_KERNEL_1,
 					  CONFIG_SERIAL_INIT_PRIORITY,
-					  &uart_ameba_loguart_driver_api);
+					  &loguart_ameba_driver_api);

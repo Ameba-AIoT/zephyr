@@ -32,8 +32,6 @@ struct uart_ameba_config {
 	const struct device *clock_dev;
 	const struct pinctrl_dev_config *pcfg;
 	const clock_control_subsys_t clock_subsys;
-	int irq_source;
-	int irq_priority;
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
 	uart_irq_config_func_t irq_config_func;
 #endif
@@ -202,6 +200,7 @@ static int rtl_cfg_flow_ctrl(UART_InitTypeDef *uart_struct, uint32_t flow_ctrl)
 static int uart_ameba_configure(const struct device *dev, const struct uart_config *cfg)
 {
 	const struct uart_ameba_config *config = dev->config;
+	struct uart_ameba_data *data = dev->data;
 	int ret;
 
 	UART_InitTypeDef UART_InitStruct;
@@ -236,6 +235,8 @@ static int uart_ameba_configure(const struct device *dev, const struct uart_conf
 	UART_Init(uart, &UART_InitStruct);
 	UART_SetBaud(uart, cfg->baudrate);
 	UART_RxCmd(uart, ENABLE);
+
+	data->uart_config = *cfg;
 
 	return 0;
 }
@@ -303,8 +304,8 @@ static void uart_ameba_irq_tx_enable(const struct device *dev)
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
 
-	UART_INTConfig(uart, RUART_BIT_ETBEI, ENABLE);
 	data->tx_int_en = true;
+	UART_INTConfig(uart, RUART_BIT_ETBEI, ENABLE);
 }
 
 static void uart_ameba_irq_tx_disable(const struct device *dev)
@@ -313,8 +314,8 @@ static void uart_ameba_irq_tx_disable(const struct device *dev)
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
 
-	UART_INTConfig(uart, RUART_BIT_ETBEI, DISABLE);
 	data->tx_int_en = false;
+	UART_INTConfig(uart, RUART_BIT_ETBEI, DISABLE);
 }
 
 static int uart_ameba_irq_tx_ready(const struct device *dev)
@@ -338,8 +339,8 @@ static void uart_ameba_irq_rx_enable(const struct device *dev)
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
 
-	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, ENABLE);
 	data->rx_int_en = true;
+	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, ENABLE);
 }
 
 static void uart_ameba_irq_rx_disable(const struct device *dev)
@@ -348,8 +349,8 @@ static void uart_ameba_irq_rx_disable(const struct device *dev)
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
 
-	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, DISABLE);
 	data->rx_int_en = false;
+	UART_INTConfig(uart, RUART_BIT_ERBI | RUART_BIT_ETOI, DISABLE);
 }
 
 static int uart_ameba_irq_rx_ready(const struct device *dev)
@@ -531,12 +532,6 @@ static const struct uart_driver_api uart_ameba_api = {
 #endif /*CONFIG_UART_ASYNC_API*/
 };
 
-#if CONFIG_UART_ASYNC_API
-#define UART_IRQ_PRIORITY INT_PRI_MIDDLE
-#else
-#define UART_IRQ_PRIORITY (0)
-#endif
-
 #define AMEBA_UART_INIT(n)   \
 	AMEBA_UART_IRQ_HANDLER_DECL(n)  \
 									\
@@ -548,8 +543,6 @@ static const struct uart_driver_api uart_ameba_api = {
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                              \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
-		.irq_source = DT_INST_IRQN(n),                                          \
-		.irq_priority = UART_IRQ_PRIORITY,                                      \
 		AMEBA_UART_IRQ_HANDLER_FUNC(n)				                            \
     };          \
 				\
