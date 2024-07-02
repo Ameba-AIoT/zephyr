@@ -260,6 +260,13 @@
 			status = "disabled";
 		};
 
+		rtc: rtc@41008a00 {
+			compatible = "realtek,ameba-rtc";
+			reg = <0x41008a00 0x30>;
+			clocks = <&rcc AMEBA_RTC_CLK>;
+			interrupts = <46 0>;
+		};
+
 	};
 };
 
