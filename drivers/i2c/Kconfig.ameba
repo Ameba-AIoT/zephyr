@@ -9,3 +9,10 @@ config I2C_AMEBA
 	depends on DT_HAS_REALTEK_AMEBA_I2C_ENABLED
 	help
 	  Enables the AMEBA I2C driver
+
+config I2C_AMEBA_INTERRUPT
+	bool "Ameba I2C Interrupt Support"
+	depends on I2C_AMEBA
+	default y
+	help
+	  Enable Interrupt support for the I2C Driver
