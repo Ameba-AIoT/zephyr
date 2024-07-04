@@ -279,6 +279,14 @@
 			interrupts = <68 0>;
 			status = "disabled";
 		};
+
+		cryp: cryp@40100000 {
+			compatible = "realtek,ameba-crypto";
+			reg = <0x40100000 0x1020>;
+			clocks = <&rcc AMEBA_CLK_AES>;
+			status = "disabled";
+		};
+
 	};
 };
 
