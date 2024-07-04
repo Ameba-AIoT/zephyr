@@ -9,7 +9,6 @@
  */
 
 #define DT_DRV_COMPAT realtek_ameba_spi
-// #define CONFIG_SPI_AMEBA_INTERRUPT	1
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_spi, CONFIG_SPI_LOG_LEVEL);
@@ -20,15 +19,6 @@ LOG_MODULE_REGISTER(ameba_spi, CONFIG_SPI_LOG_LEVEL);
 
 #include <zephyr/drivers/clock_control.h>
 #include "spi_context.h"
-
-/* TODO */
-#if 0
-/* application settings */
-struct spi_config gspi_cfg = {
-	.frequency = 1000000,
-	.operation = SPI_OP_MODE_MASTER | SPI_TRANSFER_MSB | SPI_LINES_SINGLE,
-};
-#endif
 
 struct spi_ameba_data {
 	struct spi_context ctx;
@@ -45,9 +35,6 @@ struct spi_ameba_config {
 	/* spi info */
 	uint32_t reg;
 	uint16_t clkid;
-
-	/* TODO */
-	//uint16_t opertion_modes;/* master/slave */
 
 	/* rcc info */
 	const struct device *clock_dev;
@@ -94,12 +81,10 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 	int dfs = ((datalen - 1) >> 3) + 1;/* frame bytes */
 	uint16_t tx_frame = 0U, rx_frame = 0U;
 
-	// DiagPrintf("spi_ameba_frame_exchange %d spi reg=0x%08x \r\n", __LINE__, spi);
 	while (!SSI_Writeable(spi)) {
 		/* NOP */
 	}
 
-	// DiagPrintf("spi_ameba_frame_exchange %d \r\n", __LINE__);
 	if (spi_context_tx_buf_on(ctx)) {
 		if (datalen <= 8) {
 			tx_frame = ctx->tx_buf ? *(uint8_t *)(data->ctx.tx_buf) : 0;
@@ -113,16 +98,12 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 	}
 
 	SSI_WriteData(spi, tx_frame);
-
 	spi_context_update_tx(ctx, dfs, 1);
-
-	// DiagPrintf("spi_ameba_frame_exchange %d StatuS 0x%x \r\n", __LINE__, SSI_GetStatus(spi));
 
 	while (!SSI_Readable(spi)) {
 		/* NOP */
 	}
 
-	// DiagPrintf("spi_ameba_frame_exchange %d \r\n", __LINE__);
 	rx_frame = SSI_ReadData(spi);
 
 	if (spi_context_rx_buf_on(ctx)) {
@@ -172,7 +153,6 @@ static void spi_ameba_receive_data(const struct device *dev)
 	uint32_t datalen = data->datasize;/* data bit 4 ~ 16 */
 	int dfs = ((datalen - 1) >> 3) + 1;/* data number 1, 2 bytes */
 
-	// DiagPrintf("@@@ spi_ameba_receive_data line%d \r\n", __LINE__);
 	volatile uint32_t readable = SSI_Readable(spi);
 
 	while (readable) {
@@ -212,7 +192,7 @@ static void spi_ameba_receive_data(const struct device *dev)
 
 		readable = SSI_Readable(spi);
 	}
-	// DiagPrintf("@@@ spi_ameba_receive_data line%d \r\n", __LINE__);
+
 }
 
 static void spi_ameba_send_data(const struct device *dev)
@@ -239,7 +219,6 @@ static void spi_ameba_send_data(const struct device *dev)
 		txmax = SSI_TX_FIFO_DEPTH - SSI_GetTxCount(spi);
 	}
 
-	// DiagPrintf("@@@ spi_ameba_send_data line%d \r\n", __LINE__);
 	if (writeable) {
 		/* Disable Tx FIFO Empty IRQ */
 		SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
@@ -251,7 +230,7 @@ static void spi_ameba_send_data(const struct device *dev)
 					if (data->ctx.tx_buf != NULL) {
 						txdata = *((uint8_t *)(data->ctx.tx_buf));
 					} else {
-						// For master mode: Push a dummy to TX FIFO for Read
+						/* For master mode: Push a dummy to TX FIFO for Read */
 						if (!spi_ameba_is_slave(data)) {
 							txdata = (uint8_t) 0;// Dummy byte
 						}
@@ -261,7 +240,7 @@ static void spi_ameba_send_data(const struct device *dev)
 					if (data->ctx.tx_buf != NULL) {
 						txdata = *((uint16_t *)(data->ctx.tx_buf));
 					} else {
-						// For master mode: Push a dummy to TX FIFO for Read
+						/* For master mode: Push a dummy to TX FIFO for Read */
 						if (!spi_ameba_is_slave(data)) {
 							txdata = (uint16_t) 0;// Dummy byte
 						}
@@ -283,7 +262,6 @@ static void spi_ameba_send_data(const struct device *dev)
 			}
 
 			SSI_WriteData(spi, txdata);
-
 			spi_context_update_tx(ctx, dfs, 1);
 			data->fifo_diff++;
 
@@ -293,7 +271,6 @@ static void spi_ameba_send_data(const struct device *dev)
 		/* Enable Tx FIFO Empty IRQ */
 		SSI_INTConfig(spi, SPI_BIT_TXEIM, ENABLE);
 	}
-	// DiagPrintf("@@@ spi_ameba_send_data line%d \r\n", __LINE__);
 }
 #endif
 
@@ -307,7 +284,7 @@ static void spi_ameba_isr(struct device *dev)
 	int err = 0;
 
 	uint32_t int_mask = SPI_GetINTConfig(spi);
-	DiagPrintf("[ISR] int_mask 0X%x \r\n", int_mask);
+	LOG_INF("[ISR] int_mask 0X%x \r\n", int_mask);
 
 #if 0
 	err = spi_ameba_get_err(cfg);
@@ -329,11 +306,11 @@ static void spi_ameba_isr(struct device *dev)
 	SSI_SetIsrClean(spi, int_status);
 
 	if (int_status & (SPI_BIT_TXOIS | SPI_BIT_RXUIS | SPI_BIT_RXOIS | SPI_BIT_TXUIS)) {
-		DiagPrintf("[INT] InterruptStatus %x \n", int_status);
+		LOG_INF("[INT] InterruptStatus %x \n", int_status);
 	}
 
 	if (int_status & SPI_BIT_RXFIS) {
-		DiagPrintf("[ISR] RXFIS \r\n");
+		LOG_INF("[ISR] RXFIS \r\n");
 		spi_ameba_receive_data(dev);
 
 		if (!spi_context_rx_on(ctx)) {
@@ -342,7 +319,7 @@ static void spi_ameba_isr(struct device *dev)
 	}
 
 	if (int_status & SPI_BIT_TXEIS) {
-		DiagPrintf("[ISR] TXEIS \r\n");
+		LOG_INF("[ISR] TXEIS \r\n");
 		spi_ameba_send_data(dev);
 
 		if (!spi_context_tx_on(ctx)) {
@@ -371,8 +348,7 @@ static int spi_ameba_configure(const struct device *dev,
 	int dma_datasize;
 #endif
 
-	// LOG_INF("[spi_ameba_configure] gspi_cfg = freq=%d, opertion=0x%x, slave_num=%d \r\n", spi_cfg->frequency, spi_cfg->operation, spi_cfg->slave);
-
+	/* LOG_INF("[spi_ameba_configure] gspi_cfg = freq=%d, opertion=0x%x, slave_num=%d \r\n", spi_cfg->frequency, spi_cfg->operation, spi_cfg->slave); */
 	if (!device_is_ready(config->clock_dev)) {
 		LOG_ERR("clock control device not ready");
 		return -ENODEV;
@@ -389,7 +365,6 @@ static int spi_ameba_configure(const struct device *dev,
 		return 0;
 	}
 
-	/* TODO */
 	if (SPI_OP_MODE_GET(spi_cfg->operation) != SPI_OP_MODE_MASTER) {
 		LOG_ERR("Slave mode is not supported on %s", dev->name);
 		return -EINVAL;
@@ -420,15 +395,15 @@ static int spi_ameba_configure(const struct device *dev,
 	SSI_StructInit(&spi_init_struct);
 
 	/* ameba config spi role */
-	/*if (IS_ENABLED(CONFIG_SPI_SLAVE) && spi_context_is_slave(ctx)) {*/
+	/* if (IS_ENABLED(CONFIG_SPI_SLAVE) && spi_context_is_slave(ctx)) {*/
 	if (spi_ameba_is_slave(data)) {
 		SSI_SetRole(spi, SSI_SLAVE);
 		spi_init_struct.SPI_Role = SSI_SLAVE;
-		LOG_INF(">>>> SPI ROLE: SSI_SLAVE \r\n");
+		LOG_INF("SPI ROLE: SSI_SLAVE \r\n");
 	} else {
 		SSI_SetRole(spi, SSI_MASTER);
 		spi_init_struct.SPI_Role = SSI_MASTER;
-		LOG_INF(">>>> SPI ROLE: SSI_MASTER \r\n");
+		LOG_INF(" SPI ROLE: SSI_MASTER \r\n");
 	}
 
 #ifdef CONFIG_SPI_AMEBA_DMA
@@ -440,7 +415,7 @@ static int spi_ameba_configure(const struct device *dev,
 #ifdef CONFIG_SPI_AMEBA_DMA
 //
 #endif
-	// DiagPrintf("spi_ameba_configure line%d dfs %d \r\n", __LINE__, SPI_WORD_SIZE_GET(spi_cfg->operation));
+
 	/* set format */
 	SSI_SetSclkPhase(spi, (((spi_cfg->operation) & SPI_MODE_CPHA) ? SCPH_TOGGLES_AT_START :
 						   SCPH_TOGGLES_IN_MIDDLE));
@@ -452,24 +427,7 @@ static int spi_ameba_configure(const struct device *dev,
 	bus_freq = 100000000;
 	SSI_SetBaudDiv(spi, bus_freq / spi_cfg->frequency);
 
-	// DiagPrintf("spi_ameba_configure line%d cfgfreq %d div %d \r\n", __LINE__, spi_cfg->frequency, clk_div);
-
-#if 0
-	int ReadData;
-	for (int Counter = 0, TestData = 0x01; Counter < 32; Counter++) {
-		/* master write */
-		while (!SSI_Writeable(spi));
-		SSI_WriteData(spi, TestData);
-
-		/* master read */
-		while (!SSI_Readable(spi));
-		ReadData = (int)SSI_ReadData(SPI1_DEV);
-
-		printf("Master write: %02X, read: %02X\n", TestData, ReadData);
-
-		TestData++;
-	}
-#endif
+	/* DiagPrintf("spi_ameba_configure line%d cfgfreq %d div %d \r\n", __LINE__, spi_cfg->frequency, clk_div); */
 
 	data->datasize = SPI_WORD_SIZE_GET(spi_cfg->operation);
 	data->initialized = true;
@@ -491,17 +449,14 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 	const struct spi_ameba_config *config = dev->config;
 	SPI_TypeDef *spi = (SPI_TypeDef *)config->reg;
 	int ret;
-	uint32_t int_mask;
 
 	spi_context_lock(&data->ctx, asynchronous, cb, userdata, spi_cfg);
 	ret = spi_ameba_configure(dev, spi_cfg);
 	if (ret < 0) {
-		// DiagPrintf("spi_ameba_transceive_impl %d ret%d\r\n", __LINE__, ret);
 		goto error;
 	}
 
 	SSI_Cmd(spi, ENABLE);
-
 	spi_context_buffers_setup(&data->ctx, tx_bufs, rx_bufs, \
 							  ((data->datasize - 1) >> 3) + 1);
 	data->fifo_diff = 0U;
@@ -515,7 +470,7 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 	} else
 #endif
 	{
-		//SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, ENABLE);
+		uint32_t int_mask;/* fix warning */
 		if (tx_bufs) { /* && tx_bufs->buffers*/
 			int_mask = SPI_BIT_TXEIM;
 		}
@@ -535,18 +490,15 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 	do {
 		ret = spi_ameba_frame_exchange(dev);
 		if (ret < 0) {
-			// DiagPrintf("spi_ameba_transceive_impl %d \r\n", __LINE__);
 			break;
 		}
 	} while (spi_ameba_transfer_ongoing(data));
 
-	// DiagPrintf("spi_ameba_transceive_impl %d \r\n", __LINE__);
 #ifdef CONFIG_SPI_ASYNC
 	spi_context_complete(&data->ctx, dev, ret);
 #endif
 #endif
 
-	// DiagPrintf("spi_ameba_transceive_impl %d \r\n", __LINE__);
 	while ((!(SSI_GetStatus(spi) & SPI_BIT_TFE)) ||
 		   (SSI_GetStatus(spi) & SPI_BIT_BUSY)) {
 		/* Wait until last frame transfer complete. */
@@ -556,7 +508,6 @@ static int spi_ameba_transceive_impl(const struct device *dev,
 dma_error:
 #endif
 	spi_context_cs_control(&data->ctx, false);
-
 	SSI_Cmd(spi, DISABLE);
 
 error:
@@ -581,8 +532,6 @@ static int spi_ameba_init(const struct device *dev)
 	const struct spi_ameba_config *cfg = dev->config;
 	int ret;
 
-	// DiagPrintf(">> spi_ameba_init num_cs_gpios=%d cs_gpios = 0xarray0%x p%p 0xx%x\r\n", data->ctx.num_cs_gpios, ((data->ctx).cs_gpios[0]), (data->ctx).cs_gpios, (data->ctx).cs_gpios);
-
 	if (!cfg->clock_dev) {
 		return -EINVAL;
 	}
@@ -603,14 +552,12 @@ static int spi_ameba_init(const struct device *dev)
 		LOG_ERR("Failed to spi_context_cs_configure_all");
 		return ret;
 	}
-	// DiagPrintf("### spi_ameba_init line %d \r\n", __LINE__);
+
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
 	cfg->irq_configure(dev);
-	// DiagPrintf("### spi_ameba_init line %d \r\n", __LINE__);
 #endif
 
 	spi_context_unlock_unconditionally(&data->ctx);
-	// DiagPrintf("<< spi_ameba_init\r\n");
 
 	return 0;
 }
