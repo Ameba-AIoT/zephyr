@@ -1,0 +1,33 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Realtek's GDMA (General Direct Memory Access) Node
+
+  General Direct Memory Access (GDMA) is a feature that allows
+  peripheral-to-memory, memory-to-peripheral, and memory-to-memory
+  data transfer.
+
+  The GDMA controller in ameba has eight independent channels,
+  each channel can be connected to different peripherals.
+
+  For the client part, example for ameba on dma instance
+    Tx using channel 3
+    Rx using channel 2
+    spi1 {
+     compatible = "realtek,ameba-spi";
+     dmas = <&dma 3 1>,
+            <&dma 2 1>;
+     dma-names = "tx", "rx";
+    };
+
+compatible: "realtek,ameba-gdma"
+
+include: dma-controller.yaml
+
+properties:
+  "#dma-cells":
+    const: 1
+
+dma-cells:
+  - channel

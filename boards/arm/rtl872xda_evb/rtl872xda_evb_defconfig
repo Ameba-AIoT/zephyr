@@ -32,6 +32,8 @@ CONFIG_I2S=y
 CONFIG_RTC=y
 #enable crypto Temporary
 CONFIG_CRYPTO=y
+#enable DMA Temporary
+CONFIG_DMA=y
 
 #enable trng
 CONFIG_ENTROPY_GENERATOR=y
