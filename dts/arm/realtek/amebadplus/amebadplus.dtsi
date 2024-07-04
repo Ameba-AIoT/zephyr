@@ -265,6 +265,7 @@
 			reg = <0x41008a00 0x30>;
 			clocks = <&rcc AMEBA_RTC_CLK>;
 			interrupts = <46 0>;
+			alarms-count = <1>;
 		};
 
 		trng: trng@41008200 {

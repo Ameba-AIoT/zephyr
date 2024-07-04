@@ -5,8 +5,12 @@ description: AMEBA RTC
 
 compatible: "realtek,ameba-rtc"
 
-include: rtc.yaml
+include: [rtc.yaml, rtc-device.yaml]
 
 properties:
   reg:
     required: true
+  alarms-count:
+    enum:
+      - 0
+      - 1

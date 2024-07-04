@@ -61,12 +61,20 @@ struct rtc_ameba_config {
 	const struct device *clock_dev;
 	clock_control_subsys_t clock_subsys;
 
-	/* todo: cfg? or DTS property? rtc.h force24*/
-	/* uint32_t hour_fmt;	RTC_HourFormat_24, RTC_HourFormat_12 */
+#if defined(CONFIG_RTC_ALARM)
+	void (*irq_configure)();
+#endif
 };
 
 struct rtc_ameba_data {
 	struct k_mutex lock;
+
+#if defined(CONFIG_RTC_ALARM)
+	uint8_t alarm_pending;
+	rtc_alarm_callback alarm_cb;
+	void *alarm_cbdata;
+#endif
+
 };
 
 static const uint8_t dim[12] = {
@@ -82,7 +90,7 @@ static const uint8_t dim[12] = {
   */
 static inline bool is_leap_year(uint32_t year)
 {
-	uint32_t full_year = year + 1900;
+	uint32_t full_year = year + RTC_BASE_YEAR;	/* start from 1900 */
 	return (!(full_year % 4) && (full_year % 100)) || !(full_year % 400);
 }
 
@@ -220,15 +228,9 @@ static int rtc_ameba_set_time(const struct device *dev, const struct rtc_time *t
 		return -EINVAL;
 	}
 
-	// if (timeptr->tm_isdst != -1) {
-	// 	DiagPrintf("@@@ Unknown rtc_ameba_set_time line%d \r\n", __LINE__);
-	// 	return -EINVAL;
-	// }
-
-	// if (!(timeptr->tm_nsec)) {
-	// 	DiagPrintf("@@@ Unknown rtc_ameba_set_time line%d \r\n", __LINE__);
-	// 	return -EINVAL;
-	// }
+	/* Do not check follwing two members. For getting function, need to set designated Unknown value */
+	/* if (timeptr->tm_isdst != -1) */
+	/* if (!(timeptr->tm_nsec)) */
 
 	err = k_mutex_lock(&data->lock, K_NO_WAIT);
 	if (err != 0) {
@@ -287,8 +289,8 @@ static int rtc_ameba_get_time(const struct device *dev, struct rtc_time *timeptr
 		rtc_timestruct.RTC_Year++;
 
 		/* fix for test_y2k */
-		timeptr->tm_mon = 0;
-		timeptr->tm_mday = 1;
+		timeptr->tm_mon = 0;	/* base 0 [0, 11] */
+		timeptr->tm_mday = 1;	/* base 1 [1, 31] */
 		timeptr->tm_yday = rtc_timestruct.RTC_Days;
 		timeptr->tm_year = rtc_timestruct.RTC_Year - RTC_BASE_YEAR; /* struct tm start from 1900 */
 
@@ -303,6 +305,290 @@ static int rtc_ameba_get_time(const struct device *dev, struct rtc_time *timeptr
 	return 0;
 }
 
+#if defined(CONFIG_RTC_ALARM)
+static void rtc_ameba_alarm_isr(struct device *dev)
+{
+	struct rtc_ameba_data *data = dev->data;
+
+	/*clear alarm flag*/
+	RTC_AlarmClear();
+
+	if (data->alarm_cb) {
+		data->alarm_cb(dev, 0, data->alarm_cbdata);
+		data->alarm_pending = false;
+	} else {
+		data->alarm_pending = true;
+	}
+}
+
+static int rtc_ameba_alarm_get_supported_fields(const struct device *dev, uint16_t id,
+		uint16_t *mask)
+{
+	ARG_UNUSED(dev);
+
+	if (id != 0) {
+		return -EINVAL;
+	}
+
+	(*mask) = (RTC_ALARM_TIME_MASK_SECOND
+			   | RTC_ALARM_TIME_MASK_MINUTE
+			   | RTC_ALARM_TIME_MASK_HOUR
+			   | RTC_ALARM_TIME_MASK_YEARDAY);
+
+	return 0;
+}
+
+
+static uint8_t rtc_ameba_validate_alarm_time(const struct rtc_time *timeptr, uint16_t mask)
+{
+	uint16_t sprt_mask = 0;
+	rtc_ameba_alarm_get_supported_fields(NULL, 0, &sprt_mask);
+
+	if (sprt_mask & mask) {
+		if ((mask & RTC_ALARM_TIME_MASK_SECOND) &&
+			(timeptr->tm_sec < 0 || timeptr->tm_sec > 59)) {
+			return false;
+		}
+
+		if ((mask & RTC_ALARM_TIME_MASK_MINUTE) &&
+			(timeptr->tm_min < 0 || timeptr->tm_min > 59)) {
+			return false;
+		}
+
+		if ((mask & RTC_ALARM_TIME_MASK_HOUR) &&
+			(timeptr->tm_hour < 0 || timeptr->tm_hour > 23)) {
+			return false;
+		}
+
+		if ((mask & RTC_ALARM_TIME_MASK_YEARDAY) &&
+			(timeptr->tm_yday < 0 || timeptr->tm_yday > 0x1FF)) {
+			return false;
+		}
+	} else {
+		LOG_ERR("Current mask 0x%x not supported \r\n", mask);
+		return false;
+	}
+
+	return true;
+#if 0
+	if (mask & RTC_ALARM_TIME_MASK_MONTHDAY) {
+		LOG_ERR("Invalid Alarm Mask Type [Mday]\r\n");
+		return false;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_MONTH) {
+		LOG_ERR("Invalid Alarm Mask Type [Month]\r\n");
+		return false;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_YEAR) {
+		LOG_ERR("Invalid Alarm Mask Type [Year]\r\n");
+		return false;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_WEEKDAY) {
+		LOG_ERR("Invalid Alarm Mask Type [Wday]\r\n");
+		return false;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_NSEC) {
+		LOG_ERR("Invalid Alarm Mask Type [Nsec]\r\n");
+		return false;
+	}
+
+	return true;
+#endif
+}
+
+static int rtc_ameba_alarm_set_time(const struct device *dev, uint16_t id, uint16_t mask,
+									const struct rtc_time *timeptr)
+{
+	const struct rtc_ameba_config *cfg = dev->config;
+	struct rtc_ameba_data *data = dev->data;
+	int ret = 0;
+	RTC_AlarmTypeDef rtc_alarmstruct;
+	uint32_t alarm_mask = 0U;
+
+	if (id != 0) {
+		return -EINVAL;
+	}
+
+	if ((mask > 0) && (timeptr == NULL)) {
+		LOG_ERR("Invalid Alarm Set Mask and timeptr !!! \r\n");
+		return -EINVAL;
+	}
+
+	/* Check time valid */
+	if (mask > 0) {
+		if (rtc_ameba_validate_alarm_time(timeptr, mask) == false) {
+			return -EINVAL;
+		}
+	} else {
+		/* Doc: If the mask parameter is 0, the alarm will be disabled. */
+		RTC_AlarmCmd(DISABLE);
+		return 0;
+	}
+
+	ret = k_mutex_lock(&data->lock, K_NO_WAIT);
+	if (ret) {
+		return ret;
+	}
+
+	/* step1: Init Ameba alarm struct */
+	RTC_AlarmStructInit(&rtc_alarmstruct);
+	rtc_alarmstruct.RTC_AlarmMask = RTC_AlarmMask_All;	/* fix for mask seconds unset above */
+	rtc_alarmstruct.RTC_Alarm2Mask = RTC_Alarm2Mask_Days;
+
+	/* step2: Set Ameba RTC_AlarmMask */
+	if (mask & RTC_ALARM_TIME_MASK_SECOND) {
+		rtc_alarmstruct.RTC_AlarmTime.RTC_Seconds = timeptr->tm_sec;
+		alarm_mask |= RTC_AlarmMask_Seconds;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_MINUTE) {
+		rtc_alarmstruct.RTC_AlarmTime.RTC_Minutes = timeptr->tm_min;
+		alarm_mask |= RTC_AlarmMask_Minutes;
+	}
+
+	if (mask & RTC_ALARM_TIME_MASK_HOUR) {
+		rtc_alarmstruct.RTC_AlarmTime.RTC_Hours = timeptr->tm_hour;
+		alarm_mask |= RTC_AlarmMask_Hours;
+	}
+
+	/* Note: In Ameba, if the mask parameter is 0, the alarm will be enabled, which is contrary to zephyr file declarations
+	The RTC alarm will trigger when all enabled fields of the alarm time match the RTC time. */
+	if (alarm_mask != 0) {
+		rtc_alarmstruct.RTC_AlarmMask &= (~alarm_mask);
+	}
+
+	/* step3: Set Ameba RTC_Alarm2Mask */
+	alarm_mask = 0U;
+	if (mask & RTC_ALARM_TIME_MASK_YEARDAY) {
+		rtc_alarmstruct.RTC_AlarmTime.RTC_Days = timeptr->tm_yday;
+		alarm_mask |= RTC_Alarm2Mask_Days;
+
+		rtc_alarmstruct.RTC_Alarm2Mask &= (~alarm_mask);
+	}
+
+	RTC_SetAlarm(RTC_Format_BIN, &rtc_alarmstruct);
+	RTC_AlarmCmd(ENABLE);
+
+	if (cfg->irq_configure != NULL) {
+		/* LOG_INF("Alarm irq_configure OK . \r\n"); */
+		cfg->irq_configure(dev);
+	}
+
+	k_mutex_unlock(&data->lock);
+
+	return 0;
+}
+
+static int rtc_ameba_alarm_get_time(const struct device *dev, uint16_t id, uint16_t *mask,
+									struct rtc_time *timeptr)
+{
+	struct rtc_ameba_data *data = dev->data;
+	int ret = 0;
+
+	RTC_AlarmTypeDef rtc_alarmstruct;
+
+	if (id != 0) {
+		return -EINVAL;
+	}
+
+	if (timeptr == NULL) {
+		LOG_ERR("Invalid Get Alarm timeptr \r\n");
+		return -EINVAL;
+	}
+
+	memset(timeptr, 0U, sizeof(*timeptr));
+	*mask = 0U;
+
+	ret = k_mutex_lock(&data->lock, K_NO_WAIT);
+	if (ret) {
+		return ret;
+	}
+
+	/* step1: read RTC reg */
+	RTC_GetAlarm(RTC_Format_BIN, &rtc_alarmstruct);
+
+	/* step2: parse RTC_AlarmMask */
+	if (!(rtc_alarmstruct.RTC_AlarmMask & RTC_AlarmMask_Seconds)) {
+		*mask |= RTC_ALARM_TIME_MASK_SECOND;
+		timeptr->tm_sec = rtc_alarmstruct.RTC_AlarmTime.RTC_Seconds;
+	}
+
+	if (!(rtc_alarmstruct.RTC_AlarmMask & RTC_AlarmMask_Minutes)) {
+		*mask |= RTC_ALARM_TIME_MASK_MINUTE;
+		timeptr->tm_min = rtc_alarmstruct.RTC_AlarmTime.RTC_Minutes;
+	}
+
+	if (!(rtc_alarmstruct.RTC_AlarmMask & RTC_AlarmMask_Hours)) {
+		*mask |= RTC_ALARM_TIME_MASK_HOUR;
+		timeptr->tm_hour = rtc_alarmstruct.RTC_AlarmTime.RTC_Hours;
+	}
+
+	/* step3: parse RTC_Alarm2Mask */
+	if (!(rtc_alarmstruct.RTC_Alarm2Mask & RTC_Alarm2Mask_Days)) {
+		*mask |= RTC_ALARM_TIME_MASK_YEARDAY;
+		timeptr->tm_yday = rtc_alarmstruct.RTC_AlarmTime.RTC_Days;
+	}
+
+	k_mutex_unlock(&data->lock);
+
+	return 0;
+}
+
+static int rtc_ameba_alarm_is_pending(const struct device *dev, uint16_t id)
+{
+	struct rtc_ameba_data *data = dev->data;
+	int ret;
+
+	if (id != 0) {
+		return -EINVAL;
+	}
+
+	ret = k_mutex_lock(&data->lock, K_NO_WAIT);
+	if (ret) {
+		return ret;
+	}
+
+	ret = data->alarm_pending ? 1 : 0;
+	data->alarm_pending = false;/* Doc: Invoke this api will clear pending status */
+
+	k_mutex_unlock(&data->lock);
+
+	return ret;
+}
+
+static int rtc_ameba_alarm_set_callback(const struct device *dev, uint16_t id,
+										rtc_alarm_callback callback, void *user_data)
+{
+	struct rtc_ameba_data *data = dev->data;
+
+	int ret = 0;
+
+	if (id != 0) {
+		return -EINVAL;
+	}
+
+	ret = k_mutex_lock(&data->lock, K_NO_WAIT);
+	if (ret) {
+		return ret;
+	}
+
+	data->alarm_cb = callback;
+	data->alarm_cbdata = user_data;
+
+	/* Note: This enable alarm cb but not alarm, refer to doc.
+	 The alarm will remain enabled until manually disabled using rtc_alarm_set_time(). */
+
+	k_mutex_unlock(&data->lock);
+
+	return 0;
+}
+#endif
+
+
 struct rtc_driver_api rtc_ameba_driver_api = {
 	.set_time = rtc_ameba_set_time,
 	.get_time = rtc_ameba_get_time,
@@ -311,7 +597,7 @@ struct rtc_driver_api rtc_ameba_driver_api = {
 	.alarm_get_supported_fields = rtc_ameba_alarm_get_supported_fields,
 	.alarm_set_time = rtc_ameba_alarm_set_time,
 	.alarm_get_time = rtc_ameba_alarm_get_time,
-	.alarm_is_pending = rtc_ameba_alarm_is_pending,//aa means what??
+	.alarm_is_pending = rtc_ameba_alarm_is_pending,
 	.alarm_set_callback = rtc_ameba_alarm_set_callback,
 #endif /* CONFIG_RTC_ALARM */
 
@@ -326,13 +612,30 @@ struct rtc_driver_api rtc_ameba_driver_api = {
 
 };
 
+#if defined(CONFIG_RTC_ALARM)
+static void rtc_ameba_irq_configure(void)						\
+{
+	\
+	IRQ_CONNECT(DT_INST_IRQN(0),								\
+				DT_INST_IRQ(0, priority),						\
+				rtc_ameba_alarm_isr,							\
+				DEVICE_DT_INST_GET(0),							\
+				0);
+	\
+	irq_enable(DT_INST_IRQN(0));
+	\
+}
+#endif
+
 static const struct rtc_ameba_config rtc_config = {
 	.async_prescaler = 0x7F,
 	.sync_prescaler = 0x00FF,
 	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(0)),
 	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
 
-	// .hour_fmt = RTC_HourFormat_24,
+#ifdef CONFIG_RTC_ALARM
+	.irq_configure = rtc_ameba_irq_configure,
+#endif
 };
 
 static struct rtc_ameba_data rtc_data;
@@ -340,7 +643,7 @@ static struct rtc_ameba_data rtc_data;
 DEVICE_DT_INST_DEFINE(0,									\
 					  &rtc_ameba_init,						\
 					  NULL,									\
-					  &rtc_data,								\
+					  &rtc_data,							\
 					  &rtc_config,							\
 					  PRE_KERNEL_1,							\
 					  CONFIG_RTC_INIT_PRIORITY,				\
