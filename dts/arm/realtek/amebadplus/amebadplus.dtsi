@@ -272,6 +272,13 @@
 			reg = <0x41008200 0x100>;
 			clocks = <&rcc AMEBA_TRNG_BCLK>;
 		};
+
+		usb: usb@40140000 {
+			compatible = "realtek,ameba-usb";
+			reg = <0x40140000 0x20000>;
+			interrupts = <68 0>;
+			status = "disabled";
+		};
 	};
 };
 
