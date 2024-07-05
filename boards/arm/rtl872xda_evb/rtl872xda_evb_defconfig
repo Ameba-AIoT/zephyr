@@ -34,6 +34,8 @@ CONFIG_RTC=y
 CONFIG_CRYPTO=y
 #enable DMA Temporary
 CONFIG_DMA=y
+#enable WATCHDOG Temporary
+CONFIG_WATCHDOG=y
 
 #enable trng
 CONFIG_ENTROPY_GENERATOR=y

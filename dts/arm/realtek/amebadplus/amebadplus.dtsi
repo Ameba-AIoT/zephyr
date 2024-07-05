@@ -288,6 +288,20 @@
 			status = "disabled";
 		};
 
+		iwdg: watchdog@41008c00 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x41008c00 0x20>;
+			interrupts = <9 0>;
+		};
+
+		/* wdg2 - km4_ns */
+		swdg: watchdog@41008d80 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x41008d80 0x20>;
+			interrupts = <65 0>;
+			status = "disabled";
+		};
+
 		dma: dma@40110000 {
 			compatible = "realtek,ameba-gdma";
 			reg = <0x40110000 0x3C0>;
