@@ -6,133 +6,83 @@
 
 #define DT_DRV_COMPAT realtek_ameba_counter
 
+#include <ameba_soc.h>
 #include <string.h>
 #include <zephyr/drivers/counter.h>
 #include <zephyr/spinlock.h>
 #include <zephyr/kernel.h>
+#include <zephyr/drivers/clock_control.h>
 
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_counter, CONFIG_COUNTER_LOG_LEVEL);
 
-#if 0
-static void counter_ameba_isr(void *arg);
-#endif
-
-typedef bool (*timer_isr_t)(void *);
-
-struct timer_isr_func_t {
-	void *args;
-	struct intr_handle_data_t *timer_isr_handle;
-};
+static void counter_ameba_isr(const struct device *dev);
 
 struct counter_ameba_config {
 	struct counter_config_info counter_info;
+	RTIM_TypeDef *basic_timer;
 	int irq_source;
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
+	uint32_t freq;
+	void (*irq_config_func)(const struct device *dev);
 };
 
 struct counter_ameba_data {
 	struct counter_alarm_cfg alarm_cfg;
+	struct counter_top_cfg top_cfg;
 	uint32_t ticks;
-	struct timer_isr_func_t timer_isr_fun;
 };
-
-static struct k_spinlock lock;
 
 static int counter_ameba_init(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
-	ARG_UNUSED(cfg);
-	k_spinlock_key_t key = k_spin_lock(&lock);
+	RTIM_TimeBaseInitTypeDef TIM_InitStruct;
 
+	if (!cfg->clock_dev) {
+		return -EINVAL;
+	}
 
+	if (!device_is_ready(cfg->clock_dev)) {
+		LOG_ERR("clock control device not ready");
+		return -ENODEV;
+	}
 
-	k_spin_unlock(&lock, key);
+	if (clock_control_on(cfg->clock_dev, cfg->clock_subsys)) {
+		LOG_ERR("Could not enable counter clock");
+		return -EIO;
+	}
+
+	cfg->irq_config_func(dev);
+
+	RTIM_TimeBaseStructInit(&TIM_InitStruct);
+	RTIM_TimeBaseInit(cfg->basic_timer, &TIM_InitStruct, cfg->irq_source, (IRQ_FUN)counter_ameba_isr,
+					  (u32)&TIM_InitStruct);
 
 	return 0;
 }
 
 static int counter_ameba_start(const struct device *dev)
 {
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
-	k_spinlock_key_t key = k_spin_lock(&lock);
-
-	k_spin_unlock(&lock, key);
+	const struct counter_ameba_config *cfg = dev->config;
+	RTIM_Cmd(cfg->basic_timer, ENABLE);
 
 	return 0;
 }
 
 static int counter_ameba_stop(const struct device *dev)
 {
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
-	k_spinlock_key_t key = k_spin_lock(&lock);
-
-	k_spin_unlock(&lock, key);
+	const struct counter_ameba_config *cfg = dev->config;
+	RTIM_Cmd(cfg->basic_timer, DISABLE);
 
 	return 0;
 }
 
 static int counter_ameba_get_value(const struct device *dev, uint32_t *ticks)
 {
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
-	k_spinlock_key_t key = k_spin_lock(&lock);
-
-	k_spin_unlock(&lock, key);
-
-	return 0;
-}
-
-static int counter_ameba_set_alarm(const struct device *dev, uint8_t chan_id,
-								   const struct counter_alarm_cfg *alarm_cfg)
-{
-	ARG_UNUSED(chan_id);
-	struct counter_ameba_data *data = dev->data;
-	uint32_t now;
-	ARG_UNUSED(data);
-	counter_ameba_get_value(dev, &now);
-
-	k_spinlock_key_t key = k_spin_lock(&lock);
-
-
-
-	k_spin_unlock(&lock, key);
-
-	return 0;
-}
-
-static int counter_ameba_cancel_alarm(const struct device *dev, uint8_t chan_id)
-{
-	ARG_UNUSED(chan_id);
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
-	k_spinlock_key_t key = k_spin_lock(&lock);
-
-	k_spin_unlock(&lock, key);
-
-	return 0;
-}
-
-static int counter_ameba_set_top_value(const struct device *dev,
-									   const struct counter_top_cfg *cfg)
-{
-	const struct counter_ameba_config *config = dev->config;
-
-	if (cfg->ticks != config->counter_info.max_top_value) {
-		return -ENOTSUP;
-	} else {
-		return 0;
-	}
-}
-
-static uint32_t counter_ameba_get_pending_int(const struct device *dev)
-{
-	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
+	const struct counter_ameba_config *cfg = dev->config;
+	*ticks = RTIM_GetCount(cfg->basic_timer);
 
 	return 0;
 }
@@ -144,6 +94,71 @@ static uint32_t counter_ameba_get_top_value(const struct device *dev)
 	return config->counter_info.max_top_value;
 }
 
+static int counter_ameba_set_alarm(const struct device *dev, uint8_t chan_id,
+								   const struct counter_alarm_cfg *alarm_cfg)
+{
+	ARG_UNUSED(chan_id);
+	struct counter_ameba_data *data = dev->data;
+	const struct counter_ameba_config *cfg = dev->config;
+
+	if (alarm_cfg->ticks > counter_ameba_get_top_value(dev)) {
+		return -EINVAL;
+	}
+
+	if (data->alarm_cfg.callback) {
+		return -EBUSY;
+	}
+
+	data->alarm_cfg.callback = alarm_cfg->callback;
+	data->alarm_cfg.user_data = alarm_cfg->user_data;
+	RTIM_ChangePeriodImmediate(cfg->basic_timer, alarm_cfg->ticks);
+	RTIM_INTConfig(cfg->basic_timer, TIM_IT_Update, ENABLE);
+
+	return 0;
+}
+
+static int counter_ameba_cancel_alarm(const struct device *dev, uint8_t chan_id)
+{
+	ARG_UNUSED(chan_id);
+	struct counter_ameba_data *data = dev->data;
+	const struct counter_ameba_config *cfg = dev->config;
+	data->alarm_cfg.callback = NULL;
+
+	RTIM_INTConfig(cfg->basic_timer, TIM_IT_Update, DISABLE);
+
+	return 0;
+}
+
+static int counter_ameba_set_top_value(const struct device *dev,
+									   const struct counter_top_cfg *cfg)
+{
+	const struct counter_ameba_config *config = dev->config;
+	struct counter_ameba_data *data = dev->data;
+
+	data->top_cfg.user_data = cfg->user_data;
+	data->top_cfg.ticks = cfg->ticks;
+	data->top_cfg.callback = cfg->callback;
+	RTIM_ChangePeriodImmediate(config->basic_timer, cfg->ticks);
+	RTIM_INTConfig(config->basic_timer, TIM_IT_Update, ENABLE);
+	if (data->top_cfg.ticks != config->counter_info.max_top_value) {
+		return -ENOTSUP;
+	} else {
+		return 0;
+	}
+}
+
+static uint32_t counter_ameba_get_pending_int(const struct device *dev)
+{
+	const struct counter_ameba_config *cfg = dev->config;
+	return RTIM_GetINTStatus(cfg->basic_timer, TIM_IT_Update);
+}
+
+static uint32_t counter_ameba_get_freq(const struct device *dev)
+{
+	const struct counter_ameba_config *cfg = dev->config;
+	return cfg->freq;
+}
+
 static const struct counter_driver_api counter_api = {
 	.start = counter_ameba_start,
 	.stop = counter_ameba_stop,
@@ -153,36 +168,58 @@ static const struct counter_driver_api counter_api = {
 	.set_top_value = counter_ameba_set_top_value,
 	.get_pending_int = counter_ameba_get_pending_int,
 	.get_top_value = counter_ameba_get_top_value,
+	.get_freq = counter_ameba_get_freq,
 };
 
-#if 0
-static void counter_ameba_isr(void *arg)
+static void counter_ameba_isr(const struct device *dev)
 {
-	const struct device *dev = (const struct device *)arg;
 	struct counter_ameba_data *data = dev->data;
-	ARG_UNUSED(data);
+	const struct counter_ameba_config *cfg = dev->config;
+	counter_alarm_callback_t cb;
+	uint32_t ticks;
+	counter_ameba_get_value(dev, &ticks);
+	cb = data->alarm_cfg.callback;
+	data->alarm_cfg.callback = NULL;
+	if (cb) {
+		cb(dev, 0, ticks, data->alarm_cfg.user_data);
+	}
+	RTIM_INTClear(cfg->basic_timer);
 }
-#endif
 
-#define AMEBA_COUNTER_INIT(idx)			 \
+#define TIMER_IRQ_CONFIG(n)                                                    \
+    static void irq_config_##n(const struct device *dev)                   \
+    {                                                                      \
+        IRQ_CONNECT(DT_INST_IRQN(n),                \
+                    DT_INST_IRQ(n, priority),               \
+                    counter_ameba_isr, DEVICE_DT_INST_GET(n),       \
+                    0);                         \
+        irq_enable(DT_INST_IRQN(n));                \
+    }
+
+#define AMEBA_COUNTER_INIT(n)			 \
+	TIMER_IRQ_CONFIG(n)                  \
+	static struct counter_ameba_data counter_data_##n;			 \
 										 \
-	static struct counter_ameba_data counter_data_##idx;			 \
-										 \
-	static const struct counter_ameba_config counter_config_##idx = {	 \
+	static const struct counter_ameba_config counter_config_##n = {	 \
 		.counter_info = {						 \
 			.max_top_value = UINT32_MAX,				 \
 			.flags = COUNTER_CONFIG_INFO_COUNT_UP,			 \
 			.channels = 1						 \
-		},								 \
-		.irq_source = DT_INST_IRQN(idx),				 \
+		},										\
+		.basic_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n), 								 \
+		.irq_source = DT_INST_IRQN(n),				 \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
+		.freq = DT_INST_PROP(n, freq),	\
+		.irq_config_func = irq_config_##n\
 	};									 \
 										 \
 										 \
-	DEVICE_DT_INST_DEFINE(idx,						 \
+	DEVICE_DT_INST_DEFINE(n,						 \
 			      counter_ameba_init,				 \
 			      NULL,						 \
-			      &counter_data_##idx,				 \
-			      &counter_config_##idx,				 \
+			      &counter_data_##n,				 \
+			      &counter_config_##n,				 \
 			      PRE_KERNEL_1,					 \
 			      CONFIG_COUNTER_INIT_PRIORITY,			 \
 			      &counter_api);

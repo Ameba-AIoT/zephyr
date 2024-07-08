@@ -13,3 +13,9 @@ properties:
 
   interrupts:
     required: false
+
+  freq:
+    type: int
+    const: 32768
+    description: freq of basic timer clk source
+
