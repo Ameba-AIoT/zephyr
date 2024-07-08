@@ -19,6 +19,7 @@
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
+		zephyr,flash-controller = &spic;
 	};
 
 	aliases {
@@ -28,6 +29,26 @@
 	};
 };
 
+/* 4MB flash */
 &flash0 {
 	reg = <0x0e000020 DT_SIZE_M(4)>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* Reserve 80kB for the bootloader */
+		boot_partition: partition@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00014000>;
+			read-only;
+		};
+
+		/* Reserve 1968kB for the application in slot 0 */
+		slot0_partition: partition@14000 {
+			label = "image-0";
+			reg = <0x00014000 0x001EC000>;
+		};
+	};
 };
