@@ -26,7 +26,18 @@
 		i2c-0 = &i2c0;
 		led-strip =&ledc;
 		rtc = &rtc;
+		sw0 = &button0;
 	};
+
+	buttons {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			gpios = < &gpioa 12 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+			label = "User button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+
 };
 
 /* 4MB flash */
