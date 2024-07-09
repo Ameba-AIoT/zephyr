@@ -34,18 +34,26 @@ static int ameba_configure_pin(const pinctrl_soc_pin_t *pin)
 		PAD_SleepPullCtrl(gpio_pin, GPIO_PuPd_NOPULL);
 	}
 
-	if (pin->slew_rate) {
-		PAD_SlewRateCtrl(gpio_pin, ENABLE);
+	/* default slew rate fast */
+	if (pin->slew_rate_slow) {
+		PAD_SlewRateCtrl(gpio_pin, DISABLE);
 	}
-	if (pin->drive_strength) {
-		PAD_DrvStrength(gpio_pin, ENABLE);
+
+	/* Set the PAD driving strength to PAD_DRV_ABILITITY_LOW, default PAD_DRV_ABILITITY_HIGH */
+	if (pin->drive_strength_low) {
+		PAD_DrvStrength(gpio_pin, PAD_DRV_ABILITITY_LOW);
 	}
-	if (pin->digital_input) {
-		PAD_InputCtrl(gpio_pin, ENABLE);
+
+	/* default enable digital path input. */
+	if (pin->digital_input_disable) {
+		PAD_InputCtrl(gpio_pin, DISABLE);
 	}
+
+	/* default enable schmitt */
 	if (pin->schmitt_disable) {
-		PAD_SchmitCtrl(gpio_pin, ENABLE);
+		PAD_SchmitCtrl(gpio_pin, DISABLE);
 	}
+
 	if (pin->swd_off) {
 		Pinmux_Swdoff();
 	}

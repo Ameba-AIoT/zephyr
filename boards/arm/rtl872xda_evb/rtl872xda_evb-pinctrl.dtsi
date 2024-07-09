@@ -102,7 +102,7 @@
 					 <AMEBA_PINMUX('B', 18, AMEBA_CAPTOUCH_AUX_ADC)>,
 					 <AMEBA_PINMUX('B', 17, AMEBA_CAPTOUCH_AUX_ADC)>,
 					 <AMEBA_PINMUX('B', 16, AMEBA_CAPTOUCH_AUX_ADC)>;
-			digital-input;
+			digital-input-disable;
 		};
 	};
 
