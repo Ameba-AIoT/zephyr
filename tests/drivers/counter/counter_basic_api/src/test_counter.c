@@ -96,6 +96,9 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_TIMER_RPI_PICO
 	DEVS_FOR_DT_COMPAT(raspberrypi_pico_timer)
 #endif
+#ifdef CONFIG_COUNTER_TMR_AMEBA
+	DEVS_FOR_DT_COMPAT(realtek_ameba_counter)
+#endif
 };
 
 static const struct device *const period_devs[] = {
