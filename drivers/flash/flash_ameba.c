@@ -66,6 +66,8 @@ static int flash_ameba_read(const struct device *dev, off_t address, void *buffe
 
 	flash_ameba_sem_take(dev);
 
+	FLASH_ReadStream(address, length, buffer);
+
 	flash_ameba_sem_give(dev);
 	return ret;
 }
@@ -79,16 +81,39 @@ static int flash_ameba_write(const struct device *dev,
 
 	flash_ameba_sem_take(dev);
 
+	FLASH_WriteStream(address, length, buffer);
+
 	flash_ameba_sem_give(dev);
 	return ret;
 }
 
-static int flash_ameba_erase(const struct device *dev, off_t start, size_t len)
+static int flash_ameba_erase(const struct device *dev, off_t offset, size_t len)
 {
-	ARG_UNUSED(dev);
-	ARG_UNUSED(start);
-	ARG_UNUSED(len);
-	return 0;
+	struct flash_pages_info info;
+	uint32_t start_sector_offset, end_sector_offset;
+	uint32_t i;
+	int ret = 0;
+
+	flash_ameba_sem_take(dev);
+
+	ret = flash_get_page_info_by_offs(dev, offset, &info);
+	if (ret) {
+		return ret;
+	}
+	start_sector_offset = info.start_offset;
+	ret = flash_get_page_info_by_offs(dev, offset + len - 1, &info);
+	if (ret) {
+		return ret;
+	}
+	end_sector_offset = info.start_offset;
+
+	for (i = start_sector_offset; i <= end_sector_offset; i++) {
+		FLASH_EraseXIP(EraseSector, start_sector_offset);
+	}
+
+	flash_ameba_sem_give(dev);
+
+	return ret;
 }
 
 #if CONFIG_FLASH_PAGE_LAYOUT
