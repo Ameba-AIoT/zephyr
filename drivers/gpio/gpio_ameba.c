@@ -20,12 +20,6 @@ LOG_MODULE_REGISTER(gpio_ameba, CONFIG_GPIO_LOG_LEVEL);
 
 #define GPIO_PINNAME(PORT, PIN)			(((PORT) << 5) | ((PIN) & 0x1F))
 
-#define GPIO_DEBOUNCE_EN 0
-/* DivideCount: debounce clock division with 32KHz.range: 0x0 - 0x7F.
- *              debounce time = (DivideCount +1) * 2 * 32μs.
- */
-#define DEBOUNCE_DIV_CNT 0x00
-
 struct gpio_ameba_config {
 	/* gpio_driver_config needs to be first */
 	struct gpio_driver_config common;
@@ -109,7 +103,7 @@ static int gpio_ameba_configure(const struct device *dev,
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	GPIO_InitTypeDef GPIO_InitStruct_Temp;
+	GPIO_InitTypeDef gpio_initstruct;
 	u32 gpio_pin;
 
 	if (((flags & GPIO_INPUT) != 0) && ((flags & GPIO_OUTPUT) != 0)) {
@@ -121,23 +115,23 @@ static int gpio_ameba_configure(const struct device *dev,
 	}
 
 	gpio_pin = GPIO_PINNAME(cfg->port_num, pin);
-	GPIO_InitStruct_Temp.GPIO_Pin = gpio_pin;
+	gpio_initstruct.GPIO_Pin = gpio_pin;
 
 	if (flags & GPIO_INPUT) {
-		GPIO_InitStruct_Temp.GPIO_Mode = GPIO_Mode_IN;
+		gpio_initstruct.GPIO_Mode = GPIO_Mode_IN;
 	} else {
-		GPIO_InitStruct_Temp.GPIO_Mode = GPIO_Mode_OUT;
+		gpio_initstruct.GPIO_Mode = GPIO_Mode_OUT;
 	}
 
 	if (flags & GPIO_PULL_UP) {
-		GPIO_InitStruct_Temp.GPIO_PuPd = GPIO_PuPd_UP;
+		gpio_initstruct.GPIO_PuPd = GPIO_PuPd_UP;
 	} else if (flags & GPIO_PULL_DOWN) {
-		GPIO_InitStruct_Temp.GPIO_PuPd = GPIO_PuPd_DOWN;
+		gpio_initstruct.GPIO_PuPd = GPIO_PuPd_DOWN;
 	} else {
-		GPIO_InitStruct_Temp.GPIO_PuPd = GPIO_PuPd_NOPULL;
+		gpio_initstruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	}
 
-	GPIO_Init(&GPIO_InitStruct_Temp);
+	GPIO_Init(&gpio_initstruct);
 
 	if (flags & GPIO_OUTPUT) {
 		if ((flags & GPIO_OUTPUT_INIT_HIGH) != 0) {
@@ -158,52 +152,68 @@ static int gpio_ameba_pin_interrupt_configure(const struct device *dev,
 	u32 gpio_pin;
 
 	gpio_pin = GPIO_PINNAME(cfg->port_num, pin);
-	GPIO_InitTypeDef GPIO_InitStruct_Temp;
-	GPIO_InitStruct_Temp.GPIO_Pin = gpio_pin;
+	GPIO_InitTypeDef gpio_initstruct;
+	gpio_initstruct.GPIO_Pin = gpio_pin;
 
 	GPIO_INTConfig(gpio_pin, DISABLE);
 
 	LOG_DBG("Config GPIO int:%d-%d, mode:%x, flag:0x%x\n", cfg->port_num, pin, mode, trig);
-	GPIO_InitStruct_Temp.GPIO_Pin = gpio_pin;
-	GPIO_InitStruct_Temp.GPIO_PuPd = GPIO_PuPd_NOPULL;
-	GPIO_InitStruct_Temp.GPIO_Mode = GPIO_Mode_INT;
+	gpio_initstruct.GPIO_Pin = gpio_pin;
+	gpio_initstruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
+	gpio_initstruct.GPIO_Mode = GPIO_Mode_INT;
+	gpio_initstruct.GPIO_ITDebounce = GPIO_INT_DEBOUNCE_DISABLE;
 
 	if (mode != GPIO_INT_MODE_DISABLED) {
 		if (mode & GPIO_INT_MODE_EDGE) {
 			switch (trig) {
 			case GPIO_INT_TRIG_LOW:
-				GPIO_InitStruct_Temp.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
-				GPIO_InitStruct_Temp.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_LOW;
+				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
+				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_LOW;
 				break;
 			case GPIO_INT_TRIG_HIGH:
-				GPIO_InitStruct_Temp.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
-				GPIO_InitStruct_Temp.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_HIGH;
+				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
+				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_HIGH;
 				break;
 			case GPIO_INT_TRIG_BOTH:
-				GPIO_InitStruct_Temp.GPIO_ITTrigger = GPIO_INT_Trigger_BOTHEDGE;
+				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_BOTHEDGE;
 				break;
+			default:
+				LOG_ERR("GPIO Edge interrupt type invalid \r\n");
+				return -ENOTSUP;
 			}
 		} else {
-			GPIO_InitStruct_Temp.GPIO_ITTrigger = GPIO_INT_Trigger_LEVEL;
+			gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_LEVEL;
 			switch (trig) {
 			case GPIO_INT_TRIG_LOW:
-				GPIO_InitStruct_Temp.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_LOW;
+				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_LOW;
+				gpio_initstruct.GPIO_PuPd = GPIO_PuPd_UP;
 				break;
 			case GPIO_INT_TRIG_HIGH:
-				GPIO_InitStruct_Temp.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_HIGH;
+				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_HIGH;
+				gpio_initstruct.GPIO_PuPd = GPIO_PuPd_DOWN;
 				break;
 			default:
 				LOG_ERR("GPIO level interrupt doesn't support both high and low");
-				break;
+				return -ENOTSUP;
 			}
 		}
+
+#if defined(CONFIG_GPIO_DEBOUNCE_EN)
+		gpio_initstruct.GPIO_ITDebounce = GPIO_INT_DEBOUNCE_ENABLE;
+		/* GPIO_DebounceClock(cfg->port_num, DEBOUNCE_DIV_CNT); */
+		GPIO_Init(&gpio_initstruct);
+		DelayUs(64);
+		GPIO_INTConfig(gpio_pin, ENABLE);
+#else
+		GPIO_Init(&gpio_initstruct);
+		GPIO_INTConfig(gpio_pin, ENABLE);
+#endif
+	} else {
+		GPIO_Direction(gpio_pin, GPIO_Mode_IN);
+		PAD_PullCtrl(gpio_pin, gpio_initstruct.GPIO_PuPd);
+
+		GPIO_INTMode(gpio_pin, DISABLE, 0, 0, 0);
 	}
-	if (GPIO_DEBOUNCE_EN) {
-		GPIO_InitStruct_Temp.GPIO_ITDebounce = 1;
-		GPIO_DebounceClock(cfg->port_num, DEBOUNCE_DIV_CNT);
-	}
-	GPIO_Init(&GPIO_InitStruct_Temp);
-	GPIO_INTConfig(gpio_pin, ENABLE);
 
 	return 0;
 }
@@ -221,9 +231,9 @@ static uint32_t gpio_ameba_get_pending_int(const struct device *dev)
 {
 	uint32_t irq_status;
 	const struct gpio_ameba_config *cfg = dev->config;
-	GPIO_TypeDef *gpio_base = (GPIO_TypeDef *)cfg->base;
+	uint32_t port = cfg->port_num;
 
-	irq_status = gpio_base->GPIO_INT_STATUS;
+	irq_status = GPIO_INTStatusGet(port);
 
 	return irq_status;
 }
@@ -233,12 +243,14 @@ static void gpio_ameba_isr(const struct device *dev)
 	uint32_t int_status;
 	struct gpio_ameba_data *data = dev->data;
 	const struct gpio_ameba_config *cfg = dev->config;
-	GPIO_TypeDef *gpio_base = (GPIO_TypeDef *)cfg->base;
+	uint32_t port = cfg->port_num;
 
 	/* Get the int status  */
-	int_status = gpio_base->GPIO_INT_STATUS;
+	int_status = GPIO_INTStatusGet(port);
+
 	/* Clear pending edge interrupt */
-	gpio_base->GPIO_INT_EOI = int_status;
+	GPIO_INTStatusClearEdge(port);
+
 	/* Call the registered callbacks */
 	gpio_fire_callbacks(&data->callbacks, dev, int_status);
 }

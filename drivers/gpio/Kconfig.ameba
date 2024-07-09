@@ -7,3 +7,10 @@ config GPIO_AMEBA
 	depends on DT_HAS_REALTEK_AMEBA_GPIO_ENABLED
 	help
 	  Enable GPIO controller driver for Realtek Ameba series SoC
+
+config GPIO_DEBOUNCE_EN
+	bool "Ameba GPIO Interrupt Debounce Enable"
+	depends on GPIO_AMEBA
+	default y
+	help
+	  When Enable GPIO Interrupt Debounce, the external signal can be debounced to remove any spurious glitches that are less than one period(about 32us) of the external debouncing clock.
