@@ -211,15 +211,15 @@ static int i2s_ameba_initialize(const struct device *dev)
 	// 	active_dma_tx_channel[i] = NULL;
 	// }
 
-	/* Get the binding to the DMA device */
-	if (!device_is_ready(dev_data->tx.dev_dma)) {
-		LOG_ERR("%s device not ready", dev_data->tx.dev_dma->name);
-		return -ENODEV;
-	}
-	if (!device_is_ready(dev_data->rx.dev_dma)) {
-		LOG_ERR("%s device not ready", dev_data->rx.dev_dma->name);
-		return -ENODEV;
-	}
+	// /* Get the binding to the DMA device */
+	// if (!device_is_ready(dev_data->tx.dev_dma)) {
+	// 	LOG_ERR("%s device not ready", dev_data->tx.dev_dma->name);
+	// 	return -ENODEV;
+	// }
+	// if (!device_is_ready(dev_data->rx.dev_dma)) {
+	// 	LOG_ERR("%s device not ready", dev_data->rx.dev_dma->name);
+	// 	return -ENODEV;
+	// }
 
 	LOG_INF("%s inited", dev->name);
 
