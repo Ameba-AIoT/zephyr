@@ -8,6 +8,5 @@ choice
 config SOC_AMEBADPLUS
 	bool "Real-M300 on AmebaDplus"
 	select CPU_CORTEX_M33
-	select CPU_HAS_ARM_SAU
 
 endchoice

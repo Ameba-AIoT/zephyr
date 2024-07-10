@@ -5,11 +5,11 @@ config SOC_SERIES_AMEBADPLUS
 	bool "AmebaDplus Series MCU"
 	select ARM
 	select CPU_CORTEX_M33
-	# select CPU_HAS_ARM_SAU
-	# select CPU_HAS_FPU
-	# select CPU_HAS_ARM_MPU
+	select CPU_HAS_ARM_SAU
+	select CPU_HAS_FPU
+	select CPU_HAS_ARM_MPU
 	select SOC_FAMILY_REALTEK_AMEBA
-	# select ARM_TRUSTZONE_M
+	select ARM_TRUSTZONE_M
 	# select SHARED_MULTI_HEAP
 	# select SYSTICK_USE_EXTERNAL_CLOCK
 	help
