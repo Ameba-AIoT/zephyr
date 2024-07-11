@@ -36,7 +36,7 @@ static int ameba_configure_pin(const pinctrl_soc_pin_t *pin)
 
 	/* default slew rate fast */
 	if (pin->slew_rate_slow) {
-		PAD_SlewRateCtrl(gpio_pin, DISABLE);
+		PAD_SlewRateCtrl(gpio_pin, PAD_SlewRate_Slow);
 	}
 
 	/* Set the PAD driving strength to PAD_DRV_ABILITITY_LOW, default PAD_DRV_ABILITITY_HIGH */
