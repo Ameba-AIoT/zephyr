@@ -251,7 +251,6 @@
 			refresh-time = <0x3FFF>;
 		};
 
-		/* I2S RX */
 		i2s0: i2s@4012a000 {
 			compatible = "realtek,ameba-i2s";
 			reg = <0x4012a000 0xa00>;
@@ -259,12 +258,21 @@
 			clocks = <&rcc AMEBA_SPORT0_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			// dmas = <&dma0 2>;
-			dma-names = "rx";
+			/* dmas = <&dma0 2>; */
+			/* dma-names = "rx"; */
+			index = <0>;
+			mclk-multiple = <128>;
+			mclk-fixed-max = <0>;
+			tdmmode = <0>;
+			fifo-num = <0>;
+			multiio = <0>;
+			chn-len = <4>;
+			mono-stereo = <0>;
+			clock-mode = <40000000>;
+			pll-tune = <0>;
 			status = "disabled";
 		};
 
-		/* I2S TX */
 		i2s1: i2s@4012b000 {
 			compatible = "realtek,ameba-i2s";
 			reg = <0x4012b000 0xa00>;
@@ -272,8 +280,18 @@
 			clocks = <&rcc AMEBA_SPORT1_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			// dmas = <&dma0 7>;
-			dma-names = "tx";
+			/* dmas = <&dma0 7>; */
+			/* dma-names = "tx"; */
+			index = <1>;
+			mclk-multiple = <128>;
+			mclk-fixed-max = <0>;
+			tdmmode = <0>;
+			fifo-num = <0>;
+			multiio = <0>;
+			chn-len = <4>;
+			mono-stereo = <0>;
+			clock-mode = <40000000>;
+			pll-tune = <0>;
 			status = "disabled";
 		};
 

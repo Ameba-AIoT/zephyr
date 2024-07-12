@@ -7,55 +7,60 @@
 #ifndef ZEPHYR_DRIVERS_I2S_I2S_AMEBA_H_
 #define ZEPHYR_DRIVERS_I2S_I2S_AMEBA_H_
 
-struct queue_item {
-	void *mem_block;
-	size_t size;
-};
-
-/* Minimal ring buffer implementation */
-struct ring_buf {
-	struct queue_item *buf;
-	uint16_t len;
-	uint16_t head;
-	uint16_t tail;
-};
-
 /* Device constant configuration parameters */
 struct i2s_ameba_cfg {
-	SPI_TypeDef *i2s;
+	AUDIO_SPORT_TypeDef *i2s;
 	const struct device *clock_dev;
 	clock_control_subsys_t clock_subsys;
 	const struct pinctrl_dev_config *pcfg;
-	void (*irq_config)(const struct device *dev);
-	bool master_clk_sel;
+	uint8_t index;
+	uint32_t mclk_multiple;
+	uint32_t mclk_fixed_max;
+	uint8_t tdmmode;
+	uint8_t fifo_num;
+	bool MultiIO;
+	uint16_t chn_len;
+	bool mono_stereo;
+	uint32_t clock_mode;
+	uint8_t pll_tune;
 };
+
+struct AUDIO_ClockParams {
+	u32 Clock;
+	u32 MCLK_NI;
+	u32 MCLK_MI;
+};
+
+struct AUDIO_InitParams {
+	u32 sr;
+	u32 chn_len;
+	u32 chn_cnt;
+	u32 codec_multiplier_with_rate;
+	u32 sport_mclk_fixed_max;
+};
+
+#define PLL_CLOCK_45P1584M	45158400
+#define PLL_CLOCK_98P304M	98304000
+#define I2S_CLOCK_XTAL40M	40000000
+
+struct SP_GDMA_STRUCT {
+	GDMA_InitTypeDef       	SpTxGdmaInitStruct;
+	GDMA_InitTypeDef       	SpRxGdmaInitStruct;
+	GDMA_InitTypeDef       	SpTxGdmaInitStructExt;
+	GDMA_InitTypeDef       	SpRxGdmaInitStructExt;
+};
+
+struct SP_GDMA_STRUCT audio_global;
 
 struct stream {
 	int32_t state;
-	struct k_sem sem;
-
-	const struct device *dev_dma;
-	uint32_t dma_channel;
-	struct dma_config dma_cfg;
-	uint8_t priority;
-	bool src_addr_increment;
-	bool dst_addr_increment;
-	uint8_t fifo_threshold;
-
 	struct i2s_config cfg;
-	struct ring_buf mem_block_queue;
-	void *mem_block;
-	bool last_block;
-	bool master;
-	int (*stream_start)(struct stream *, const struct device *dev);
-	void (*stream_disable)(struct stream *, const struct device *dev);
-	void (*queue_drop)(struct stream *);
 };
 
 /* Device run time data */
 struct i2s_ameba_data {
-	struct stream rx;
 	struct stream tx;
+	struct stream rx;
 };
 
 #endif	/* _ameba_I2S_H_ */
