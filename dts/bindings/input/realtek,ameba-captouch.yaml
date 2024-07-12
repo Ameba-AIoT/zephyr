@@ -1,7 +1,15 @@
 # Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-description: Ameba CapTouch
+description: |
+  Ameba CapTouch
+
+  Mapping input pinctrl:
+  Channel 0 -> adc_in0_pb19
+  Channel 1 -> adc_in1_pb18
+  Channel 2 -> adc_in2_pb17
+  Channel 3 -> adc_in3_pb16
+
 compatible: "realtek,ameba-captouch"
 
 include: [base.yaml, pinctrl-device.yaml]

@@ -398,6 +398,16 @@
 			dma-buf-size-alignment = <32>;
 		};
 
+		adc: adc@41011000 {
+			compatible = "realtek,ameba-adc";
+			reg = <0x41011000 0xB8>;
+			clocks = <&rcc AMEBA_ADC_CLK>;
+			interrupts = <47 0>;
+			channel-count = <7>;
+			#io-channel-cells = <1>;
+			status = "disabled";
+		};
+
 		ctc: ctc@41012000 {
 			compatible = "realtek,ameba-captouch";
 			reg = <0x41012000 0x210>;
