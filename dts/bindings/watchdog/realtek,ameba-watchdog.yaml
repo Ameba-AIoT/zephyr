@@ -10,3 +10,9 @@ include: base.yaml
 properties:
   reg:
     required: true
+  
+  early_int_cnt:
+    type: int
+    default: 500
+    description: WDG parameter specifies WDG early interrupt trigger threshold. This parameter must be set to a value in the 1-65535 range
+                 
