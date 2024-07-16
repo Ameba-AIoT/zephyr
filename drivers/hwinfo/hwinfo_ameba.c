@@ -10,20 +10,15 @@
 
 ssize_t z_impl_hwinfo_get_device_id(uint8_t *buffer, size_t length)
 {
-	uint8_t buf[16], idx, data;
-	u32 bResult;
-	for (idx = 0; idx < sizeof(buf); idx++) {
-		bResult = OTP_Read8(idx + 0x7F0, &data);
-		if (!bResult) {
-			break;
-		}
-		buf[idx] = data;
+	uint8_t uuid[8];
+
+	EFUSE_GetUUID((u32 *)uuid);
+
+	if (length > sizeof(uuid)) {
+		length = sizeof(uuid);
 	}
 
-	if (length > idx) {
-		length = idx;
-	}
-	memcpy(buffer, buf, length);
+	memcpy(buffer, uuid, length);
 
 	return length;
 }

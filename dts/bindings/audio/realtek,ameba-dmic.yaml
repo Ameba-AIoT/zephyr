@@ -1,0 +1,8 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: AMEBA digital PDM microphone family
+
+compatible: "realtek,ameba-dmic"
+
+include: i2s-device.yaml

@@ -170,6 +170,11 @@
 &i2s0 {
 	pinctrl-0 = <&i2s0_default>;
 	pinctrl-names = "default";
+	status = "okay";
+	dmic: dmic@0 {
+		compatible = "realtek,ameba-dmic";
+		reg = <0>;
+	};
 };
 
 &i2s1 {
@@ -180,7 +185,6 @@
 &adc {
 	pinctrl-0 = <&adc_in4_pb15 &adc_in5_pb14>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &ctc {
