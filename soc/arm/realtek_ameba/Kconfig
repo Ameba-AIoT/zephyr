@@ -1,11 +1,11 @@
 # Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-config SOC_FAMILY_REALTEK_AMEBA
+config SOC_FAMILY_AMEBA
 	bool
 	select BUILD_OUTPUT_HEX
 
-if SOC_FAMILY_REALTEK_AMEBA
+if SOC_FAMILY_AMEBA
 
 config SOC_FAMILY
 	string
@@ -13,4 +13,4 @@ config SOC_FAMILY
 
 rsource "*/Kconfig.soc"
 
-endif # SOC_FAMILY_REALTEK_AMEBA
+endif # SOC_FAMILY_AMEBA

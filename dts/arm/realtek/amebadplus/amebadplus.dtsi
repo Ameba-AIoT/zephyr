@@ -128,7 +128,7 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		i2c1: i2c1@4110a000 {
@@ -164,7 +164,7 @@
 			clocks = <&rcc AMEBA_LTIM0_CLK>;
 			interrupts = <10 0>;
 			freq = <32768>;
-			status = "okay";
+			status = "disabled";
 		};
 
 		timer1: counter@41017200 {

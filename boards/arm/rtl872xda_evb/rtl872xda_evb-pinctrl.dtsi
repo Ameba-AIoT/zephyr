@@ -85,13 +85,13 @@
 
 	i2s1_default: i2s1_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('B', 2, AMEBA_I2S1_DIO0)>,
-					 <AMEBA_PINMUX('B', 3, AMEBA_I2S1_DIO1)>,
-					 <AMEBA_PINMUX('B', 7, AMEBA_I2S1_DIO2)>,
-					 <AMEBA_PINMUX('B', 8, AMEBA_I2S1_DIO3)>,
+			pinmux = <AMEBA_PINMUX('B',  2, AMEBA_I2S1_DIO0)>,
+					 <AMEBA_PINMUX('B',  3, AMEBA_I2S1_DIO1)>,
+					 <AMEBA_PINMUX('B',  7, AMEBA_I2S1_DIO2)>,
+					 <AMEBA_PINMUX('B',  8, AMEBA_I2S1_DIO3)>,
 					 <AMEBA_PINMUX('A', 28, AMEBA_I2S1_MCLK)>,
 					 <AMEBA_PINMUX('A', 29, AMEBA_I2S1_BCLK)>,
-					 <AMEBA_PINMUX('B', 1, AMEBA_I2S1_WS)>;
+					 <AMEBA_PINMUX('B',  1, AMEBA_I2S1_WS)>;
 			bias-pull-up;
 		};
 	};
@@ -149,38 +149,32 @@
 &uart0 {
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &uart1 {
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
-	status = "disabled";
 };
 
 &spi1 {
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
 	rtk,spi-default-cs = <0>;
-	status = "okay";
 };
 
 &i2c0 {
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &i2s0 {
 	pinctrl-0 = <&i2s0_default>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &i2s1 {
 	pinctrl-0 = <&i2s1_default>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &adc {
@@ -192,12 +186,10 @@
 &ctc {
 	pinctrl-0 = <&adc_in0_pb19 &adc_in1_pb18 &adc_in2_pb17 &adc_in3_pb16>;
 	pinctrl-names = "default";
-	status = "okay";
 };
 
 &pwm0 {
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
 	prescale = <255>;
-	status = "okay";
 };

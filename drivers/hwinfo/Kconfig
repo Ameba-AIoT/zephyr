@@ -186,4 +186,11 @@ config HWINFO_ANDES
 	help
 	  Enable Andes hwinfo driver
 
+config HWINFO_AMEBA
+	bool "AMEBA hwinfo"
+	default y
+	depends on SOC_FAMILY_AMEBA
+	help
+	  Enable Ameba hwinfo driver.
+
 endif
