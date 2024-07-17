@@ -4,7 +4,7 @@
 config AUDIO_AMEBA_DMIC
 	bool "Ameba Digital PDM microphone attached to I2S support"
 	default y
-	depends on DT_HAS_REALTEK_AMEBA_DMIC_ENABLED
+	depends on DT_HAS_REALTEK_AMEBA_CODEC_ENABLED
 	select I2S
 	# select HAS_STLIB
 	help

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT realtek_ameba_dmic
+#define DT_DRV_COMPAT realtek_ameba_codec
 
 #include <zephyr/devicetree.h>
 #include <zephyr/audio/dmic.h>
@@ -49,8 +49,12 @@ int dmic_ameba_read(const struct device *dev, uint8_t stream, void **buffer,
 	return 0;
 }
 
+#define I2S(idx) 		DT_NODELABEL(i2s##idx)
+#define I2S_NODE(idx) 	I2S(idx)
+#define I2S_BINDING 	I2S_NODE(DT_INST_PROP(0, i2s_index))
+
 static const struct _dmic_ops dmic_ameba_api = {
-#if DT_ANY_INST_ON_BUS_STATUS_OKAY(i2s)
+#if DT_NODE_HAS_STATUS(I2S_BINDING, okay)
 	.configure		= dmic_ameba_configure,
 	.trigger		= dmic_ameba_trigger,
 	.read			= dmic_ameba_read,
@@ -71,7 +75,7 @@ static int dmic_ameba_init(const struct device *dev)
 }
 
 static const struct dmic_ameba_config dmic_ameba_config = {
-	.comm_master = DEVICE_DT_GET(DT_INST_BUS(0)),
+	.comm_master = DEVICE_DT_GET(I2S_BINDING),
 };
 
 static struct dmic_ameba_data dmic_ameba_data;

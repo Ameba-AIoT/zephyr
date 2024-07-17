@@ -96,6 +96,14 @@
 		};
 	};
 
+	dmic_default: dmic_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_DMIC_CLK)>,
+					 <AMEBA_PINMUX('A', 27, AMEBA_DMIC_DATA)>;
+			bias-pull-up;
+		};
+	};
+
 	/* NOTE: PB16~PB19 CANNOT be selected by ADC and CTC simultaneously!!! */
 	/omit-if-no-ref/ adc_in0_pb19: adc_in0_pb19 {
 		pinmux = <AMEBA_PINMUX('B', 19, AMEBA_CAPTOUCH_AUX_ADC)>;
@@ -171,15 +179,18 @@
 	pinctrl-0 = <&i2s0_default>;
 	pinctrl-names = "default";
 	status = "okay";
-	dmic: dmic@0 {
-		compatible = "realtek,ameba-dmic";
-		reg = <0>;
-	};
 };
 
 &i2s1 {
 	pinctrl-0 = <&i2s1_default>;
 	pinctrl-names = "default";
+};
+
+&codec {
+	pinctrl-0 = <&dmic_default>;
+	pinctrl-names = "default";
+	i2s-index = <0>;
+	status = "okay";
 };
 
 &adc {

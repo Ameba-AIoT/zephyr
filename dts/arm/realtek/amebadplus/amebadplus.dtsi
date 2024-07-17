@@ -333,6 +333,13 @@
 			status = "disabled";
 		};
 
+		codec: codec@41106000 {
+			compatible = "realtek,ameba-codec";
+			reg = <0x41106000 0x830>;
+			clocks = <&rcc AMEBA_AC_CLK>;
+			status = "disabled";
+		};
+
 		rtc: rtc@41008a00 {
 			compatible = "realtek,ameba-rtc";
 			reg = <0x41008a00 0x30>;
