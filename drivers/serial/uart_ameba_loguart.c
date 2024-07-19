@@ -236,35 +236,9 @@ static void loguart_ameba_irq_callback_set(const struct device *dev,
 static int loguart_ameba_init(const struct device *dev)
 {
 	const struct loguart_ameba_config *config = dev->config;
-	struct loguart_ameba_data *data = dev->data;
-	LOGUART_InitTypeDef loguart_init_struct;
 
-	if (!device_is_ready(config->clock)) {
-		LOG_ERR("Clock control device not ready");
-		return -ENODEV;
-	}
-
-	if (clock_control_on(config->clock, config->clock_subsys)) {
-		LOG_ERR("Could not enable LOGUART clock");
-		return -EIO;
-	}
-
-	Pinmux_UartLogCtrl(PINMUX_S0, ON);
-
-	LOGUART_StructInit(&loguart_init_struct);
-
-	/* Wait Log_UART tx done, otherwise redundant data will be tx when re-initialize Log_UART */
-	LOGUART_WaitTxComplete();
-
-	/* Initialize Log_UART */
-	_LOGUART_Init(LOGUART_DEV, &loguart_init_struct);
-
-	/* Set baudrate */
 	LOGUART_RxCmd(LOGUART_DEV, DISABLE);
-	LOGUART_SetBaud(LOGUART_DEV, data->config.baudrate);
-	LOGUART_INTConfig(LOGUART_DEV, LOGUART_BIT_ERBI | LOGUART_BIT_ELSI, DISABLE);
 	LOGUART_INT_NP2AP();
-
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
 	config->irq_config_func(dev);
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
@@ -276,9 +250,9 @@ static int loguart_ameba_init(const struct device *dev)
 
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
 #define AMEBA_LOGUART_IRQ_HANDLER_DECL               \
-    static void loguart_ameba_irq_config_func(void);
+    static void loguart_ameba_irq_config_func(const struct device *dev);
 #define AMEBA_LOGUART_IRQ_HANDLER                    \
-    static void loguart_ameba_irq_config_func(void) \
+    static void loguart_ameba_irq_config_func(const struct device *dev) \
     {                                   \
         IRQ_CONNECT(DT_INST_IRQN(0),                \
                     DT_INST_IRQ(0, priority),               \
