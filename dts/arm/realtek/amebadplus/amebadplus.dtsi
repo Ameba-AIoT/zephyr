@@ -163,7 +163,8 @@
 			reg = <0x41017000 0x30>;
 			clocks = <&rcc AMEBA_LTIM0_CLK>;
 			interrupts = <10 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
+			status = "disabled";
 		};
 
 		timer1: counter@41017200 {
@@ -171,7 +172,7 @@
 			reg = <0x41017200 0x30>;
 			clocks = <&rcc AMEBA_LTIM1_CLK>;
 			interrupts = <11 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -180,7 +181,7 @@
 			reg = <0x41017400 0x30>;
 			clocks = <&rcc AMEBA_LTIM2_CLK>;
 			interrupts = <12 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -189,7 +190,7 @@
 			reg = <0x41017600 0x30>;
 			clocks = <&rcc AMEBA_LTIM3_CLK>;
 			interrupts = <13 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -198,7 +199,7 @@
 			reg = <0x41017800 0x30>;
 			clocks = <&rcc AMEBA_LTIM4_CLK>;
 			interrupts = <14 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -207,7 +208,7 @@
 			reg = <0x41017a00 0x30>;
 			clocks = <&rcc AMEBA_LTIM5_CLK>;
 			interrupts = <15 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -216,7 +217,7 @@
 			reg = <0x41017c00 0x30>;
 			clocks = <&rcc AMEBA_LTIM6_CLK>;
 			interrupts = <16 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -225,7 +226,7 @@
 			reg = <0x41017e00 0x30>;
 			clocks = <&rcc AMEBA_LTIM7_CLK>;
 			interrupts = <17 0>;
-			freq = <32768>;
+			clock-frequency = <32768>;
 			status = "disabled";
 		};
 
@@ -239,22 +240,12 @@
 			status = "disabled";
 		};
 
-		/* The Capture Timer (TIM9) support Statistic Pulse Width or Statistic Pulse Number */
-		pwm1: pwm@41100200 {
-			compatible = "realtek,ameba-pwm";
-			reg = <0x41100200 0x30>;
-			interrupts = <19 0>;
-			clocks = <&rcc AMEBA_PWM1_CLK>;
-			#pwm-cells = <3>;
-			status = "disabled";
-		};
-
 		timer10: counter@41100400 {
 			compatible = "realtek,ameba-counter";
 			reg = <0x41100400 0x30>;
 			clocks = <&rcc AMEBA_HTIM0_CLK>;
 			interrupts = <20 0>;
-			freq = <DT_FREQ_M(1)>;
+			clock-frequency = <DT_FREQ_M(1)>;
 			status = "disabled";
 		};
 
@@ -263,7 +254,7 @@
 			reg = <0x41100600 0x30>;
 			clocks = <&rcc AMEBA_HTIM1_CLK>;
 			interrupts = <21 0>;
-			freq = <DT_FREQ_M(1)>;
+			clock-frequency = <DT_FREQ_M(1)>;
 			status = "disabled";
 		};
 

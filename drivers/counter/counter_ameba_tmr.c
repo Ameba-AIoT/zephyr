@@ -25,7 +25,7 @@ struct counter_ameba_config {
 	int irq_source;
 	const struct device *clock_dev;
 	clock_control_subsys_t clock_subsys;
-	uint32_t freq;
+	uint32_t clock_frequency;
 	void (*irq_config_func)(const struct device *dev);
 };
 
@@ -156,7 +156,7 @@ static uint32_t counter_ameba_get_pending_int(const struct device *dev)
 static uint32_t counter_ameba_get_freq(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
-	return cfg->freq;
+	return cfg->clock_frequency;
 }
 
 static const struct counter_driver_api counter_api = {
@@ -210,7 +210,7 @@ static void counter_ameba_isr(const struct device *dev)
 		.irq_source = DT_INST_IRQN(n),				 \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
-		.freq = DT_INST_PROP(n, freq),	\
+		.clock_frequency = DT_INST_PROP(n, clock_frequency),	\
 		.irq_config_func = irq_config_##n\
 	};									 \
 										 \

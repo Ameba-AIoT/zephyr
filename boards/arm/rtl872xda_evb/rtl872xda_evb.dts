@@ -28,6 +28,7 @@
 		rtc = &rtc;
 		sw0 = &button0;
 		watchdog0 = &swdg;
+		pwm-0 = &pwm0;
 	};
 
 	buttons {

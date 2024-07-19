@@ -14,10 +14,10 @@ properties:
   interrupts:
     required: false
 
-  freq:
+  clock-frequency:
     type: int
     enum:
       - 32768
       - 1000000
-    description: freq of basic timer clk source
+    description: clock-frequency of basic timer clk source
 
