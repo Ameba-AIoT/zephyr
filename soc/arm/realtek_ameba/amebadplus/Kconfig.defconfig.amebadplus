@@ -9,4 +9,10 @@ config SOC
 config NUM_IRQS
 	default 96
 
+config AMEBADPLUS
+	bool
+	default y
+	help
+	  This option for code in modules/hal
+
 endif # SOC_AMEBADPLUS
