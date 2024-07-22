@@ -255,7 +255,7 @@
 			reg = <0x41100400 0x30>;
 			clocks = <&rcc AMEBA_HTIM0_CLK>;
 			interrupts = <20 0>;
-			freq = <DT_FREQ_M(40)>;
+			freq = <DT_FREQ_M(1)>;
 			status = "disabled";
 		};
 
@@ -264,7 +264,7 @@
 			reg = <0x41100600 0x30>;
 			clocks = <&rcc AMEBA_HTIM1_CLK>;
 			interrupts = <21 0>;
-			freq = <DT_FREQ_M(40)>;
+			freq = <DT_FREQ_M(1)>;
 			status = "disabled";
 		};
 

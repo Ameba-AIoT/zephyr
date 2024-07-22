@@ -16,6 +16,8 @@ properties:
 
   freq:
     type: int
-    # const: 32768
+    enum:
+      - 32768
+      - 1000000
     description: freq of basic timer clk source
 
