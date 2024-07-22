@@ -25,6 +25,39 @@ RAM_START_FUNCTION Img2EntryFun0 = {
 	(uint32_t)NewVectorTable
 };
 
+static void app_vdd1833_detect(void)
+{
+	ADC_InitTypeDef ADC_InitStruct;
+	u32 buf[16], i = 0;
+	u32 temp = 0;
+	u32 data = 0;
+
+	RCC_PeriphClockCmd(APBPeriph_ADC, APBPeriph_ADC_CLOCK, ENABLE);
+
+	ADC_StructInit(&ADC_InitStruct);
+	ADC_InitStruct.ADC_OpMode = ADC_AUTO_MODE;
+	ADC_InitStruct.ADC_CvlistLen = 0;
+	ADC_InitStruct.ADC_Cvlist[0] = ADC_CH9; // AVDD33
+	ADC_Init(&ADC_InitStruct);
+
+	ADC_Cmd(ENABLE);
+	ADC_ReceiveBuf(buf, 16);
+	ADC_Cmd(DISABLE);
+
+	while (i < 16) {
+		data += ADC_GET_DATA_GLOBAL(buf[i++]);
+	}
+	data >>= 4;
+
+	temp = HAL_READ32(SYSTEM_CTRL_BASE, REG_AON_RSVD_FOR_SW1);
+	if (data > 3000) { // 3000: about 2.4V
+		temp |= AON_BIT_WIFI_RF_1833_SEL;
+	} else {
+		temp &= ~AON_BIT_WIFI_RF_1833_SEL;
+		//RTK_LOGI(TAG, "IO Power 1.8V\n");
+	}
+	HAL_WRITE32(SYSTEM_CTRL_BASE, REG_AON_RSVD_FOR_SW1, temp);
+}
 
 static int amebadplus_app_init(void)
 {
@@ -35,6 +68,7 @@ static int amebadplus_app_init(void)
 	/* IPC table initialization */
 	ipc_table_init(IPCKM4_DEV);
 
+	app_vdd1833_detect();
 	return 0;
 }
 
