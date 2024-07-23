@@ -7,6 +7,7 @@
 #include <mem.h>
 #include <freq.h>
 #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
+#include <zephyr/dt-bindings/dma/ameba_dma.h>
 #include <zephyr/dt-bindings/led/led.h>
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
@@ -399,7 +400,7 @@
 			clocks = <&rcc AMEBA_DMAC_BCLK>;
 			interrupts = <33 0>, <34 0>, <35 0>, <36 0>, <37 0>, <38 0>, <39 0>, <40 0>;
 			interrupt-names = "CH0", "CH1", "CH2", "CH3", "CH4", "CH5", "CH6", "CH7";
-			#dma-cells = <1>;
+			#dma-cells = <3>;
 			dma-channels = <8>;
 			dma-buf-addr-alignment = <32>;
 			dma-buf-size-alignment = <32>;

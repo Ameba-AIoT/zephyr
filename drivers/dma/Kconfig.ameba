@@ -7,3 +7,13 @@ config DMA_AMEBA
 	default y
 	help
 	  General Purpose DMA for AMEBA series.
+
+if DMA_AMEBA
+
+config DMA_AMEBA_LLI
+	bool "AMEBA Linked List Mode"
+	default n
+	help
+	  This option supports data block in the form of linked lists.
+
+endif # DMA_AMEBA
