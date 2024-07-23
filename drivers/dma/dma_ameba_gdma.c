@@ -30,8 +30,6 @@ struct dma_ameba_channel {
 	struct GDMA_CH_LLI *link_node;
 	uint8_t relead_type;
 	uint8_t chnl_direction;
-	/* Mark the last block during multi-block reload transfer */
-	uint8_t one_left;
 	bool busy;
 };
 
@@ -123,15 +121,12 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	/* If multiple blocks perform reload transmission, the reload bit needs to be cleared when
 	   transmitting to the second block in reverse order.*/
 	if (data->channel_status[channel].block_num == data->channel_status[channel].block_id + 2) {
-		data->channel_status[channel].one_left = 1;
-	}
-	if (data->channel_status[channel].one_left) {
 		GDMA_ChCleanAutoReload(config->instane_id, channel, CLEAN_RELOAD_SRC_DST);
 	}
 
 	isr_type = GDMA_ClearINT(config->instane_id, channel);
 
-	if (isr_type & BlockType || data->channel_status[channel].one_left) {
+	if (isr_type & BlockType) {
 		LOG_DBG("dma block %d transfer complete.\n", data->channel_status[channel].block_id);
 		data->channel_status[channel].block_id++;
 	}
@@ -375,9 +370,6 @@ static int dma_ameba_stop(const struct device *dev, uint32_t channel)
 
 	data->channel_status[channel].busy = false;
 
-	if (data->channel_status[channel].one_left) {
-		data->channel_status[channel].one_left = 0;
-	}
 #ifdef CONFIG_DMA_AMEBA_LLI
 	/** @note free link list node */
 	if (data->channel_status[channel].link_node) {
@@ -516,7 +508,6 @@ static int dma_ameba_init(const struct device *dev)
 		data->channel_status[i].chnl_direction = 0;
 		data->channel_status[i].link_node = NULL;
 		data->channel_status[i].relead_type = GDMA_Single;
-		data->channel_status[i].one_left = 0;
 	}
 
 	data->dma_ctx.dma_channels = config->channel_num;
