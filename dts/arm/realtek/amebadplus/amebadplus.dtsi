@@ -165,7 +165,6 @@
 			clocks = <&rcc AMEBA_LTIM0_CLK>;
 			interrupts = <10 0>;
 			freq = <32768>;
-			status = "disabled";
 		};
 
 		timer1: counter@41017200 {
@@ -274,8 +273,6 @@
 			reg = <0x41008000 0x100>;
 			interrupts = <62 0>;
 			clocks = <&rcc AMEBA_LEDC_CLK>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&ledc_default>;
 			dma-mode = <0>;
 			chain-length = <16>;
 			output-rgb-mode = <0>;
@@ -288,6 +285,7 @@
 			data-tx-time1h = <0x18>;
 			data-tx-time1l = <0xC>;
 			refresh-time = <0x3FFF>;
+			status = "disabled";
 		};
 
 		i2s0: i2s@4012a000 {

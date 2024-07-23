@@ -10,6 +10,7 @@ CONFIG_CORTEX_M_SYSTICK=y
 
 # enable rcc
 CONFIG_CLOCK_CONTROL=y
+CONFIG_PINCTRL=y
 
 # enable uart
 CONFIG_SERIAL=y
@@ -28,38 +29,26 @@ CONFIG_HWINFO=y
 CONFIG_SHELL=y
 CONFIG_LOG=y
 
-CONFIG_PINCTRL=y
-
-# #enable spi Temporary
+# enable trng
+CONFIG_ENTROPY_GENERATOR=y
+CONFIG_DMA=y
+CONFIG_FLASH=y
 # CONFIG_SPI=y
-#enable i2c Temporary
-CONFIG_I2C=y
-# #enable timer Temporary
-# CONFIG_COUNTER=y
-# #enable i2s Temporary
+# CONFIG_I2C=y
+# CONFIG_WATCHDOG=y
+
+# CONFIG_RTC=y
+# CONFIG_ADC=y
+# CONFIG_LED_STRIP=y
+CONFIG_COUNTER=y
+# CONFIG_PWM=y
 # CONFIG_I2S=y
-# #enable audio Temporary
 # CONFIG_AUDIO=y
 # CONFIG_AUDIO_DMIC=y
-#enable rtc Temporary
-CONFIG_RTC=y
-# #enable crypto Temporary
 # CONFIG_CRYPTO=y
-#enable DMA Temporary
-CONFIG_DMA=y
-#enable WATCHDOG Temporary
-CONFIG_WATCHDOG=y
-#enable ADC Temporary
-# CONFIG_ADC=y
-#enable captouch Temporary
-CONFIG_INPUT=y
-#enable PWM Temporary
-CONFIG_PWM=y
 
-CONFIG_FLASH=y
-
-#enable trng
-CONFIG_ENTROPY_GENERATOR=y
+# enable captouch
+# CONFIG_INPUT=y
 
 #TODO
 CONFIG_DYNAMIC_INTERRUPTS=y

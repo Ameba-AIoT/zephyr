@@ -486,7 +486,6 @@ static int uart_ameba_init(const struct device *dev)
 
 static void uart_ameba_isr(const struct device *dev)
 {
-	const struct uart_ameba_config *config = dev->config;
 	struct uart_ameba_data *data = dev->data;
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
