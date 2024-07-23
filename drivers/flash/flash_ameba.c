@@ -81,7 +81,7 @@ static int flash_ameba_write(const struct device *dev,
 
 	flash_ameba_sem_take(dev);
 
-	FLASH_WriteStream(address, length, buffer);
+	FLASH_WriteStream(address, length, (u8 *)buffer);
 
 	flash_ameba_sem_give(dev);
 	return ret;

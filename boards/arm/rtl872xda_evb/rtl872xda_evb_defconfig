@@ -30,21 +30,21 @@ CONFIG_LOG=y
 
 CONFIG_PINCTRL=y
 
-#enable spi Temporary
-CONFIG_SPI=y
+# #enable spi Temporary
+# CONFIG_SPI=y
 #enable i2c Temporary
 CONFIG_I2C=y
-#enable timer Temporary
-CONFIG_COUNTER=y
-#enable i2s Temporary
-CONFIG_I2S=y
-#enable audio Temporary
-CONFIG_AUDIO=y
-CONFIG_AUDIO_DMIC=y
+# #enable timer Temporary
+# CONFIG_COUNTER=y
+# #enable i2s Temporary
+# CONFIG_I2S=y
+# #enable audio Temporary
+# CONFIG_AUDIO=y
+# CONFIG_AUDIO_DMIC=y
 #enable rtc Temporary
 CONFIG_RTC=y
-#enable crypto Temporary
-CONFIG_CRYPTO=y
+# #enable crypto Temporary
+# CONFIG_CRYPTO=y
 #enable DMA Temporary
 CONFIG_DMA=y
 #enable WATCHDOG Temporary
