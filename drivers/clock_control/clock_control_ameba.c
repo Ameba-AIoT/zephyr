@@ -8,7 +8,10 @@
  * @brief Driver for Realtek Ameba Clock Control
  */
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
+
 #include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
 

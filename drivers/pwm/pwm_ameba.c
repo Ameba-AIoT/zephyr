@@ -6,13 +6,15 @@
 
 #define DT_DRV_COMPAT realtek_ameba_pwm
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <errno.h>
-#include <string.h>
+
 #include <zephyr/drivers/pwm.h>
-#include <zephyr/kernel.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/kernel.h>
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(pwm_ameba, CONFIG_PWM_LOG_LEVEL);
 

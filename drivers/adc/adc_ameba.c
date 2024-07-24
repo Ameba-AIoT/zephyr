@@ -6,16 +6,15 @@
 
 #define DT_DRV_COMPAT realtek_ameba_adc
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <errno.h>
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
+
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/pinctrl.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
-#include <zephyr/logging/log.h>
 
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(adc_ameba, CONFIG_ADC_LOG_LEVEL);
 
 /* reference voltage for the ADC */

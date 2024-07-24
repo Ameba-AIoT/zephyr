@@ -9,21 +9,20 @@
  */
 #define DT_DRV_COMPAT realtek_ameba_uart
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
+#include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/pinctrl.h>
+#include <zephyr/irq.h>
+
 #ifdef CONFIG_UART_ASYNC_API
 #include <zephyr/drivers/dma.h>
 #endif
 
-#include <zephyr/drivers/pinctrl.h>
-#include <zephyr/device.h>
-#include <zephyr/drivers/uart.h>
-#include <ameba_soc.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
-#include <zephyr/drivers/clock_control.h>
-#include <errno.h>
-#include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/irq.h>
-
 LOG_MODULE_REGISTER(uart_ameba, CONFIG_UART_LOG_LEVEL);
 
 struct uart_ameba_config {

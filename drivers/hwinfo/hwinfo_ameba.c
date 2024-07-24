@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
+
 #include <zephyr/drivers/hwinfo.h>
-#include <string.h>
 
 ssize_t z_impl_hwinfo_get_device_id(uint8_t *buffer, size_t length)
 {
@@ -18,7 +20,7 @@ ssize_t z_impl_hwinfo_get_device_id(uint8_t *buffer, size_t length)
 		length = sizeof(uuid);
 	}
 
-	memcpy(buffer, uuid, length);
+	_memcpy(buffer, uuid, length);
 
 	return length;
 }

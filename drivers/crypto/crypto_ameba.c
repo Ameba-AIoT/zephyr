@@ -6,15 +6,15 @@
 
 #define DT_DRV_COMPAT realtek_ameba_crypto
 
-#include <zephyr/init.h>
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <zephyr/sys/__assert.h>
-#include <zephyr/crypto/crypto.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
-#include <zephyr/drivers/clock_control.h>
-#include <zephyr/sys/byteorder.h>
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
+#include <ameba_soc.h>
+
+#include <zephyr/crypto/crypto.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/kernel.h>
+// #include <zephyr/init.h>
+// #include <zephyr/sys/byteorder.h>
 
 #define LOG_LEVEL CONFIG_CRYPTO_LOG_LEVEL
 #include <zephyr/logging/log.h>
@@ -89,14 +89,15 @@ static int crypto_ameba_query_caps(const struct device *dev)
 
 static int crypto_ameba_init(const struct device *dev)
 {
-	const struct device *const clk = DEVICE_DT_GET(AMEBA_CLOCK_CONTROL_NODE);
+	ARG_UNUSED(dev);
+	// const struct device *const clk = DEVICE_DT_GET(AMEBA_CLOCK_CONTROL_NODE);
 	// struct crypto_ameba_data *data = CRYPTO_AMEBA_DATA(dev);
 	// const struct crypto_ameba_config *cfg = CRYPTO_AMEBA_CFG(dev);
 
-	if (!device_is_ready(clk)) {
-		LOG_ERR("clock control device not ready");
-		return -ENODEV;
-	}
+	// if (!device_is_ready(clk)) {
+	// 	LOG_ERR("clock control device not ready");
+	// 	return -ENODEV;
+	// }
 	// k_sem_init(&data->device_sem, 1, 1);
 	// k_sem_init(&data->session_sem, 1, 1);
 

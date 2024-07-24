@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <dt-bindings/pinctrl/realtek-amebadplus-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/amebadplus-pinctrl.h>
 
 &pinctrl {
 	compatible = "realtek,ameba-pinctrl";
@@ -222,5 +222,9 @@
 };
 
 &swdg {
+	status = "okay";
+};
+
+&cryp {
 	status = "okay";
 };

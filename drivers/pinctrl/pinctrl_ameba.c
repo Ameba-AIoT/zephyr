@@ -4,9 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
 #include <zephyr/drivers/pinctrl.h>
-#include <zephyr/dt-bindings/pinctrl/realtek-amebadplus-pinctrl.h>
-#include "ameba_soc.h"
+
+#define AMEBA_GET_PORT_NUM(pin_mux)		((pin_mux >> 13) & 0x03)
+#define AMEBA_GET_PIN_NUM(pin_mux)		((pin_mux >> 8) & 0x1f)
+#define AMEBA_GET_PIMNUX_ID(pin_mux)		(pin_mux & 0xFF)
 
 #define AMEBA_GPIO_PINNAME(PORT, PIN)			(((PORT) << 5) | ((PIN) & 0x1F))
 

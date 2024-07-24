@@ -6,14 +6,13 @@
 
 #define DT_DRV_COMPAT realtek_ameba_gpio
 
-#include "ameba_soc.h"
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
 
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <zephyr/irq.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/gpio/gpio_utils.h>
-#include <errno.h>
+#include <zephyr/irq.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(gpio_ameba, CONFIG_GPIO_LOG_LEVEL);

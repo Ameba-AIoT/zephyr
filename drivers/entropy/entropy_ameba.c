@@ -7,19 +7,22 @@
 /**
  * @brief Driver for Realtek Ameba TRNG
  */
-
 #define DT_DRV_COMPAT                   realtek_ameba_trng
 
-#include <string.h>
-#include <ameba_soc.h>
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
+#include <ameba_soc.h>
+
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/entropy.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/kernel.h>
 
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_trng, CONFIG_ENTROPY_LOG_LEVEL);
+
+struct entropy_ameba_config {
+	const struct device *clock_dev;
+	clock_control_subsys_t clock_subsys;
+};
 
 static int entropy_ameba_get_entropy(const struct device *dev, uint8_t *buf, uint16_t len)
 {
@@ -40,7 +43,6 @@ static int entropy_ameba_get_entropy_isr(const struct device *dev,
 		uint8_t *buf,
 		uint16_t len, uint32_t flags)
 {
-	ARG_UNUSED(dev);
 	ARG_UNUSED(flags);
 
 	/* the TRNG may cost some time to generator the data, the speed is 10Mbps
@@ -56,22 +58,17 @@ static int entropy_ameba_get_entropy_isr(const struct device *dev,
 	return ret;
 }
 
-
 static int entropy_ameba_init(const struct device *dev)
 {
-	ARG_UNUSED(dev);
-	const struct device *clock = AMEBA_CLOCK_CONTROL_DEV;
-	const clock_control_subsys_t clock_subsys = (clock_control_subsys_t)DT_CLOCKS_CELL_BY_IDX(
-				DT_NODELABEL(trng), 0, idx);
+	const struct entropy_ameba_config *config = dev->config;
 
-	if (!device_is_ready(clock)) {
+	if (!device_is_ready(config->clock_dev)) {
 		LOG_ERR("Clock control device not ready");
 		return -ENODEV;
 	}
 
-	/* enable clock */
-	if (clock_control_on(clock, clock_subsys)) {
-		LOG_ERR("Could not enable TRNG clock %d", (uint32_t)clock_subsys);
+	if (clock_control_on(config->clock_dev, config->clock_subsys)) {
+		LOG_ERR("Could not enable TRNG clock");
 		return -EIO;
 	}
 
@@ -83,11 +80,16 @@ static const struct entropy_driver_api entropy_ameba_api_funcs = {
 	.get_entropy_isr = entropy_ameba_get_entropy_isr,
 };
 
+static const struct entropy_ameba_config entropy_config = {
+	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(0)),
+	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
+};
+
 DEVICE_DT_INST_DEFINE(0,
 					  entropy_ameba_init,
 					  NULL,
 					  NULL,
-					  NULL,
+					  &entropy_config,
 					  PRE_KERNEL_1,
 					  CONFIG_ENTROPY_INIT_PRIORITY,
 					  &entropy_ameba_api_funcs);

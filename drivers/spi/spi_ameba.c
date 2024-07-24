@@ -10,14 +10,17 @@
 
 #define DT_DRV_COMPAT realtek_ameba_spi
 
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(ameba_spi, CONFIG_SPI_LOG_LEVEL);
-#include "ameba_soc.h"
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
 
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/pinctrl.h>
-
 #include <zephyr/drivers/clock_control.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(ameba_spi, CONFIG_SPI_LOG_LEVEL);
+
 #include "spi_context.h"
 
 struct spi_ameba_data {

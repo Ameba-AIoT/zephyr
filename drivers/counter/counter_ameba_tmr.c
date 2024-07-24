@@ -6,14 +6,14 @@
 
 #define DT_DRV_COMPAT realtek_ameba_counter
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <string.h>
-#include <zephyr/drivers/counter.h>
-#include <zephyr/spinlock.h>
-#include <zephyr/kernel.h>
-#include <zephyr/drivers/clock_control.h>
 
-#include <zephyr/device.h>
+#include <zephyr/drivers/counter.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/irq.h>
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_counter, CONFIG_COUNTER_LOG_LEVEL);
 

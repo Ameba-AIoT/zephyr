@@ -6,12 +6,14 @@
 
 #define DT_DRV_COMPAT realtek_ameba_watchdog
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <string.h>
+
 #include <zephyr/drivers/watchdog.h>
 #include <zephyr/drivers/clock_control.h>
-#include <zephyr/device.h>
 #include <zephyr/irq.h>
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(wdt_ameba, CONFIG_WDT_LOG_LEVEL);
 
@@ -107,7 +109,6 @@ static void wdt_ameba_isr(const struct device *dev)
 
 	WDG_INTConfig(config->WDG, WDG_BIT_EIE, DISABLE);
 	WDG_ClearINT(config->WDG, WDG_BIT_EIC);
-	WDG_Wait_Busy(config->WDG);
 }
 
 static const struct wdt_driver_api wdt_api = {

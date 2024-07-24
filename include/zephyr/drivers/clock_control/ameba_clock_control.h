@@ -11,8 +11,6 @@
 extern "C" {
 #endif
 
-#include <zephyr/drivers/clock_control.h>
-
 #if defined(CONFIG_SOC_SERIES_AMEBADPLUS)
 #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
 #else

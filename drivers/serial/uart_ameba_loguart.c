@@ -8,14 +8,16 @@
  * @brief Driver for Realtek Ameba LOGUART
  */
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
+
+#include <zephyr/drivers/uart.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
-#include <zephyr/drivers/uart.h>
 #include <zephyr/irq.h>
-#include <zephyr/logging/log.h>
 
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(loguart_ameba, CONFIG_UART_LOG_LEVEL);
 
 /*
@@ -28,10 +30,6 @@ LOG_MODULE_REGISTER(loguart_ameba, CONFIG_UART_LOG_LEVEL);
 
 /* Device config structure */
 struct loguart_ameba_config {
-	/* clock device */
-	const struct device *clock;
-	const clock_control_subsys_t clock_subsys;
-	const struct pinctrl_dev_config *pcfg;
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
 	uart_irq_config_func_t irq_config_func;
 #endif
@@ -308,8 +306,6 @@ AMEBA_LOGUART_IRQ_HANDLER_DECL
 AMEBA_LOGUART_IRQ_HANDLER
 
 static const struct loguart_ameba_config loguart_config = {
-	.clock = AMEBA_CLOCK_CONTROL_DEV,
-	.clock_subsys = (clock_control_subsys_t)DT_CLOCKS_CELL(DT_NODELABEL(loguart), idx),
 	AMEBA_LOGUART_IRQ_HANDLER_FUNC
 };
 

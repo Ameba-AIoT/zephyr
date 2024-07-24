@@ -11,21 +11,20 @@
 #define DT_DRV_COMPAT realtek_ameba_ledc
 #define ENABLE_DMA_MODE  0
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
 #include <zephyr/drivers/led_strip.h>
-#include <string.h>
+#include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/clock_control.h>
+#include <zephyr/dt-bindings/led/led.h>
+
+#include <zephyr/kernel.h>
 
 #define LOG_LEVEL CONFIG_LED_STRIP_LOG_LEVEL
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ledc_ameba);
-
-#include <ameba_soc.h>
-#include <soc.h>
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <zephyr/drivers/pinctrl.h>
-#include <zephyr/drivers/clock_control.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
-#include <zephyr/dt-bindings/led/led.h>
 
 #define RESULT_RUNNING             0
 #define RESULT_COMPLETE            1
@@ -286,8 +285,8 @@ static const uint8_t ameba_ledc_color_mapping[] = DT_INST_PROP(0, color_mapping)
 static struct ameba_ledc_data_struct ameba_ledc_data;
 static const struct ameba_ledc_cfg_struct ameba_ledc_cfg = {
 	.pinctrl_dev = PINCTRL_DT_INST_DEV_CONFIG_GET(0),
-	.clock_dev = AMEBA_CLOCK_CONTROL_DEV,
-	.clock_subsys = (clock_control_subsys_t)DT_CLOCKS_CELL(DT_NODELABEL(ledc), idx),
+	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(0)),
+	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
 	.num_colors = DT_INST_PROP_LEN(0, color_mapping),
 	.color_mapping = ameba_ledc_color_mapping,
 

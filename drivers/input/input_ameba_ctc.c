@@ -6,14 +6,16 @@
 
 #define DT_DRV_COMPAT realtek_ameba_captouch
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
+
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <stdbool.h>
 #include <zephyr/input/input.h>
-#include <zephyr/logging/log.h>
 
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ctc_ameba, CONFIG_INPUT_LOG_LEVEL);
 
 /* Device config structure */
@@ -70,22 +72,22 @@ static int ctc_ameba_init(const struct device *dev)
 	if (ARRAY_SIZE(ctc_bias) != ctc_ch_num) {
 		LOG_ERR("Unmatched mbias_current count!");
 		return -EIO;
-        }
+	}
 
 	if (ARRAY_SIZE(ctc_nnoise_th) != ctc_ch_num) {
 		LOG_ERR("Unmatched nnoise_thre count!");
 		return -EIO;
-        }
+	}
 
 	if (ARRAY_SIZE(ctc_pnoise_th) != ctc_ch_num) {
 		LOG_ERR("Unmatched pnoise_thre count!");
 		return -EIO;
-        }
+	}
 
 	if (ARRAY_SIZE(ctc_ch_sts) != ctc_ch_num) {
 		LOG_ERR("Unmatched channel_status count!");
 		return -EIO;
-        }
+	}
 
 	if (!device_is_ready(config->clock)) {
 		LOG_ERR("Clock control device not ready");
@@ -135,8 +137,8 @@ PINCTRL_DT_INST_DEFINE(0);
 static const struct ctc_ameba_config ctc_config = {
 	.captouch = (CAPTOUCH_TypeDef *)DT_INST_REG_ADDR(0),
 	.channel_count = DT_INST_PROP(0, channel_count),
-	.clock = AMEBA_CLOCK_CONTROL_DEV,
-	.clock_subsys = (clock_control_subsys_t)DT_CLOCKS_CELL(DT_NODELABEL(ctc), idx),
+	.clock = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(0)),
+	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
 	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(0),
 };
 

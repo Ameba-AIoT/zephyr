@@ -6,16 +6,18 @@
 
 #define DT_DRV_COMPAT realtek_ameba_i2s
 
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include <string.h>
+
 #include <zephyr/drivers/i2s.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/pinctrl.h>
 
-#include "i2s_ameba.h"
-#include <zephyr/logging/log.h>
 #include <zephyr/irq.h>
+#include "i2s_ameba.h"
+
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(i2s_ameba);
 
 uint32_t AudioTxSingleHandler(void *Data)

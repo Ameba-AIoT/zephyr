@@ -6,7 +6,10 @@
 
 #define DT_DRV_COMPAT realtek_ameba_codec
 
-#include <zephyr/devicetree.h>
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
 #include <zephyr/audio/dmic.h>
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>

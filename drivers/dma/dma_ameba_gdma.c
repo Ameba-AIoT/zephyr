@@ -6,14 +6,17 @@
 
 #define DT_DRV_COMPAT realtek_ameba_gdma
 
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(dma_ameba_gdma, CONFIG_DMA_LOG_LEVEL);
-
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
 #include <ameba_soc.h>
-#include "dma_ameba_gdma.h"
-#include <zephyr/kernel.h>
+
 #include <zephyr/drivers/dma.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/kernel.h>
+#include "dma_ameba_gdma.h"
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(dma_ameba_gdma, CONFIG_DMA_LOG_LEVEL);
 
 enum dma_reload_type {
 	GDMA_Single  = 0,
@@ -21,6 +24,7 @@ enum dma_reload_type {
 	GDMA_ReloadSrc,
 	GDMA_ReloadSrcDst,
 };
+
 struct dma_ameba_channel {
 	uint32_t block_size;
 	uint32_t block_num;
@@ -39,7 +43,6 @@ struct dma_ameba_data {
 	ATOMIC_DEFINE(channels_atomic, DT_INST_PROP(0, dma_channels));
 	struct dma_ameba_channel *channel_status;
 };
-
 
 struct dma_ameba_config {
 	uint32_t base;

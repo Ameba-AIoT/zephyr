@@ -6,21 +6,15 @@
 
 #define DT_DRV_COMPAT realtek_ameba_rtc
 
-#include "ameba_soc.h"
-#include <errno.h>
-#include <zephyr/device.h>
-#include <zephyr/kernel.h>
-#include <zephyr/init.h>
-#include <zephyr/devicetree.h>
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
 #include <zephyr/drivers/rtc.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
-#include <zephyr/sys/util.h>
+#include <zephyr/kernel.h>
 
 #include <zephyr/logging/log.h>
-
-#include <stdbool.h>
-
 LOG_MODULE_REGISTER(rtc_ameba, CONFIG_RTC_LOG_LEVEL);
 
 /* RTC start time: 1st, Jan, 1900 */

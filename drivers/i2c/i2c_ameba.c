@@ -9,18 +9,15 @@
  */
 #define DT_DRV_COMPAT realtek_ameba_i2c
 
-#include <ameba_soc.h>
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
-#include <errno.h>
-#include <zephyr/drivers/gpio.h>
+#include <ameba_soc.h>
+
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/i2c.h>
-#include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/clock_control.h>
-#include <zephyr/sys/util.h>
-#include <string.h>
+
 #include <zephyr/logging/log.h>
-#include <zephyr/irq.h>
 LOG_MODULE_REGISTER(i2c_ameba, CONFIG_I2C_LOG_LEVEL);
 
 #include "i2c-priv.h"

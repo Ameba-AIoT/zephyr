@@ -3,24 +3,22 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
 #define DT_DRV_COMPAT realtek_ameba_flash_controller
+
+/* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
+#include <soc.h>
+#include <ameba_soc.h>
+
+#include <zephyr/drivers/flash.h>
+#include <zephyr/kernel.h>
+
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(flash_ameba, CONFIG_FLASH_LOG_LEVEL);
+
 #define SOC_NV_FLASH_NODE DT_INST(0, soc_nv_flash)
 
 #define FLASH_WRITE_BLK_SZ DT_PROP(SOC_NV_FLASH_NODE, write_block_size)
 #define FLASH_ERASE_BLK_SZ DT_PROP(SOC_NV_FLASH_NODE, erase_block_size)
-
-#include <ameba_soc.h>
-
-#include <zephyr/kernel.h>
-#include <zephyr/device.h>
-#include <stddef.h>
-#include <string.h>
-#include <errno.h>
-#include <zephyr/drivers/flash.h>
-
-#include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(flash_ameba, CONFIG_FLASH_LOG_LEVEL);
 
 #define FLASH_SEM_TIMEOUT (k_is_in_isr() ? K_NO_WAIT : K_FOREVER)
 
