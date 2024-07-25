@@ -419,6 +419,15 @@
 			status = "disabled";
 		};
 
+		wifi: wifi {
+			compatible = "realtek,ameba-wifi";
+			status = "disabled";
+		};
+
+		eth: eth {
+			compatible = "realtek,ameba-eth";
+			status = "disabled";
+		};
 	};
 };
 
