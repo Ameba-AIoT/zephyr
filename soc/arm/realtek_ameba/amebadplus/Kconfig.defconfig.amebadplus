@@ -15,4 +15,7 @@ config AMEBADPLUS
 	help
 	  This option for code in modules/hal
 
+config CACHE_MANAGEMENT
+	default y
+
 endif # SOC_AMEBADPLUS

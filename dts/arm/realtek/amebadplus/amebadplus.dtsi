@@ -6,7 +6,7 @@
 
 #include <mem.h>
 #include <freq.h>
-#include <arm/armv8-m.dtsi>
+#include <arm/armv8.1-m.dtsi>
 
 #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
 #include <zephyr/dt-bindings/dma/ameba_dma.h>
@@ -24,8 +24,9 @@
 
 		cpu0: cpu@0 {
 			device_type = "cpu";
-			compatible = "arm,cortex-m33";
+			compatible = "arm,cortex-m55";
 			reg = <0>;
+			d-cache-line-size = <32>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 		};

@@ -8,6 +8,7 @@
 #include <zephyr/device.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
+#include <zephyr/cache.h>
 
 
 #define SECTION(_name)      __attribute__ ((__section__(_name)))
@@ -61,8 +62,6 @@ static void app_vdd1833_detect(void)
 
 static int amebadplus_app_init(void)
 {
-	ICache_Enable();
-
 	/* Register IPC interrupt */
 	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI5, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
 	irq_enable(IPC_KM4_IRQ);
@@ -76,9 +75,13 @@ static int amebadplus_app_init(void)
 
 static int amebadplus_init(void)
 {
-	/* Update CMSIS SystemCoreClock variable (HCLK) */
-	/* At reset, system core clock is set to 4 MHz from MSI */
-	// SystemCoreClock = 4000000;
+	/*
+	 * Cache is enabled by default at reset, disable it before
+	 * sys_cache*-functions can enable them.
+	 */
+	Cache_Enable(DISABLE);
+	sys_cache_instr_enable();
+	sys_cache_data_enable();
 
 	/* do xtal/osc clk init */
 	SystemCoreClockUpdate();

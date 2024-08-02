@@ -10,10 +10,10 @@
  *
  * This module contains functions for manipulation caches.
  */
-
+#include "ameba_soc.h"
 #include <zephyr/arch/cpu.h>
 #include <zephyr/cache.h>
-#include <cmsis_core.h>
+// #include <cmsis_core.h>
 
 void arch_dcache_enable(void)
 {
@@ -101,7 +101,7 @@ int arch_icache_flush_range(void *start_addr, size_t size)
 
 int arch_icache_invd_range(void *start_addr, size_t size)
 {
-	SCB_InvalidateICache_by_Addr(start_addr, size);
+	// SCB_InvalidateICache_by_Addr(start_addr, size);
 
 	return 0;
 }
