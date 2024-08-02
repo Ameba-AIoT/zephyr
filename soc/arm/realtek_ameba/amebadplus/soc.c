@@ -61,6 +61,8 @@ static void app_vdd1833_detect(void)
 
 static int amebadplus_app_init(void)
 {
+	ICache_Enable();
+
 	/* Register IPC interrupt */
 	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI5, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
 	irq_enable(IPC_KM4_IRQ);

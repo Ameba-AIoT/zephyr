@@ -29,6 +29,9 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 
 #define DHCPV4_MASK (NET_EVENT_IPV4_DHCP_BOUND | NET_EVENT_IPV4_DHCP_STOP)
 
+typedef int (*wifi_rxcb_t)(uint8_t idx, void *buffer, uint16_t len);
+extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
+extern int (*tx_read_pkt_ptr)(void *pkt_addr, void *data, size_t length);
 
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
@@ -55,6 +58,189 @@ K_THREAD_STACK_DEFINE(rtk_wifi_event_stack, CONFIG_RTK_WIFI_EVENT_TASK_STACK_SIZ
 static struct k_thread rtk_wifi_event_thread;
 /* for add dhcp callback in mgmt_thread in net_mgmt */
 static struct net_mgmt_event_callback rtk_dhcp_cb = {0};
+
+
+#define MAX_IP_ADDR_LEN 16
+
+char ip_addr_str[MAX_IP_ADDR_LEN];
+
+static void dhcpv4_handler(struct net_mgmt_event_callback *cb,
+						   uint32_t mgmt_event, struct net_if *iface)
+{
+	struct net_if_addr *if_addr;
+	struct in_addr ip_addr;
+
+	if (mgmt_event == NET_EVENT_IPV4_ADDR_ADD) {
+		if_addr = net_if_ipv4_addr_add(net_if_get_default(), &ip_addr, NET_ADDR_DHCP, 0);
+		if (if_addr) {
+			if (net_addr_ntop(AF_INET, &if_addr->address.in_addr, ip_addr_str,
+							  sizeof(ip_addr_str))) {
+				LOG_INF("DHCPv4 IP address: %s\n", ip_addr_str);
+			}
+		}
+	}
+}
+
+#if 1
+static struct net_context *udp_ctx;
+K_SEM_DEFINE(udp_send_wait1, 0, 1);
+
+static void udp_rcvd(struct net_context *context, struct net_pkt *pkt,
+					 union net_ip_header *ip_hdr,
+					 union net_proto_header *proto_hdr, int status,
+					 void *user_data)
+{
+	if (pkt) {
+		size_t len = net_pkt_remaining_data(pkt);
+		uint8_t byte;
+
+		LOG_INF("Received UDP packet: ");
+		for (size_t i = 0; i < len; ++i) {
+			net_pkt_read_u8(pkt, &byte);
+			LOG_INF("%02x ", byte);
+		}
+		LOG_INF("\n");
+
+		net_pkt_unref(pkt);
+	}
+}
+
+static void udp_sent(struct net_context *context, int status, void *user_data)
+{
+	ARG_UNUSED(context);
+	ARG_UNUSED(status);
+	ARG_UNUSED(user_data);
+
+	LOG_INF("Message sent\n");
+	k_sem_give(&udp_send_wait1);
+}
+
+#define BUFFER_SIZE 1400
+char iperf_buffer[BUFFER_SIZE];
+#define PR_WARNING DiagPrintf
+
+#define KB 1024
+
+static int udp_send_test(void)
+{
+
+	char *host = NULL;
+	char *endptr = NULL;
+	uint16_t port;
+	uint8_t *payload = NULL;
+	int ret;
+	uint32_t start_time, end_time;
+	uint64_t total_size = 0, bandwidth_size = 0, report_size = 0;
+	struct net_if *iface;
+	struct sockaddr addr;
+	int addrlen;
+	char argv[5][20] = {" ", "192.168.51.243", "5003", "12345678", "  "};
+
+	host = argv[1];
+	port = strtol(argv[2], &endptr, 0);
+	for (int i = 0; i < BUFFER_SIZE; i++) {
+		iperf_buffer[i] = i;
+	}
+
+	iperf_buffer[BUFFER_SIZE - 1] = '\0';
+
+	payload = iperf_buffer;
+
+	if (endptr == argv[2]) {
+		LOG_ERR("Invalid port number\n");
+		return -EINVAL;
+	}
+
+	if (udp_ctx && net_context_is_used(udp_ctx)) {
+		LOG_ERR("Network context already in use\n");
+		return -EALREADY;
+	}
+
+	memset(&addr, 0, sizeof(addr));
+	ret = net_ipaddr_parse(host, strlen(host), &addr);
+	if (ret < 0) {
+		LOG_ERR("Cannot parse address \"%s\"\n", host);
+		return ret;
+	}
+
+	ret = net_context_get(addr.sa_family, SOCK_DGRAM, IPPROTO_UDP,
+						  &udp_ctx);
+	if (ret < 0) {
+		LOG_ERR("Cannot get UDP context (%d)\n", ret);
+		return ret;
+	}
+
+
+	if (IS_ENABLED(CONFIG_NET_IPV6) && addr.sa_family == AF_INET6) {
+		net_sin6(&addr)->sin6_port = htons(port);
+		addrlen = sizeof(struct sockaddr_in6);
+
+		iface = net_if_ipv6_select_src_iface(
+					&net_sin6(&addr)->sin6_addr);
+	} else if (IS_ENABLED(CONFIG_NET_IPV4) && addr.sa_family == AF_INET) {
+		net_sin(&addr)->sin_port = htons(port);
+		addrlen = sizeof(struct sockaddr_in);
+
+		iface = net_if_ipv4_select_src_iface(
+					&net_sin(&addr)->sin_addr);
+	} else {
+		LOG_ERR("IPv6 and IPv4 are disabled, cannot %s.\n", "send");
+		goto release_ctx;
+	}
+
+	if (!iface) {
+		LOG_ERR("No interface to send to given host\n");
+		goto release_ctx;
+	}
+
+	net_context_set_iface(udp_ctx, iface);
+
+	ret = net_context_recv(udp_ctx, udp_rcvd, K_NO_WAIT, NULL);
+	if (ret < 0) {
+		PR_WARNING("Setting rcv callback failed (%d)\n", ret);
+		goto release_ctx;
+	}
+
+	start_time = rtos_time_get_current_system_time_ms();
+	end_time = start_time;
+	total_size = 0;
+	while (1) {
+		ret = net_context_sendto(udp_ctx, payload, BUFFER_SIZE, &addr,
+								 addrlen, NULL, K_FOREVER, NULL);
+
+		if (ret < 0) {
+			LOG_ERR("Sending packet failed (%d)\n", ret);
+			k_msleep(1);
+			//goto release_ctx;
+		} else {
+			total_size += BUFFER_SIZE;
+			report_size += BUFFER_SIZE;
+		}
+		end_time = rtos_time_get_current_system_time_ms();
+		if ((end_time - start_time) > 1000) {
+			LOG_INF("udp_c: Send %d KBytes in %d ms, %d Kbits/sec\n\r", (int)(report_size / KB),
+					(int)(end_time - start_time),
+					(int)((report_size * 8) / (end_time - start_time)));
+			start_time = end_time;
+			report_size = 0;
+		}
+	}
+
+	ret = k_sem_take(&udp_send_wait1, K_SECONDS(2));
+	if (ret == -EAGAIN) {
+		PR_WARNING("UDP packet sending failed\n");
+	}
+
+release_ctx:
+	ret = net_context_put(udp_ctx);
+	if (ret < 0) {
+		PR_WARNING("Cannot put UDP context (%d)\n", ret);
+	}
+
+	return 0;
+}
+#endif
+
 
 /* called in mgmt_thread in net_mgmt */
 static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
@@ -89,46 +275,28 @@ int rtk_event_send_internal(int32_t event_id, void *event_data, size_t event_dat
 	k_msgq_put(&rtk_wifi_msgq, &evt, K_FOREVER);
 }
 
-static uint8_t rtk_wifi_getidx(const char *buf)
+
+static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 {
-#if 0
-	struct ethhdr etherhdr;
-	int idx = STA_WLAN_INDEX;
-	if (memcmp(dev_data->mac_addr[STA_WLAN_INDEX], &etherhdr.h_source, ETH_ALEN) == 0) {
-		return STA_WLAN_INDEX;
-	} else if (memcmp(dev_data->mac_addr[SOFTAP_WLAN_INDEX], &etherhdr.h_source, ETH_ALEN) == 0) {
-		return SOFTAP_WLAN_INDEX;
-	} else {
-		return STA_WLAN_INDEX;
-	}
-#endif
-	return STA_WLAN_INDEX;
-
-}
-
-int rtk_wifi_internal_tx(const char *buf, size_t buf_len)
-{
-	uint32_t wlan_idx = STA_WLAN_INDEX; //rtk_wifi_getidx(buf);
-	int ret = 0;
-	struct eth_drv_sg sg_list;
-	sg_list.buf = (unsigned int)buf;
-	sg_list.len = buf_len;
-
-#ifndef ZEPHYR_WIFI_TODO
-	/* zephyr wifi todo 这边目前buf copy了两次，第一次net_pkt_read到buf，第二次copy到skb, 待优化 */
-#endif
-	ret = inic_host_send(wlan_idx, &sg_list, 1, buf_len, NULL);
-	return ret;
-}
-
-
-/* zephyr wifi todo, now for sta only */
-static int rtk_wifi_send(const struct device *dev, struct net_pkt *pkt)
-{
-
 	struct rtk_wifi_runtime *data = dev->data;
 	const int pkt_len = net_pkt_get_len(pkt);
+	int ret, idx;
 
+	struct net_if *iface = net_pkt_iface(pkt);
+
+	if (rtk_wifi_iface[STA_WLAN_INDEX] == iface) {
+		idx = STA_WLAN_INDEX;
+	} else {
+		idx = SOFTAP_WLAN_INDEX;
+	}
+
+	ret = inic_host_send_zephyr(idx, pkt, pkt_len);
+	if (ret != 0) {
+		LOG_ERR("send  error %d\r\n", ret);
+	}
+	return ret;
+
+#if 0
 	uint8_t *buf = rtos_mem_malloc(NET_ETH_MAX_FRAME_SIZE);
 	/* Read the packet payload */
 	if (net_pkt_read(pkt, buf, pkt_len) < 0) {
@@ -156,16 +324,18 @@ out:
 	data->stats.errors.tx++;
 #endif
 	return -EIO;
+#endif
 }
 
 static void dump_buf(char *info, uint8_t *buf, uint32_t len)
 {
-	DiagPrintf("%s", info);
+	LOG_INF("%s", info);
 	for (int i = 0; i < len; i++) {
-		DiagPrintf("%s0x%02X%s", i % 16 == 0 ? "\n     " : ",",
-				   buf[i], i == len - 1 ? "\n" : "");
+		LOG_INF("%s0x%02X%s", i % 16 == 0 ? "\n     " : ",",
+				buf[i], i == len - 1 ? "\n" : "");
 	}
 }
+
 
 /* should called in driver after rx, can call rx_callback_ptr in driver */
 static int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
@@ -189,8 +359,6 @@ static int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
 		goto pkt_unref;
 	}
 	if (net_recv_data(rtk_wifi_iface[idx], pkt) < 0) {
-
-		printf("%s %d \r\n", __func__, __LINE__);
 		LOG_ERR("Failed to push received data");
 		goto pkt_unref;
 	}
@@ -239,43 +407,44 @@ static void scan_done_handler(unsigned int scanned_AP_num, void *user_data)
 		goto out;
 	}
 
-	//if (rtk_data.scan_cb) {
-	for (i = 0; i < scanned_AP_num; i++) {
-		scanned_AP_info = (rtw_scan_result_t *)(scan_buf + i * (sizeof(rtw_scan_result_t)));
-		scanned_AP_info->SSID.val[scanned_AP_info->SSID.len] = 0; /* Ensure the SSID is null terminated */
+	if (rtk_data.scan_cb) {
+		for (i = 0; i < scanned_AP_num; i++) {
+			scanned_AP_info = (rtw_scan_result_t *)(scan_buf + i * (sizeof(rtw_scan_result_t)));
+			scanned_AP_info->SSID.val[scanned_AP_info->SSID.len] = 0; /* Ensure the SSID is null terminated */
 
-		memset(&res, 0, sizeof(struct wifi_scan_result));
-		ssid_len = scanned_AP_info->SSID.len;
+			memset(&res, 0, sizeof(struct wifi_scan_result));
+			ssid_len = scanned_AP_info->SSID.len;
 
-		res.ssid_length = scanned_AP_info->SSID.len;
-		strncpy(res.ssid, scanned_AP_info->SSID.val, ssid_len);
-		res.rssi = scanned_AP_info->signal_strength;
-		res.channel = scanned_AP_info->channel;
-		res.security = WIFI_SECURITY_TYPE_NONE;
-		if (scanned_AP_info->security > RTW_SECURITY_OPEN) {
-			res.security = WIFI_SECURITY_TYPE_PSK;
+			res.ssid_length = scanned_AP_info->SSID.len;
+			strncpy(res.ssid, scanned_AP_info->SSID.val, ssid_len);
+			res.rssi = scanned_AP_info->signal_strength;
+			res.channel = scanned_AP_info->channel;
+			res.security = WIFI_SECURITY_TYPE_NONE;
+			if (scanned_AP_info->security > RTW_SECURITY_OPEN) {
+				res.security = WIFI_SECURITY_TYPE_PSK;
+			}
+
+			print_scan_result(scanned_AP_info);
+			//rtk_data.scan_cb(rtk_wifi_iface[STA_WLAN_INDEX], 0, &res);
+			/* ensure notifications get delivered */
+			k_yield();
 		}
-
-		print_scan_result(scanned_AP_info);
-		//rtk_data.scan_cb(rtk_wifi_iface[STA_WLAN_INDEX], 0, &res);
-		/* ensure notifications get delivered */
-		k_yield();
 	}
-	//}
 
 out:
 	if (scan_buf) {
 		k_free(scan_buf);
 	}
 	/* report end of scan event */
-//	rtk_data.scan_cb(rtk_wifi_iface[STA_WLAN_INDEX], 0, NULL);	// callback in mgmt.c to inform upper
-//	rtk_data.scan_cb = NULL;
+	rtk_data.scan_cb(rtk_wifi_iface[STA_WLAN_INDEX], 0, NULL);	// callback in mgmt.c to inform upper
+	rtk_data.scan_cb = NULL;
 }
 
 static void rtk_wifi_handle_connect_event(void)
 {
-	if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
+	if (1) {//IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
 		net_dhcpv4_start(rtk_wifi_iface[STA_WLAN_INDEX]);
+
 	} else {
 		wifi_mgmt_raise_connect_result_event(rtk_wifi_iface[STA_WLAN_INDEX], 0);
 	}
@@ -303,8 +472,6 @@ int rtk_wifi_connect_test(struct wifi_connect_req_params *params)
 	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
 	wifi.ssid.val[params->ssid_length] = '\0';
 	wifi.ssid.len = params->ssid_length;
-
-	//wifi.channel = params->channel;
 
 	if (params->security == WIFI_SECURITY_TYPE_PSK) {
 		memcpy(password, params->psk, params->psk_length);
@@ -335,7 +502,6 @@ int rtk_wifi_connect_test(struct wifi_connect_req_params *params)
 
 	return 0;
 }
-
 
 static void rtk_wifi_event_task(void)
 {
@@ -380,12 +546,12 @@ static void rtk_wifi_event_task(void)
 	}
 }
 
-static int rtk_wifi_disconnect(const struct device *dev)
+static int ameba_wifi_disconnect(const struct device *dev)
 {
 	int ret = 0;
 
 	if (wifi_is_connected_to_ap() != RTW_SUCCESS) {
-		printf("\n\rnot connected yet");
+		LOG_INF("\n\rnot connected yet");
 		return -EALREADY;
 	}
 
@@ -395,21 +561,23 @@ static int rtk_wifi_disconnect(const struct device *dev)
 }
 
 /* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
-int rtk_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
+int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
 {
 	struct rtk_wifi_runtime *data = dev->data;
 	int ret;
+	net_eth_carrier_on(rtk_wifi_iface[STA_WLAN_INDEX]);
 
 	if (data->state == RTK_STA_CONNECTING || data->state == RTK_STA_CONNECTED) {
 		wifi_mgmt_raise_connect_result_event(rtk_wifi_iface[STA_WLAN_INDEX], -1);
 		return -EALREADY;
 	}
 
-	if (data->state != RTK_STA_STARTED) {
-		LOG_ERR("Wi-Fi not in station mode");
-		wifi_mgmt_raise_connect_result_event(rtk_wifi_iface[STA_WLAN_INDEX], -1);
-		return -EIO;
-	}
+	// TBD
+	//if (data->state != RTK_STA_STARTED) {
+	//LOG_ERR("Wi-Fi not in station mode");
+	///	wifi_mgmt_raise_connect_result_event(rtk_wifi_iface[STA_WLAN_INDEX], -1);
+	//	return -EIO;
+	///}
 
 	data->state = RTK_STA_CONNECTING;
 
@@ -418,6 +586,7 @@ int rtk_wifi_connect(const struct device *dev, struct wifi_connect_req_params *p
 
 	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
 	wifi.ssid.val[params->ssid_length] = '\0';
+	wifi.ssid.len = params->ssid_length;
 
 	wifi.channel = params->channel;
 
@@ -426,6 +595,7 @@ int rtk_wifi_connect(const struct device *dev, struct wifi_connect_req_params *p
 		password[params->psk_length] = '\0';
 		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
 		wifi.password = password;
+		wifi.password_len = params->psk_length;
 	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
 		wifi.security_type = RTW_SECURITY_OPEN;
 		wifi.password = NULL;
@@ -451,8 +621,8 @@ int rtk_wifi_connect(const struct device *dev, struct wifi_connect_req_params *p
 	return 0;
 }
 
-static int rtk_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
-						 scan_result_cb_t cb)
+static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
+						   scan_result_cb_t cb)
 {
 	struct rtk_wifi_runtime *data = dev->data;
 	int ret = 0;
@@ -471,7 +641,7 @@ static int rtk_wifi_scan(const struct device *dev, struct wifi_scan_params *para
 	data->scan_cb = cb;
 
 	if ((ret = wifi_scan_zephyr((void *)scan_done_handler)) != RTW_SUCCESS) {
-		LOG_ERR("Failed  to start Wi-Fi scanning");
+		LOG_ERR("Failed to start Wi-Fi scanning");
 		return -EAGAIN;
 	}
 
@@ -480,7 +650,7 @@ static int rtk_wifi_scan(const struct device *dev, struct wifi_scan_params *para
 }
 
 /* zephyr wifi todo, remove to driver later */
-static int rtk_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_params *params)
+static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_params *params)
 {
 	struct rtk_wifi_runtime *data = dev->data;
 	int ret = 0;
@@ -491,8 +661,9 @@ static int rtk_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_
 	/* Build Wi-Fi configuration for AP mode */
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
 	data->status.ssid[params->ssid_length] = '\0';
-
 	strncpy((char *)ap.ssid.val, params->ssid, params->ssid_length);
+	ap.ssid.len = params->ssid_length;
+
 
 	if (params->psk_length == 0) {
 		ap.password_len = 0;
@@ -519,7 +690,7 @@ static int rtk_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_
 	return 0;
 }
 
-void rtk_wifi_ap_disable(const struct device *dev)
+void ameba_wifi_ap_disable(const struct device *dev)
 {
 	(void) dev;
 
@@ -530,13 +701,15 @@ void rtk_wifi_ap_disable(const struct device *dev)
 
 }
 
-/* zephyr wifi todo, 怎么从dev中获得iface的信息 */
-static int rtk_wifi_status(const struct device *dev, struct wifi_iface_status *status)
+static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status *status)
 {
 	struct rtk_wifi_runtime *data = dev->data;
 	//wifi_mode_t mode;
 	//wifi_config_t conf;
 	///wifi_ap_record_t ap_info;
+	enum rtw_security security_type;
+
+	wifi_status_zephyr(0, status->ssid, status->bssid, &status->channel, &security_type);
 
 	switch (data->state) {
 	case RTK_STA_STOPPED:
@@ -559,36 +732,74 @@ static int rtk_wifi_status(const struct device *dev, struct wifi_iface_status *s
 	}
 
 	/* zephyr wifi todo, get iface */
-	strncpy(status->ssid, data->status.ssid, WIFI_SSID_MAX_LEN);
+	//strncpy(status->ssid , data->status.ssid, WIFI_SSID_MAX_LEN);
 	status->ssid_len = strnlen(data->status.ssid, WIFI_SSID_MAX_LEN);
 	status->band = WIFI_FREQ_BAND_2_4_GHZ; //todo
 	status->link_mode = WIFI_LINK_MODE_UNKNOWN;
 	status->mfp = WIFI_MFP_DISABLE;
 
-#if 0
-	switch (data->status.security) {
-	case WIFI_AUTH_OPEN:
+	switch (security_type) {
+	case RTW_SECURITY_OPEN:
 		status->security = WIFI_SECURITY_TYPE_NONE;
 		break;
-	case WIFI_AUTH_WPA2_PSK:
+	case RTW_SECURITY_WPA2_AES_PSK:
+	case RTW_SECURITY_WPA2_MIXED_PSK:
+	case RTW_SECURITY_WPA_WPA2_AES_PSK:
+	case RTW_SECURITY_WPA_AES_PSK:
+	case RTW_SECURITY_WPA_MIXED_PSK:
+	case RTW_SECURITY_WPA_WPA2_MIXED_PSK:
 		status->security = WIFI_SECURITY_TYPE_PSK;
+		break;
+	case RTW_SECURITY_WPA3_AES_PSK:
+		status->security = WIFI_SECURITY_TYPE_SAE;
 		break;
 	default:
 		status->security = WIFI_SECURITY_TYPE_UNKNOWN;
+		break;
 	}
-#endif
+
 	return 0;
 }
 
-typedef int (*wifi_rxcb_t)(uint8_t idx, void *buffer, uint16_t len);
-extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
+void skb_read_pkt(void *pkt_addr, void *data, size_t length)
+{
+	net_pkt_read((struct net_pkt *)pkt_addr, data, length);
+}
 
 static void rtk_wifi_internal_reg_rxcb(uint32_t idx, wifi_rxcb_t cb)
 {
 	rx_callback_ptr = cb;
+	tx_read_pkt_ptr = skb_read_pkt;
 }
 
-static void rtk_wifi_init(struct net_if *iface)
+
+static void configure_ap_mode(struct net_if *iface)
+{
+	struct in_addr ipaddr, netmask, gateway;
+
+	/* 用硬编码的方法设置IP地址 */
+	if (net_addr_pton(AF_INET, "192.168.43.1", &ipaddr) < 0) {
+		LOG_ERR("Invalid IP address\n");
+		return;
+	}
+
+	if (net_addr_pton(AF_INET, "255.255.255.0", &netmask) < 0) {
+		LOG_ERR("Invalid netmask\n");
+		return;
+	}
+
+	if (net_addr_pton(AF_INET, "192.168.43.1", &gateway) < 0) {
+		LOG_ERR("Invalid gateway\n");
+		return;
+	}
+
+	/* 设置网络接口的IP地址 */
+	net_if_ipv4_addr_add(iface, &ipaddr, NET_ADDR_MANUAL, 0);
+	net_if_ipv4_set_netmask(iface, &netmask);
+	net_if_ipv4_set_gw(iface, &gateway);
+}
+
+static void ameba_wifi_init(struct net_if *iface)
 {
 	const struct device *dev = net_if_get_device(iface);
 	struct rtk_wifi_runtime *dev_data = dev->data;
@@ -598,26 +809,26 @@ static void rtk_wifi_init(struct net_if *iface)
 	rtk_wifi_iface[if_idx % NET_IF_MAX_CONFIGS] = iface;
 	dev_data->state = RTK_STA_STOPPED;
 
-	if (!init_done) {
+	if (if_idx == STA_WLAN_INDEX) {
 		wlan_initialize();
-		init_done = 1;
 	}
 
+	if (if_idx == SOFTAP_WLAN_INDEX) {
+		//configure_ap_mode(iface);
+	}
 	// TBD
 	/* Start interface when we are actually connected with Wi-Fi network */
 	wifi_get_mac_address(if_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_idx], 1);
 
-	/* Assign link local address. */
-	net_if_set_link_addr(iface, dev_data->mac_addr[if_idx], 6, NET_LINK_ETHERNET);
+	if (if_idx == STA_WLAN_INDEX) {
+		/* Assign link local address. */
+		net_if_set_link_addr(iface, dev_data->mac_addr[if_idx], 6, NET_LINK_ETHERNET);
+	}
 
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
 
 	rtk_wifi_internal_reg_rxcb(0, eth_rtk_rx);
-
-	DiagPrintf("addr: %02x:%02x:%02x:%02x:%02x:%02x \r\n", dev_data->mac_addr[0][0],
-			   dev_data->mac_addr[0][1], dev_data->mac_addr[0][2], dev_data->mac_addr[0][3],
-			   dev_data->mac_addr[0][4], dev_data->mac_addr[0][5]);
 
 	/* seperate ap and sta */
 	net_if_set_name(iface, iface_name[if_idx]);
@@ -625,46 +836,47 @@ static void rtk_wifi_init(struct net_if *iface)
 	if_idx++;
 
 }
-
-static int rtk_wifi_dev_init(const struct device *dev)
+//CONFIG_RTK_WIFI_EVENT_TASK_PRIO
+static int ameba_wifi_dev_init(const struct device *dev)
 {
 	k_tid_t tid = k_thread_create(&rtk_wifi_event_thread, rtk_wifi_event_stack,
 								  CONFIG_RTK_WIFI_EVENT_TASK_STACK_SIZE,
 								  (k_thread_entry_t)rtk_wifi_event_task, NULL, NULL, NULL,
-								  CONFIG_RTK_WIFI_EVENT_TASK_PRIO, K_INHERIT_PERMS,
+								  14, K_INHERIT_PERMS,
 								  K_NO_WAIT);
 
 	k_thread_name_set(tid, "rtk_event");
 
 	/* add event call back in net_mgmt */
 	if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
-		net_mgmt_init_event_callback(&rtk_dhcp_cb, wifi_event_handler, DHCPV4_MASK);
-		net_mgmt_add_event_callback(&rtk_dhcp_cb);
+		//net_mgmt_init_event_callback(&rtk_dhcp_cb, wifi_event_handler, NET_EVENT_IPV4_DHCP_BOUND); //DHCPV4_MASK);
+
 	}
+
 	return 0;
 }
 
-static const struct wifi_mgmt_ops rtk_wifi_mgmt = {
-	.scan		   = rtk_wifi_scan,
-	.connect	   = rtk_wifi_connect,
-	.disconnect	   = rtk_wifi_disconnect,
-	.ap_enable	   = rtk_wifi_ap_enable,
-	.ap_disable	   = rtk_wifi_ap_disable,
-	.iface_status	   = rtk_wifi_status,
+static const struct wifi_mgmt_ops ameba_wifi_mgmt = {
+	.scan		   = ameba_wifi_scan,
+	.connect	   = ameba_wifi_connect,
+	.disconnect	   = ameba_wifi_disconnect,
+	.ap_enable	   = ameba_wifi_ap_enable,
+	.ap_disable	   = ameba_wifi_ap_disable,
+	.iface_status  = ameba_wifi_status,
 #if defined(CONFIG_NET_STATISTICS_WIFI)
-	.get_stats	   = rtk_wifi_stats,
+	.get_stats	   = ameba_wifi_stats,
 #endif
 };
 
 static const struct net_wifi_mgmt_offload rtk_api = {
-	.wifi_iface.iface_api.init	  = rtk_wifi_init,
-	.wifi_iface.send = rtk_wifi_send,
-	.wifi_mgmt_api = &rtk_wifi_mgmt,
+	.wifi_iface.iface_api.init	  = ameba_wifi_init,
+	.wifi_iface.send = ameba_wifi_send,
+	.wifi_mgmt_api = &ameba_wifi_mgmt,
 };
 
 /* inst replace by DT_DRV_COMPAT(inst) */
 NET_DEVICE_DT_INST_DEFINE(0,
-						  rtk_wifi_dev_init, NULL,
+						  ameba_wifi_dev_init, NULL,
 						  &rtk_data, NULL, CONFIG_WIFI_INIT_PRIORITY,
 						  &rtk_api, ETHERNET_L2,
 						  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
