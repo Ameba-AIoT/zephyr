@@ -98,8 +98,8 @@
 
 	dmic_default: dmic_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_DMIC_CLK)>,
-					 <AMEBA_PINMUX('A', 27, AMEBA_DMIC_DATA)>;
+			pinmux = <AMEBA_PINMUX('B', 0, AMEBA_DMIC_CLK)>,
+					 <AMEBA_PINMUX('B', 1, AMEBA_DMIC_DATA)>;
 			bias-pull-up;
 		};
 	};
