@@ -10,7 +10,8 @@
  *
  * This module contains functions for manipulation caches.
  */
-#include "ameba_soc.h"
+#include <soc.h>
+#include <ameba_soc.h>
 #include <zephyr/arch/cpu.h>
 #include <zephyr/cache.h>
 // #include <cmsis_core.h>

@@ -9,6 +9,7 @@
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
 #include <ameba_soc.h>
+#include "ameba_audio_clock.h"
 #include <string.h>
 
 #include <zephyr/drivers/i2s.h>
@@ -18,7 +19,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/irq.h>
 #include "i2s_ameba.h"
-#include "ameba_audio_clock.h"
+
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(i2s_ameba);
 

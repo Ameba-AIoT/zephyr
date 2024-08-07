@@ -1,0 +1,14 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+identifier: rtl872xda_evb
+name: rtl872xda_evb
+vendor: realtek
+type: mcu
+arch: arm
+toolchain:
+  - gnuarmemb
+ram: 512
+supported:
+testing:
+  default: true

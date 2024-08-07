@@ -1,6 +1,0 @@
-# Copyright (c) 2024 Realtek Semiconductor Corp.
-# SPDX-License-Identifier: Apache-2.0
-
-config BOARD_REALTEK_RTL872XDA_EVB
-        bool "Realtek AmebaDplus RTL872XDA EVB"
-        depends on SOC_AMEBADPLUS

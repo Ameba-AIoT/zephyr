@@ -1,9 +1,0 @@
-if SOC_SHEIPA_KM4
-
-config SOC
-	default "sheipa_km4"
-
-config NUM_IRQS
-	default 96
-
-endif

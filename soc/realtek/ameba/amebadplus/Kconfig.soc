@@ -1,0 +1,16 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config SOC_SERIES_AMEBADPLUS
+	bool
+	select SOC_FAMILY_AMEBA
+
+config SOC_SERIES
+	default "amebadplus" if SOC_SERIES_AMEBADPLUS
+
+config SOC_AMEBADPLUS
+	bool "Real-M300 on AmebaDplus"
+	select SOC_SERIES_AMEBADPLUS
+
+config SOC
+	default "SOC_AMEBADPLUS" if SOC_AMEBADPLUS
