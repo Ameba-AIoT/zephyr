@@ -540,7 +540,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		} else {
 			data->rx.state = I2S_STATE_NOT_READY;
 		}
-		return -EINVAL;
+		return 0;
 	}
 
 	SP_InitTypeDef SP_InitStruct;
@@ -689,49 +689,68 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 
 	AUDIO_SP_SetMasterSlave(cfg->index, slave);  /* master:0 slave:1 */
 
-	if (dir == I2S_DIR_RX) {
-		switch (i2s_cfg->channels) {
-		case 2:
-			AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
-			break;
-		case 4:
-			AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
-			break;
-		case 6:
-			AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN2_FUNC);
-			break;
-		case 8:
-			AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN2_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DIN3_FUNC);
-			break;
+	if (cfg->MultiIO == 1) {
+		if (dir == I2S_DIR_RX) {
+			switch (i2s_cfg->channels) {
+			case 1:
+			case 2:
+				AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
+				break;
+			case 3:
+			case 4:
+				AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
+				break;
+			case 5:
+			case 6:
+				AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN2_FUNC);
+				break;
+			case 7:
+			case 8:
+				AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN1_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN2_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DIN3_FUNC);
+				break;
+			default:
+				LOG_ERR("Unsupported I2S channel");
+				return -EINVAL;
+			}
+		} else {
+			switch (i2s_cfg->channels) {
+			case 1:
+			case 2:
+				AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
+				break;
+			case 3:
+			case 4:
+				AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
+				break;
+			case 5:
+			case 6:
+				AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT2_FUNC);
+				break;
+			case 7:
+			case 8:
+				AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT2_FUNC);
+				AUDIO_SP_SetPinMux(cfg->index, DOUT3_FUNC);
+			default:
+				LOG_ERR("Unsupported I2S channel");
+				return -EINVAL;
+			}
 		}
 	} else {
-		switch (i2s_cfg->channels) {
-		case 2:
+		if (dir == I2S_DIR_RX) {
+			AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
+		} else {
 			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
-			break;
-		case 4:
-			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
-			break;
-		case 6:
-			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT2_FUNC);
-			break;
-		case 8:
-			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT2_FUNC);
-			AUDIO_SP_SetPinMux(cfg->index, DOUT3_FUNC);
-		default:
-			LOG_ERR("Unsupported I2S channel");
-			return -EINVAL;
 		}
 	}
 
@@ -742,12 +761,19 @@ static const struct i2s_config *i2s_ameba_config_get(const struct device *dev,
 		enum i2s_dir dir)
 {
 	struct i2s_ameba_data *data = dev->data;
+	struct stream *stream;
 
 	if (dir == I2S_DIR_RX) {
-		return &data->rx.cfg;
+		stream = &data->rx;
+	} else {
+		stream = &data->tx;
 	}
 
-	return &data->tx.cfg;
+	if (stream->state == I2S_STATE_NOT_READY) {
+		return NULL;
+	}
+
+	return &stream->cfg;
 }
 
 static int i2s_tx_stream_start(const struct device *dev)
@@ -798,12 +824,12 @@ static int i2s_tx_stream_start(const struct device *dev)
 	} else {
 		AUDIO_SP_TXGDMA_Init(cfg->index, GDMA_INT, &sp->SpTxGdmaInitStruct, (void *)dev,
 							 (IRQ_FUN)AudioTxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
-		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum, 2,
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioTxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum);
 		AUDIO_SP_TXGDMA_Init(cfg->index, GDMA_EXT, &sp->SpTxGdmaInitStructExt, (void *)dev,
 							 (IRQ_FUN)AudioTxSingleHandlerExt, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
-		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStructExt.GDMA_ChNum, 2,
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStructExt.GDMA_ChNum, 0,
 							(void *)AudioTxSingleHandlerExt, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStructExt.GDMA_ChNum);
 	}
@@ -887,12 +913,12 @@ static int i2s_rx_stream_start(const struct device *dev)
 	} else {
 		AUDIO_SP_RXGDMA_Init(cfg->index, GDMA_INT, &sp->SpRxGdmaInitStruct, (void *)dev,
 							 (IRQ_FUN)AudioRxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
-		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum, 2,
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioRxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum);
 		AUDIO_SP_RXGDMA_Init(cfg->index, GDMA_EXT, &sp->SpRxGdmaInitStructExt, (void *)dev,
 							 (IRQ_FUN)AudioRxSingleHandlerExt, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
-		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStructExt.GDMA_ChNum, 2,
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStructExt.GDMA_ChNum, 0,
 							(void *)AudioRxSingleHandlerExt, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStructExt.GDMA_ChNum);
 	}
