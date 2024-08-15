@@ -73,7 +73,7 @@ typedef struct _rtw_network_info_t {
 
 typedef struct _rtw_softap_info_t {
 	struct _rtw_ssid_t		ssid;
-	unsigned char		hidden_ssid;
+	unsigned short		hidden_ssid;
 	enum rtw_security		security_type;
 	unsigned char 		*password;
 	unsigned char 		password_len;
@@ -201,7 +201,7 @@ struct rtk_wifi_status {
 	int rssi;
 };
 
-struct rtk_wifi_runtime {
+struct ameba_wifi_runtime {
 	uint8_t mac_addr[2][6];
 	uint8_t frame_buf[2][NET_ETH_MAX_FRAME_SIZE];
 #if defined(CONFIG_NET_STATISTICS_WIFI)
@@ -242,7 +242,7 @@ typedef union {
 	wifi_event_sta_connected_t sta_connected;  /*!< station connected to AP */
 } system_event_info_t;
 
-struct rtk_system_event {
+struct ameba_system_event {
 	system_event_id_t event_id;
 	system_event_info_t event_info;
 };
