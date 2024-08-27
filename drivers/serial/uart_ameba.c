@@ -302,9 +302,16 @@ static void uart_ameba_irq_tx_enable(const struct device *dev)
 	const struct uart_ameba_config *config = dev->config;
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
+	u32 sts;
+
+	/* Disable IRQ Interrupts and Save Previous Status. */
+	sts = irq_disable_save();
 
 	data->tx_int_en = true;
 	UART_INTConfig(uart, RUART_BIT_ETBEI, ENABLE);
+
+	/* Enable IRQ Interrupts according to Previous Status. */
+	irq_enable_restore(sts);
 }
 
 static void uart_ameba_irq_tx_disable(const struct device *dev)
@@ -312,9 +319,16 @@ static void uart_ameba_irq_tx_disable(const struct device *dev)
 	const struct uart_ameba_config *config = dev->config;
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
+	u32 sts;
+
+	/* Disable IRQ Interrupts and Save Previous Status. */
+	sts = irq_disable_save();
 
 	data->tx_int_en = false;
 	UART_INTConfig(uart, RUART_BIT_ETBEI, DISABLE);
+
+	/* Enable IRQ Interrupts according to Previous Status. */
+	irq_enable_restore(sts);
 }
 
 static int uart_ameba_irq_tx_ready(const struct device *dev)

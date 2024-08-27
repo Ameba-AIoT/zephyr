@@ -125,19 +125,33 @@ static int loguart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data,
 
 static void loguart_ameba_irq_tx_enable(const struct device *dev)
 {
+	u32 sts;
 	struct loguart_ameba_data *data = dev->data;
+
+	/* Disable IRQ Interrupts and Save Previous Status. */
+	sts = irq_disable_save();
 
 	data->tx_int_en = true;
 	/* KM4: TX_PATH1 */
 	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, ENABLE);
+
+	/* Enable IRQ Interrupts according to Previous Status. */
+	irq_enable_restore(sts);
 }
 
 static void loguart_ameba_irq_tx_disable(const struct device *dev)
 {
+	u32 sts;
 	struct loguart_ameba_data *data = dev->data;
+
+	/* Disable IRQ Interrupts and Save Previous Status. */
+	sts = irq_disable_save();
 
 	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, DISABLE);
 	data->tx_int_en = false;
+
+	/* Enable IRQ Interrupts according to Previous Status. */
+	irq_enable_restore(sts);
 }
 
 static int loguart_ameba_irq_tx_ready(const struct device *dev)
