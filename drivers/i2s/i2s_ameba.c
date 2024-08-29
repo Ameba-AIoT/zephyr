@@ -26,6 +26,8 @@ LOG_MODULE_REGISTER(i2s_ameba);
 #define NUM_DMA_BLOCKS_RX_PREP  2
 #define MAX_TX_DMA_BLOCKS       1
 
+static const struct i2s_config *i2s_ameba_config_get(const struct device *dev, enum i2s_dir dir);
+
 static inline void i2s_purge_stream_buffers(struct stream *stream,
 		struct k_mem_slab *mem_slab,
 		bool in_drop, bool out_drop)
@@ -45,22 +47,48 @@ static inline void i2s_purge_stream_buffers(struct stream *stream,
 	}
 }
 
+static void i2s_ameba_tx_fifo_clean_start(const struct device *dev)
+{
+	struct i2s_ameba_data *data = dev->data;
+	const struct i2s_config *stream_cfg_tx = i2s_ameba_config_get(dev, I2S_DIR_TX);
+	int fifo_sample_num = 0;
+
+	/* Cacluate the maximum delay-time for I2S TX FIFO empty. */
+	if (stream_cfg_tx->word_size <= 16U) {
+		fifo_sample_num = 32;
+	} else {
+		fifo_sample_num = 16;
+	}
+	k_timer_start(&data->i2s_fifo_timer,
+				  K_USEC(stream_cfg_tx->channels * fifo_sample_num * 1000000 / stream_cfg_tx->frame_clk_freq),
+				  K_NO_WAIT);
+	/* Disable and Deint DMA, but do not stop SPORT. */
+}
+
 static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 {
 	struct i2s_ameba_data *data = dev->data;
 	struct stream *stream = &data->tx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
-
 	PGDMA_InitTypeDef GDMA_InitStruct;
 	GDMA_InitStruct = &data->sp.SpTxGdmaInitStruct;
 
+	irq_disable(GDMA0_CHANNEL0_IRQ + GDMA_InitStruct->GDMA_ChNum);
+	irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + GDMA_InitStruct->GDMA_ChNum, 0, NULL, NULL, 0);
+
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-	GDMA_Abort(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	/* TODO: Something in GDMA_Abort is error. Only drop uses abort. */
+	// GDMA_Abort(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
 	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	memset(GDMA_InitStruct, 0, sizeof(PGDMA_InitTypeDef));
 
 	if (cfg->fifo_num == 2 || cfg->fifo_num == 3) {
 		PGDMA_InitTypeDef GDMA_InitStructExt;
 		GDMA_InitStructExt = &data->sp.SpTxGdmaInitStructExt;
+
+		irq_disable(GDMA0_CHANNEL0_IRQ + GDMA_InitStructExt->GDMA_ChNum);
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + GDMA_InitStructExt->GDMA_ChNum, 0, NULL, NULL, 0);
 
 		GDMA_ClearINT(GDMA_InitStructExt->GDMA_Index, GDMA_InitStructExt->GDMA_ChNum);
 		GDMA_Abort(GDMA_InitStructExt->GDMA_Index, GDMA_InitStructExt->GDMA_ChNum);
@@ -68,12 +96,15 @@ static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 	}
 
 	AUDIO_SP_DmaCmd(cfg->index, DISABLE);
-	AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
 
-	/* purge buffers queued in the stream */
 	if (drop) {
-		i2s_purge_stream_buffers(stream, data->tx.cfg.mem_slab,
-								 true, true);
+		AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
+		/* purge buffers queued in the stream */
+		i2s_purge_stream_buffers(stream, data->tx.cfg.mem_slab, true, true);
+		stream->state = I2S_STATE_READY;
+	} else {
+		LOG_DBG("Start a timer to wait I2S FIFO empty.\n");
+		i2s_ameba_tx_fifo_clean_start(dev);
 	}
 }
 
@@ -87,13 +118,22 @@ static void i2s_rx_stream_disable(const struct device *dev,
 	PGDMA_InitTypeDef GDMA_InitStruct;
 	GDMA_InitStruct = &data->sp.SpRxGdmaInitStruct;
 
+	irq_disable(GDMA0_CHANNEL0_IRQ + GDMA_InitStruct->GDMA_ChNum);
+	irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + GDMA_InitStruct->GDMA_ChNum, 0, NULL, NULL, 0);
+
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-	GDMA_Abort(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	/* TODO: Something in GDMA_Abort error here. Only drop use abort. */
+	// GDMA_Abort(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
 	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	memset(GDMA_InitStruct, 0, sizeof(PGDMA_InitTypeDef));
 
 	if (cfg->fifo_num == 2 || cfg->fifo_num == 3) {
 		PGDMA_InitTypeDef GDMA_InitStructExt;
 		GDMA_InitStructExt = &data->sp.SpRxGdmaInitStructExt;
+
+		irq_disable(GDMA0_CHANNEL0_IRQ + GDMA_InitStructExt->GDMA_ChNum);
+		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + GDMA_InitStructExt->GDMA_ChNum, 0, NULL, NULL, 0);
 
 		GDMA_ClearINT(GDMA_InitStructExt->GDMA_Index, GDMA_InitStructExt->GDMA_ChNum);
 		GDMA_Abort(GDMA_InitStructExt->GDMA_Index, GDMA_InitStructExt->GDMA_ChNum);
@@ -105,8 +145,25 @@ static void i2s_rx_stream_disable(const struct device *dev,
 
 	/* purge buffers queued in the stream */
 	if (in_drop || out_drop) {
-		i2s_purge_stream_buffers(stream, data->rx.cfg.mem_slab,
-								 in_drop, out_drop);
+		i2s_purge_stream_buffers(stream, data->rx.cfg.mem_slab, in_drop, out_drop);
+	}
+}
+
+static void i2s_ameba_fifo_clean_callback(struct k_timer *timer)
+{
+	const struct device *dev = (const struct device *)k_timer_user_data_get(timer);
+	struct i2s_ameba_data *data = dev->data;
+	struct stream *stream = &data->tx;
+	const struct i2s_ameba_cfg *cfg = dev->config;
+
+	/* TX queue has drained */
+	if (stream->state == I2S_STATE_STOPPING) {
+		LOG_DBG("I2S TX FIFO is empty. Deinit AUDIO SPORT.");
+		stream->state = I2S_STATE_READY;
+		AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
+	} else {
+		LOG_ERR("I2S FIFO empty with an error state %d.\n", stream->state);
+		stream->state = I2S_STATE_ERROR;
 	}
 }
 
@@ -143,6 +200,7 @@ static int i2s_ameba_tx_reload_multiple_dma_blocks(const struct device *dev,
 		}
 
 		/* reload the DMA */
+		DCache_CleanInvalidate((u32)buffer, (uint32_t)stream->cfg.block_size);
 		GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, (u32)buffer);
 
 		(stream->free_tx_dma_blocks)--;
@@ -168,11 +226,17 @@ uint32_t AudioTxSingleHandler(struct device *dev)
 	struct SP_GDMA_STRUCT *sp = (struct SP_GDMA_STRUCT *) &data->sp;
 	PGDMA_InitTypeDef GDMA_InitStruct;
 	GDMA_InitStruct = &sp->SpTxGdmaInitStruct;
-
 	struct stream *stream = &data->tx;
 	void *buffer = NULL;
 	int ret;
 	uint8_t blocks_queued;
+
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (!(GDMA->STATUS_BLOCK & BIT(GDMA_InitStruct->GDMA_ChNum))) {
+		/* Clear Pending ISR */
+		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+		return 0;
+	}
 
 	/* Clear Pending ISR */
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -197,7 +261,6 @@ uint32_t AudioTxSingleHandler(struct device *dev)
 
 	/* Received a STOP trigger, terminate TX immediately */
 	if (stream->last_block) {
-		stream->state = I2S_STATE_READY;
 		LOG_DBG("TX STOPPED last_block set");
 		i2s_tx_stream_disable(dev, false);
 		return ret;
@@ -205,14 +268,13 @@ uint32_t AudioTxSingleHandler(struct device *dev)
 
 	if (ret) {
 		/* k_msgq_get() returned error, and was not last_block */
-		stream->state = I2S_STATE_ERROR;
 		i2s_tx_stream_disable(dev, false);
 		return ret;
 	}
 
 	switch (stream->state) {
-	case I2S_STATE_RUNNING:
 	case I2S_STATE_STOPPING:
+	case I2S_STATE_RUNNING:
 		ret = i2s_ameba_tx_reload_multiple_dma_blocks(dev, &blocks_queued);
 
 		if (ret) {
@@ -223,29 +285,17 @@ uint32_t AudioTxSingleHandler(struct device *dev)
 		/* dma_start */
 		GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
 
-		if (blocks_queued ||
-			(stream->free_tx_dma_blocks < MAX_TX_DMA_BLOCKS)) {
+		if (blocks_queued || (stream->free_tx_dma_blocks < MAX_TX_DMA_BLOCKS)) {
 			return 0;
 		} else {
-			/* all DMA blocks are free but no blocks were queued */
-			if (stream->state == I2S_STATE_STOPPING) {
-				/* TX queue has drained */
-				stream->state = I2S_STATE_READY;
-				LOG_DBG("TX stream has stopped");
-			} else {
-				stream->state = I2S_STATE_ERROR;
-				LOG_ERR("TX Failed to reload DMA");
-			}
 			i2s_tx_stream_disable(dev, false);
 			return ret;
 		}
-
 	case I2S_STATE_ERROR:
 	default:
 		i2s_tx_stream_disable(dev, true);
 		return ret;
 	}
-
 }
 
 uint32_t AudioTxSingleHandlerExt(struct device *dev)
@@ -254,11 +304,17 @@ uint32_t AudioTxSingleHandlerExt(struct device *dev)
 	struct SP_GDMA_STRUCT *sp = (struct SP_GDMA_STRUCT *) &data->sp;
 	PGDMA_InitTypeDef GDMA_InitStruct;
 	GDMA_InitStruct = &sp->SpTxGdmaInitStructExt;
-
 	struct stream *stream = &data->tx;
 	void *buffer = NULL;
 	int ret;
 	uint8_t blocks_queued;
+
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (!(GDMA->STATUS_BLOCK & BIT(GDMA_InitStruct->GDMA_ChNum))) {
+		/* Clear Pending ISR */
+		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+		return 0;
+	}
 
 	/* Clear Pending ISR */
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -283,7 +339,6 @@ uint32_t AudioTxSingleHandlerExt(struct device *dev)
 
 	/* Received a STOP trigger, terminate TX immediately */
 	if (stream->last_block) {
-		stream->state = I2S_STATE_READY;
 		LOG_DBG("TX STOPPED last_block set");
 		i2s_tx_stream_disable(dev, false);
 		return ret;
@@ -291,14 +346,13 @@ uint32_t AudioTxSingleHandlerExt(struct device *dev)
 
 	if (ret) {
 		/* k_msgq_get() returned error, and was not last_block */
-		stream->state = I2S_STATE_ERROR;
 		i2s_tx_stream_disable(dev, false);
 		return ret;
 	}
 
 	switch (stream->state) {
-	case I2S_STATE_RUNNING:
 	case I2S_STATE_STOPPING:
+	case I2S_STATE_RUNNING:
 		ret = i2s_ameba_tx_reload_multiple_dma_blocks(dev, &blocks_queued);
 
 		if (ret) {
@@ -309,29 +363,17 @@ uint32_t AudioTxSingleHandlerExt(struct device *dev)
 		/* dma_start */
 		GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
 
-		if (blocks_queued ||
-			(stream->free_tx_dma_blocks < MAX_TX_DMA_BLOCKS)) {
+		if (blocks_queued || (stream->free_tx_dma_blocks < MAX_TX_DMA_BLOCKS)) {
 			return 0;
 		} else {
-			/* all DMA blocks are free but no blocks were queued */
-			if (stream->state == I2S_STATE_STOPPING) {
-				/* TX queue has drained */
-				stream->state = I2S_STATE_READY;
-				LOG_DBG("TX stream has stopped");
-			} else {
-				stream->state = I2S_STATE_ERROR;
-				LOG_ERR("TX Failed to reload DMA");
-			}
 			i2s_tx_stream_disable(dev, false);
 			return ret;
 		}
-
 	case I2S_STATE_ERROR:
 	default:
 		i2s_tx_stream_disable(dev, true);
 		return ret;
 	}
-
 }
 
 uint32_t AudioRxSingleHandler(const struct device *dev)
@@ -342,7 +384,14 @@ uint32_t AudioRxSingleHandler(const struct device *dev)
 	GDMA_InitStruct = &sp->SpRxGdmaInitStruct;
 	struct stream *stream = &data->rx;
 	void *buffer;
-	int ret;
+	int ret = 0;
+
+	GDMA_TypeDef *GDMA = ((GDMA_TypeDef *) GDMA_BASE);
+	if (!(GDMA->STATUS_BLOCK & BIT(GDMA_InitStruct->GDMA_ChNum))) {
+		/* Clear Pending ISR */
+		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+		return 0;
+	}
 
 	/* Clear Pending ISR */
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -376,6 +425,7 @@ uint32_t AudioRxSingleHandler(const struct device *dev)
 			} else {
 
 				/* reload DMA */
+				DCache_CleanInvalidate((u32)buffer, (uint32_t)stream->cfg.block_size);
 				GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, (u32)buffer);
 
 				/* put buffer in input queue */
@@ -400,7 +450,6 @@ uint32_t AudioRxSingleHandler(const struct device *dev)
 		i2s_rx_stream_disable(dev, true, true);
 		break;
 	}
-
 	return 0;
 }
 
@@ -446,6 +495,7 @@ uint32_t AudioRxSingleHandlerExt(const struct device *dev)
 			} else {
 
 				/* reload DMA */
+				DCache_CleanInvalidate((u32)buffer, (uint32_t)stream->cfg.block_size);
 				GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, (u32)buffer);
 
 				/* put buffer in input queue */
@@ -492,6 +542,19 @@ static int i2s_ameba_enable_clock(const struct device *dev)
 	return 0;
 }
 
+static int i2s_ameba_start_state_check(struct stream *stream)
+{
+	while (stream->state == I2S_STATE_STOPPING) {
+		/* Wait i2s_fifo_timer to finish the former transform. */
+		k_sleep(K_MSEC(1));
+	}
+	if ((stream->state != I2S_STATE_READY) && (stream->state != I2S_STATE_NOT_READY)) {
+		LOG_ERR("Stream state (%d) is error for configure.\n", stream->state);
+		return -EIO;
+	}
+	return 0;
+}
+
 static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 							   const struct i2s_config *i2s_cfg)
 {
@@ -499,20 +562,17 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	const struct i2s_ameba_cfg *const cfg = dev->config;
 	uint8_t sp_dir;
 	struct stream *stream;
+	int ret = 0;
 
-	if ((data->tx.state != I2S_STATE_NOT_READY) &&
-		(data->tx.state != I2S_STATE_READY) &&
-		(data->rx.state != I2S_STATE_NOT_READY) &&
-		(data->rx.state != I2S_STATE_READY)) {
-		LOG_ERR("invalid state tx(%u) rx(%u)",
-				data->tx.state,
-				data->rx.state);
-		if (dir == I2S_DIR_TX) {
-			data->tx.state = I2S_STATE_NOT_READY;
-		} else {
-			data->rx.state = I2S_STATE_NOT_READY;
-		}
-		return -EINVAL;
+	ret = i2s_ameba_start_state_check(&data->tx);
+	if (ret < 0) {
+		LOG_ERR("START trigger: invalid state %u", data->tx.state);
+		return -EINVAL;;
+	}
+	ret = i2s_ameba_start_state_check(&data->rx);
+	if (ret < 0) {
+		LOG_ERR("START trigger: invalid state %u", data->rx.state);
+		return -EINVAL;;
 	}
 
 	if (dir == I2S_DIR_RX) {
@@ -533,8 +593,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	memcpy(&stream->cfg, i2s_cfg, sizeof(struct i2s_config));
 
 	if (i2s_cfg->frame_clk_freq == 0U) {
-		LOG_ERR("Invalid frame_clk_freq %u",
-				i2s_cfg->frame_clk_freq);
+		LOG_ERR("Invalid frame_clk_freq %u", i2s_cfg->frame_clk_freq);
 		if (dir == I2S_DIR_TX) {
 			data->tx.state = I2S_STATE_NOT_READY;
 		} else {
@@ -789,6 +848,7 @@ static int i2s_tx_stream_start(const struct device *dev)
 
 	/* retrieve buffer from input queue */
 	ret = k_msgq_get(&stream->in_queue, &buffer, K_NO_WAIT);
+
 	if (ret != 0) {
 		LOG_ERR("No buffer in input queue to start");
 		return -EIO;
@@ -817,18 +877,18 @@ static int i2s_tx_stream_start(const struct device *dev)
 	/* DMA enable and register irq */
 	if (cfg->fifo_num == 0 || cfg->fifo_num == 1) {
 		AUDIO_SP_TXGDMA_Init(cfg->index, GDMA_INT, &sp->SpTxGdmaInitStruct, (void *)dev,
-							 (IRQ_FUN)AudioTxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioTxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum);
 	} else {
 		AUDIO_SP_TXGDMA_Init(cfg->index, GDMA_INT, &sp->SpTxGdmaInitStruct, (void *)dev,
-							 (IRQ_FUN)AudioTxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioTxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStruct.GDMA_ChNum);
 		AUDIO_SP_TXGDMA_Init(cfg->index, GDMA_EXT, &sp->SpTxGdmaInitStructExt, (void *)dev,
-							 (IRQ_FUN)AudioTxSingleHandlerExt, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStructExt.GDMA_ChNum, 0,
 							(void *)AudioTxSingleHandlerExt, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpTxGdmaInitStructExt.GDMA_ChNum);
@@ -848,6 +908,8 @@ static int i2s_rx_stream_start(const struct device *dev)
 	struct stream *stream = &data->rx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	uint8_t num_of_bufs;
+	const struct i2s_config *stream_cfg_rx = i2s_ameba_config_get(dev, I2S_DIR_RX);
+	int sample_time = 0;
 
 	PGDMA_InitTypeDef GDMA_InitStruct;
 	GDMA_InitStruct = &data->sp.SpRxGdmaInitStruct;
@@ -880,54 +942,40 @@ static int i2s_rx_stream_start(const struct device *dev)
 		return ret;
 	}
 
-	/* prep DMA for each of remaining (NUM_DMA_BLOCKS_RX_PREP-1) buffers */
-	for (int i = 0; i < NUM_DMA_BLOCKS_RX_PREP - 1; i++) {
-
-		/* allocate receive buffer from SLAB */
-		ret = k_mem_slab_alloc(stream->cfg.mem_slab, &buffer,
-							   K_NO_WAIT);
-		if (ret != 0) {
-			LOG_ERR("buffer alloc from mem_slab failed (%d)", ret);
-			return ret;
-		}
-
-		/* DMA reload */
-		GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, (u32)buffer);
-
-		/* put buffer in input queue */
-		ret = k_msgq_put(&stream->in_queue, &buffer, K_NO_WAIT);
-		if (ret != 0) {
-			LOG_ERR("failed to put buffer in input queue, ret2 %d", ret);
-			return ret;
-		}
-	}
-
 	/* DMA enable and register irq */
 	if (cfg->fifo_num == 0 || cfg->fifo_num == 1) {
 		AUDIO_SP_RXGDMA_Init(cfg->index, GDMA_INT, &sp->SpRxGdmaInitStruct, (void *)dev,
-							 (IRQ_FUN)AudioRxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioRxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum);
-
 	} else {
 		AUDIO_SP_RXGDMA_Init(cfg->index, GDMA_INT, &sp->SpRxGdmaInitStruct, (void *)dev,
-							 (IRQ_FUN)AudioRxSingleHandler, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum, 0,
 							(void *)AudioRxSingleHandler, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStruct.GDMA_ChNum);
 		AUDIO_SP_RXGDMA_Init(cfg->index, GDMA_EXT, &sp->SpRxGdmaInitStructExt, (void *)dev,
-							 (IRQ_FUN)AudioRxSingleHandlerExt, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
+							 NULL, (u8 *)buffer, (uint32_t)stream->cfg.block_size);
 		irq_connect_dynamic(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStructExt.GDMA_ChNum, 0,
 							(void *)AudioRxSingleHandlerExt, (void *)dev, 0);
 		irq_enable(GDMA0_CHANNEL0_IRQ + sp->SpRxGdmaInitStructExt.GDMA_ChNum);
+	}
+
+	if (((stream_cfg_rx->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK)
+		&& (data->tx.state == I2S_STATE_RUNNING)) {
+		/* Critically wait LRCLK to ignore hw-first sample(0) in loopback mode.
+		 * TX start first, then start rx. Wait for a tx sample LRCLK.
+		 * If RX first then TX, refer to CONFIG_I2S_TEST_ALLOWED_DATA_OFFSET.
+		 * Attention: Do not print any logs in this delay region. */
+		sample_time = 1000000 / stream_cfg_rx->frame_clk_freq;
+		k_busy_wait(sample_time);
 	}
 
 	/* Enable Rx */
 	AUDIO_SP_RXStart(cfg->index, ENABLE);
 	return 0;
 }
-
 
 static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 							 enum i2s_trigger_cmd cmd)
@@ -956,6 +1004,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 			ret = -EIO;
 			break;
 		}
+
 		/* SPORT DMA handshake */
 		AUDIO_SP_DmaCmd(cfg->index, ENABLE);
 
@@ -983,6 +1032,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 		stream->state = I2S_STATE_READY;
 		if (dir == I2S_DIR_TX) {
+			k_timer_stop(&data->i2s_fifo_timer);
 			i2s_tx_stream_disable(dev, true);
 		} else {
 			i2s_rx_stream_disable(dev, true, true);
@@ -1018,14 +1068,16 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 			ret = -EIO;
 			break;
 		}
+		k_timer_stop(&data->i2s_fifo_timer);
+		AUDIO_SP_Reset(cfg->index);
 		stream->state = I2S_STATE_READY;
+
 		if (dir == I2S_DIR_TX) {
 			i2s_tx_stream_disable(dev, true);
 		} else {
 			i2s_rx_stream_disable(dev, true, true);
 		}
 		break;
-
 	default:
 		LOG_ERR("Unsupported trigger cmd");
 		ret = -EINVAL;
@@ -1085,6 +1137,12 @@ static int i2s_ameba_write(const struct device *dev, void *mem_block,
 		LOG_DBG("k_msgq_put returned code %d", ret);
 		return ret;
 	}
+
+	/*
+	 * TODO: if dma compelete with no next-block, i2s_ameba_write now.
+	 * i2s_fifo_timer is running and status != STOPPING
+	 * Give data to reload new dma!
+	*/
 
 	return ret;
 }
@@ -1178,6 +1236,9 @@ static int i2s_ameba_initialize(const struct device *dev)
 				sizeof(void *), CONFIG_I2S_TX_BLOCK_COUNT);
 	k_msgq_init(&data->rx.out_queue, (char *)data->rx_out_msgs,
 				sizeof(void *), CONFIG_I2S_RX_BLOCK_COUNT);
+
+	k_timer_init(&data->i2s_fifo_timer, i2s_ameba_fifo_clean_callback, NULL);
+	k_timer_user_data_set(&data->i2s_fifo_timer, (void *)dev);
 
 	AUDIO_SP_Reset(cfg->index);
 

@@ -51,5 +51,6 @@ struct i2s_ameba_data {
 	void *rx_in_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
 	void *rx_out_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
 	struct SP_GDMA_STRUCT sp;
+	struct k_timer i2s_fifo_timer;
 };
 #endif	/* _ameba_I2S_H_ */

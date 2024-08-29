@@ -8,6 +8,6 @@
 
 / {
 	aliases {
-		i2s-node0 = &i2s0;
+		i2s-tx = &i2s0;
 	};
 };
