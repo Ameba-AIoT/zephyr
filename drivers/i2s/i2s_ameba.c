@@ -661,17 +661,15 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 
 	if ((i2s_cfg->options & I2S_OPT_PINGPONG) == I2S_OPT_PINGPONG) {
 		LOG_ERR("Ping-pong mode not supported");
-		if (dir == I2S_DIR_TX) {
-			data->tx.state = I2S_STATE_NOT_READY;
-		} else {
-			data->rx.state = I2S_STATE_NOT_READY;
-		}
 		return -ENOTSUP;
 	}
 
 	/* set I2S Standard */
 	switch (i2s_cfg->format & I2S_FMT_DATA_FORMAT_MASK) {
 	case I2S_FMT_DATA_FORMAT_I2S:
+		if ((i2s_cfg->format & I2S_FMT_DATA_ORDER_LSB) || (i2s_cfg->channels == 3U)) {
+			return -EINVAL;
+		}
 		SP_InitStruct.SP_SelDataFormat = i2s_cfg->format;
 		break;
 
@@ -680,12 +678,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		break;
 
 	case I2S_FMT_DATA_FORMAT_PCM_LONG:
-		LOG_ERR("Unsupported I2S data format");
-		if (dir == I2S_DIR_TX) {
-			data->tx.state = I2S_STATE_NOT_READY;
-		} else {
-			data->rx.state = I2S_STATE_NOT_READY;
-		}
+		LOG_ERR("Unsupported I2S data format: I2S_FMT_DATA_FORMAT_PCM_LONG");
 		return -EINVAL;
 
 	case I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED:
@@ -693,21 +686,11 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		break;
 
 	case I2S_FMT_DATA_FORMAT_RIGHT_JUSTIFIED:
-		LOG_ERR("Unsupported I2S data format");
-		if (dir == I2S_DIR_TX) {
-			data->tx.state = I2S_STATE_NOT_READY;
-		} else {
-			data->rx.state = I2S_STATE_NOT_READY;
-		}
+		LOG_ERR("Unsupported I2S data format: I2S_FMT_DATA_FORMAT_RIGHT_JUSTIFIED");
 		return -EINVAL;
 
 	default:
-		LOG_ERR("Unsupported I2S data format");
-		if (dir == I2S_DIR_TX) {
-			data->tx.state = I2S_STATE_NOT_READY;
-		} else {
-			data->rx.state = I2S_STATE_NOT_READY;
-		}
+		LOG_ERR("Unsupported I2S data format: others");
 		return -EINVAL;
 	}
 
@@ -812,6 +795,10 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
 		}
 	}
+
+	/* Clear Software buffers for next transform. */
+	i2s_purge_stream_buffers(&data->rx, data->rx.cfg.mem_slab, 1, 1);
+	i2s_purge_stream_buffers(&data->tx, data->tx.cfg.mem_slab, 1, 1);
 
 	return 0;
 }
@@ -999,8 +986,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 	switch (cmd) {
 	case I2S_TRIGGER_START:
 		if (stream->state != I2S_STATE_READY) {
-			LOG_ERR("START trigger: invalid state %u",
-					stream->state);
+			LOG_DBG("START trigger: invalid state %u", stream->state);
 			ret = -EIO;
 			break;
 		}
@@ -1024,8 +1010,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 	case I2S_TRIGGER_DROP:
 		if (stream->state == I2S_STATE_NOT_READY) {
-			LOG_ERR("DROP trigger: invalid state %d",
-					stream->state);
+			LOG_DBG("DROP trigger: invalid state %d", stream->state);
 			ret = -EIO;
 			break;
 		}
@@ -1041,7 +1026,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 	case I2S_TRIGGER_STOP:
 		if (stream->state != I2S_STATE_RUNNING) {
-			LOG_ERR("STOP trigger: invalid state %d", stream->state);
+			LOG_DBG("STOP trigger: invalid state %d", stream->state);
 			ret = -EIO;
 			break;
 		}
@@ -1052,8 +1037,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 	case I2S_TRIGGER_DRAIN:
 		if (stream->state != I2S_STATE_RUNNING) {
-			LOG_ERR("DRAIN/STOP trigger: invalid state %d",
-					stream->state);
+			LOG_DBG("DRAIN/STOP trigger: invalid state %d", stream->state);
 			ret = -EIO;
 			break;
 		}
@@ -1063,8 +1047,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 	case I2S_TRIGGER_PREPARE:
 		if (stream->state != I2S_STATE_ERROR) {
-			LOG_ERR("PREPARE trigger: invalid state %d",
-					stream->state);
+			LOG_DBG("PREPARE trigger: invalid state %d", stream->state);
 			ret = -EIO;
 			break;
 		}
