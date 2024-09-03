@@ -8,6 +8,7 @@ config SOC_SERIES_AMEBADPLUS
 	select CPU_HAS_ICACHE
 	select CPU_HAS_ARM_SAU
 	select CPU_HAS_FPU
+	select CPU_HAS_VFP
 	select ARMV8_M_DSP
 	select CPU_HAS_ARM_MPU
 	select ARM_TRUSTZONE_M
