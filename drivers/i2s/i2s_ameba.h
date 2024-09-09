@@ -7,6 +7,8 @@
 #ifndef ZEPHYR_DRIVERS_I2S_I2S_AMEBA_H_
 #define ZEPHYR_DRIVERS_I2S_I2S_AMEBA_H_
 
+#include <zephyr/drivers/dma.h>
+
 /* Device constant configuration parameters */
 struct i2s_ameba_cfg {
 	AUDIO_SPORT_TypeDef *i2s;
@@ -25,11 +27,22 @@ struct i2s_ameba_cfg {
 	uint32_t clock_mode;
 };
 
-struct SP_GDMA_STRUCT {
-	GDMA_InitTypeDef       	SpTxGdmaInitStruct;
-	GDMA_InitTypeDef       	SpRxGdmaInitStruct;
-	GDMA_InitTypeDef       	SpTxGdmaInitStructExt;
-	GDMA_InitTypeDef       	SpRxGdmaInitStructExt;
+struct i2s_dma_stream {
+	const struct device *dma_dev;
+	uint32_t dma_channel;
+	struct dma_config dma_cfg;
+	uint8_t priority;
+	uint8_t src_addr_increment;
+	uint8_t dst_addr_increment;
+	int fifo_threshold;
+	struct dma_block_config blk_cfg;
+	uint8_t *buffer;
+	size_t buffer_length;
+	size_t offset;
+	volatile size_t counter;
+	int32_t timeout;
+	struct k_work_delayable timeout_work;
+	bool enabled;
 };
 
 struct stream {
@@ -50,7 +63,10 @@ struct i2s_ameba_data {
 	void *tx_out_msgs[CONFIG_I2S_TX_BLOCK_COUNT];
 	void *rx_in_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
 	void *rx_out_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
-	struct SP_GDMA_STRUCT sp;
+	struct i2s_dma_stream dma_rx;//dma rx
+	struct i2s_dma_stream dma_tx;//dma tx
+	struct i2s_dma_stream dma_rx_ext;//dma rx_ext
+	struct i2s_dma_stream dma_tx_ext;//dma tx_ext
 	struct k_timer i2s_fifo_timer;
 };
 #endif	/* _ameba_I2S_H_ */
