@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef ZEPHYR_DRIVERS_DMA_AMEBA_DMA_GDMA_H_
-#define ZEPHYR_DRIVERS_DMA_AMEBA_DMA_GDMA_H_
+#ifndef ZEPHYR_INCLUDE_DRIVERS_DMA_DMA_AMEBA_GDMA_H_
+#define ZEPHYR_INCLUDE_DRIVERS_DMA_DMA_AMEBA_GDMA_H_
 
 #define AMEBA_DT_INST_DMA_CTLR(n, name)			\
 	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, dmas),		\
@@ -14,7 +14,7 @@
 
 #define AMEBA_DT_INST_DMA_CELL(n, name, cell)		\
 	COND_CODE_1(DT_INST_NODE_HAS_PROP(n, dmas),		\
-		    (DT_INST_DMAS_CELL_BY_NAME(n, name, config)),	\
+		    (DT_INST_DMAS_CELL_BY_NAME(n, name, cell)),	\
 		    (0xff))
 
 
@@ -81,12 +81,12 @@
 #define AMEBA_DMA_CONFIG(index, dir, block_number, cb)                                          \
     {                                                                                           \
         .dma_slot = DT_INST_DMAS_CELL_BY_NAME(index, dir, slot),                                \
-        .channel_direction = AMEBA_DMA_CH_DIR_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),          \
-        .channel_priority = AMEBA_DMA_CH_PRIORITY_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),      \
-        .source_data_size = AMEBA_DMA_SRC_DATA_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),    \
-        .dest_data_size = AMEBA_DMA_DST_DATA_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),      \
-        .source_burst_length = AMEBA_DMA_SRC_BURST_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),\
-        .dest_burst_length = AMEBA_DMA_DST_BURST_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir)),  \
+        .channel_direction = AMEBA_DMA_CH_DIR_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),          \
+        .channel_priority = AMEBA_DMA_CH_PRIORITY_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),      \
+        .source_data_size = AMEBA_DMA_SRC_DATA_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),    \
+        .dest_data_size = AMEBA_DMA_DST_DATA_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),      \
+        .source_burst_length = AMEBA_DMA_SRC_BURST_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),\
+        .dest_burst_length = AMEBA_DMA_DST_BURST_SIZE_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),  \
         .block_count = block_number,                                                            \
         .dma_callback = cb,                                                                     \
     }

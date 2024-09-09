@@ -13,7 +13,7 @@
 #include <zephyr/drivers/dma.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/kernel.h>
-#include "dma_ameba_gdma.h"
+#include <zephyr/drivers/dma/dma_ameba_gdma.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(dma_ameba_gdma, CONFIG_DMA_LOG_LEVEL);
@@ -29,6 +29,7 @@ struct dma_ameba_channel {
 	uint32_t block_size;
 	uint32_t block_num;
 	uint32_t block_id;
+	uint32_t trans_width;
 	dma_callback_t callback;
 	void *user_data;
 	struct GDMA_CH_LLI *link_node;
@@ -193,7 +194,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	/*2.1 configuration about direction  */
 	if (config_dma->channel_direction == MEMORY_TO_PERIPHERAL) {
 		/* Data transfer depends on destination peripheral request */
-		if (config_dma->head_block->flow_control_mode == 1) {
+		if (config_dma->head_block->flow_control_mode) {
 			dma_init_struct.GDMA_DIR = TTFCMemToPeri_PerCtrl;
 		}
 		/* config dest ip handshake interface */
@@ -205,7 +206,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 		}
 	} else if (config_dma->channel_direction == PERIPHERAL_TO_MEMORY) {
 		/* Data transfer depends on whether the source peripheral data is ready */
-		if (config_dma->head_block->flow_control_mode == 0) {
+		if (config_dma->head_block->flow_control_mode) {
 			dma_init_struct.GDMA_DIR = TTFCPeriToMem_PerCtrl;
 		}
 		if (config_dma->source_handshake) {
@@ -335,6 +336,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	data->channel_status[channel].block_num = config_dma->block_count;
 	data->channel_status[channel].block_size = config_dma->head_block->block_size;
 	data->channel_status[channel].chnl_direction = config_dma->channel_direction;
+	data->channel_status[channel].trans_width = dma_init_struct.GDMA_SrcDataWidth;
 	data->channel_status[channel].callback = config_dma->dma_callback;
 	data->channel_status[channel].user_data = config_dma->user_data;
 	data->channel_status[channel].relead_type = dma_ameba_reload_type_get(config_dma);
@@ -408,6 +410,7 @@ static int dma_ameba_reload(const struct device *dev, uint32_t channel, uint32_t
 							size_t size)
 {
 	struct dma_ameba_config *config = (struct dma_ameba_config *)dev->config;
+	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
 
 	if (channel >= config->channel_num) {
 		LOG_ERR("channel id must be < (%d)\n", config->channel_num);
@@ -417,6 +420,7 @@ static int dma_ameba_reload(const struct device *dev, uint32_t channel, uint32_t
 	GDMA_Cmd(config->instane_id, channel, DISABLE);
 	GDMA_SetSrcAddr(config->instane_id, channel, src);
 	GDMA_SetDstAddr(config->instane_id, channel, dst);
+	size = size >> data->channel_status[channel].trans_width;
 	GDMA_SetBlkSize(config->instane_id, channel, (u32)size);
 
 	return 0;
@@ -508,6 +512,7 @@ static int dma_ameba_init(const struct device *dev)
 		data->channel_status[i].block_size = 0;
 		data->channel_status[i].block_num = 0;
 		data->channel_status[i].block_id = 0;
+		data->channel_status[i].trans_width = 0;
 		data->channel_status[i].chnl_direction = 0;
 		data->channel_status[i].link_node = NULL;
 		data->channel_status[i].relead_type = GDMA_Single;
