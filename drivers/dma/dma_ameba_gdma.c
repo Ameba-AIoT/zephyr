@@ -198,7 +198,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 			dma_init_struct.GDMA_DIR = TTFCMemToPeri_PerCtrl;
 		}
 		/* config dest ip handshake interface */
-		if (config_dma->dest_handshake) {
+		if (!config_dma->dest_handshake) {
 			dma_init_struct.GDMA_DstHandshakeInterface = config_dma->dma_slot;
 		} else {
 			LOG_ERR("dma does not support software handshake\n");
@@ -209,7 +209,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 		if (config_dma->head_block->flow_control_mode) {
 			dma_init_struct.GDMA_DIR = TTFCPeriToMem_PerCtrl;
 		}
-		if (config_dma->source_handshake) {
+		if (!config_dma->source_handshake) {
 			/* config src ip handshake interface */
 			dma_init_struct.GDMA_SrcHandshakeInterface = config_dma->dma_slot;
 		} else {
