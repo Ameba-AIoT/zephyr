@@ -53,16 +53,15 @@ struct stream {
 	bool last_block;
 	struct k_msgq in_queue;
 	struct k_msgq out_queue;
-
 };
 
 /* Device run time data */
 struct i2s_ameba_data {
 	struct stream tx;
 	struct stream rx;
+	void *tx_out_msgs[1];
+	void *rx_in_msgs[1];
 	void *tx_in_msgs[CONFIG_I2S_TX_BLOCK_COUNT];
-	void *tx_out_msgs[CONFIG_I2S_TX_BLOCK_COUNT];
-	void *rx_in_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
 	void *rx_out_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
 	struct i2s_dma_stream dma_rx;//dma rx
 	struct i2s_dma_stream dma_tx;//dma tx

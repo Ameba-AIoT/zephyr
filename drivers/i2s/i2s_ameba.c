@@ -1164,15 +1164,15 @@ static int i2s_ameba_initialize(const struct device *dev)
 		LOG_ERR("invalid clcok");
 		return -EINVAL;
 	}
+
 	/* Initialize the buffer queues */
-	k_msgq_init(&data->tx.in_queue, (char *)data->tx_in_msgs,
-				sizeof(void *), CONFIG_I2S_TX_BLOCK_COUNT);
-	k_msgq_init(&data->rx.in_queue, (char *)data->rx_in_msgs,
-				sizeof(void *), CONFIG_I2S_RX_BLOCK_COUNT);
-	k_msgq_init(&data->tx.out_queue, (char *)data->tx_out_msgs,
-				sizeof(void *), CONFIG_I2S_TX_BLOCK_COUNT);
-	k_msgq_init(&data->rx.out_queue, (char *)data->rx_out_msgs,
-				sizeof(void *), CONFIG_I2S_RX_BLOCK_COUNT);
+	k_msgq_init(&data->tx.in_queue, (char *)data->tx_in_msgs, sizeof(void *),
+				CONFIG_I2S_TX_BLOCK_COUNT);
+	k_msgq_init(&data->rx.out_queue, (char *)data->rx_out_msgs, sizeof(void *),
+				CONFIG_I2S_RX_BLOCK_COUNT);
+	/* Alawys only 1 on rx.in_queue for dma. Alaways only 1 on tx.out_queue for dma. */
+	k_msgq_init(&data->rx.in_queue, (char *)data->rx_in_msgs, sizeof(void *), 1);
+	k_msgq_init(&data->tx.out_queue, (char *)data->tx_out_msgs, sizeof(void *), 1);
 
 	AUDIO_SP_Reset(cfg->index);
 
