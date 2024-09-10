@@ -14,7 +14,7 @@
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/dma/dma_ameba_gdma.h>
-
+#include <zephyr/cache.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(dma_ameba_gdma, CONFIG_DMA_LOG_LEVEL);
 
@@ -30,6 +30,8 @@ struct dma_ameba_channel {
 	uint32_t block_num;
 	uint32_t block_id;
 	uint32_t trans_width;
+	uint32_t src_addr;
+	uint32_t dst_addr;
 	dma_callback_t callback;
 	void *user_data;
 	struct GDMA_CH_LLI *link_node;
@@ -115,10 +117,36 @@ static inline int dma_ameba_reload_type_get(struct dma_config *config_dma)
 	return type;
 }
 
+static inline void dma_ameba_cache_handle(const struct device *dev, uint32_t channel)
+{
+	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
+	uint32_t cache_line_mask = sys_cache_data_line_size_get() - 1;
+	uint32_t temp_chnl_dir = data->channel_status[channel].chnl_direction;
+	uint32_t temp_block_size = data->channel_status[channel].block_size;
+	uint32_t *temp_src_addr = (uint32_t *)(data->channel_status[channel].src_addr);
+	uint32_t *temp_dst_addr = (uint32_t *)(data->channel_status[channel].dst_addr);
+
+	if (((u32)temp_src_addr & cache_line_mask) || ((u32)temp_dst_addr & cache_line_mask)) {
+		LOG_WRN("The transfer address and cache line must be aligned, src: %x; dst: %x; cache line size= %d\n",
+				\
+				(u32)temp_src_addr, (u32)temp_dst_addr, cache_line_mask + 1);
+	}
+	/* If the source or destination is memory, data consistency needs to be ensured. */
+	if (temp_chnl_dir == MEMORY_TO_MEMORY) {
+		sys_cache_data_flush_range(temp_src_addr, temp_block_size);
+		sys_cache_data_flush_and_invd_range(temp_dst_addr, temp_block_size);
+	} else if (temp_chnl_dir == MEMORY_TO_PERIPHERAL) {
+		sys_cache_data_flush_range(temp_src_addr, temp_block_size);
+	} else if (temp_chnl_dir == PERIPHERAL_TO_MEMORY) {
+		sys_cache_data_flush_and_invd_range(temp_dst_addr, temp_block_size);
+	}
+}
+
 static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 {
 	struct dma_ameba_config *config = (struct dma_ameba_config *)dev->config;
 	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
+	uint32_t cache_line_mask = ~(sys_cache_data_line_size_get() - 1);
 	int err = 0;
 	uint32_t isr_type = 0;
 
@@ -127,7 +155,7 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	if (data->channel_status[channel].block_num == data->channel_status[channel].block_id + 2) {
 		GDMA_ChCleanAutoReload(config->instane_id, channel, CLEAN_RELOAD_SRC_DST);
 	}
-
+	/* 1.DMA interrupt type.*/
 	isr_type = GDMA_ClearINT(config->instane_id, channel);
 
 	if (isr_type & BlockType) {
@@ -142,7 +170,14 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	if (isr_type == ErrType) {
 		err = -EIO;
 	}
-
+	/* 2.If the cache is opened, we need to ensure that the cache data and memory data on the
+	    destination address are consistent. */
+	if (data->channel_status[channel].chnl_direction == MEMORY_TO_MEMORY || \
+		data->channel_status[channel].chnl_direction == PERIPHERAL_TO_MEMORY) {
+		sys_cache_data_flush_range((void *)(data->channel_status[channel].dst_addr & cache_line_mask),
+								   data->channel_status[channel].block_size);
+	}
+	/* 3. Execute user call back function.*/
 	if (data->channel_status[channel].callback) {
 		data->channel_status[channel].callback(dev, data->channel_status[channel].user_data, channel, err);
 	}
@@ -323,7 +358,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	}
 
 	/* 2.5 Interrupt type config*/
-	dma_init_struct.GDMA_IsrType = (TransferType | BlockType | ErrType);
+	dma_init_struct.GDMA_IsrType = (TransferType | ErrType);
 
 	/* 3. Initialization. */
 	GDMA_Init(config->instane_id, channel, &dma_init_struct);
@@ -337,6 +372,8 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	data->channel_status[channel].block_size = config_dma->head_block->block_size;
 	data->channel_status[channel].chnl_direction = config_dma->channel_direction;
 	data->channel_status[channel].trans_width = dma_init_struct.GDMA_SrcDataWidth;
+	data->channel_status[channel].dst_addr = config_dma->head_block->dest_address;
+	data->channel_status[channel].src_addr = config_dma->head_block->source_address;
 	data->channel_status[channel].callback = config_dma->dma_callback;
 	data->channel_status[channel].user_data = config_dma->user_data;
 	data->channel_status[channel].relead_type = dma_ameba_reload_type_get(config_dma);
@@ -352,7 +389,7 @@ static int dma_ameba_start(const struct device *dev, uint32_t channel)
 		LOG_ERR("channel id must be < (%d)\n", config->channel_num);
 		return -EINVAL;
 	}
-
+	dma_ameba_cache_handle(dev, channel);
 	/* channel enable */
 	GDMA_Cmd(config->instane_id, channel, ENABLE);
 
@@ -416,10 +453,17 @@ static int dma_ameba_reload(const struct device *dev, uint32_t channel, uint32_t
 		LOG_ERR("channel id must be < (%d)\n", config->channel_num);
 		return -EINVAL;
 	}
+	/* update current channel's parameters. */
+	data->channel_status[channel].src_addr = src;
+	data->channel_status[channel].dst_addr = dst;
+	data->channel_status[channel].block_size = size;
+
+	dma_ameba_cache_handle(dev, channel);
 
 	GDMA_Cmd(config->instane_id, channel, DISABLE);
 	GDMA_SetSrcAddr(config->instane_id, channel, src);
 	GDMA_SetDstAddr(config->instane_id, channel, dst);
+	/* The size required by the gdma hardware must be aligned with the source transmission width. */
 	size = size >> data->channel_status[channel].trans_width;
 	GDMA_SetBlkSize(config->instane_id, channel, (u32)size);
 
@@ -513,6 +557,8 @@ static int dma_ameba_init(const struct device *dev)
 		data->channel_status[i].block_num = 0;
 		data->channel_status[i].block_id = 0;
 		data->channel_status[i].trans_width = 0;
+		data->channel_status[i].dst_addr = 0;
+		data->channel_status[i].src_addr = 0;
 		data->channel_status[i].chnl_direction = 0;
 		data->channel_status[i].link_node = NULL;
 		data->channel_status[i].relead_type = GDMA_Single;
