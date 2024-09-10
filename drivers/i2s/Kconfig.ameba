@@ -21,4 +21,11 @@ config I2S_TX_BLOCK_COUNT
 	int "TX queue length"
 	default 4  # 1 enough  todo:4
 
+config I2S_CHANNEL_EXT
+	bool "AMEBA I2S controller support for more channels"
+	default n
+	select DMA_AMEBA_LLI
+	help
+	  Enable I2S support for 6~8 channels
+
 endif # I2S_AMEBA

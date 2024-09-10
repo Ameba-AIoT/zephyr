@@ -293,7 +293,6 @@
 			mclk-multiple = <128>;
 			mclk-fixed-max = <0>;
 			tdmmode = <0>;
-			fifo-num = <0>;
 			multiio = <0>;
 			chn-len = <4>;
 			mono-stereo = <0>;
@@ -315,7 +314,6 @@
 			mclk-multiple = <128>;
 			mclk-fixed-max = <0>;
 			tdmmode = <0>;
-			fifo-num = <0>;
 			multiio = <0>;
 			chn-len = <4>;
 			mono-stereo = <0>;
