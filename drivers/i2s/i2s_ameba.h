@@ -25,6 +25,7 @@ struct i2s_ameba_cfg {
 	uint32_t mclk_multiple;
 	uint32_t mclk_fixed_max;
 	uint32_t clock_mode;
+	int irq;
 };
 
 struct i2s_dma_stream {
@@ -67,6 +68,5 @@ struct i2s_ameba_data {
 	struct i2s_dma_stream dma_tx;//dma tx
 	struct i2s_dma_stream dma_rx_ext;//dma rx_ext
 	struct i2s_dma_stream dma_tx_ext;//dma tx_ext
-	struct k_timer i2s_fifo_timer;
 };
 #endif	/* _ameba_I2S_H_ */

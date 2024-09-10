@@ -28,9 +28,8 @@ LOG_MODULE_REGISTER(i2s_ameba);
 #define NUM_DMA_BLOCKS_RX_PREP  2
 #define MAX_TX_DMA_BLOCKS       1
 
-#define I2S_INSIDE_LOOPBACK	1
-
 static const struct i2s_config *i2s_ameba_config_get(const struct device *dev, enum i2s_dir dir);
+static void i2s_ameba_tx_sport_fifo_empty_irq(const struct device *dev, bool enable);
 
 static inline void i2s_purge_stream_buffers(struct stream *stream,
 		struct k_mem_slab *mem_slab,
@@ -51,22 +50,67 @@ static inline void i2s_purge_stream_buffers(struct stream *stream,
 	}
 }
 
-static void i2s_ameba_tx_fifo_clean_start(const struct device *dev)
+uint32_t i2s_ameba_tx_fifo_empty_handler(struct device *dev)
 {
+	const struct i2s_ameba_cfg *cfg = dev->config;
 	struct i2s_ameba_data *data = dev->data;
-	const struct i2s_config *stream_cfg_tx = i2s_ameba_config_get(dev, I2S_DIR_TX);
-	int fifo_sample_num = 0;
+	struct stream *stream = &data->tx;
+	AUDIO_SPORT_TypeDef *SPORTx = AUDIO_DEV_TABLE[cfg->index].SPORTx;
 
-	/* Cacluate the maximum delay-time for I2S TX FIFO empty. */
-	if (stream_cfg_tx->word_size <= 16U) {
-		fifo_sample_num = 32;
-	} else {
-		fifo_sample_num = 16;
+	if (cfg->fifo_num == 0 || cfg->fifo_num == 1) {
+		if (SPORTx->SP_FIFO_CTRL & SP_BIT_TX_FIFO_EMPTY_INTR_0) {
+			/* Clear TX FIFO0 irq. */
+			SPORTx->SP_INT_CTRL |= SP_INTR_CLR_0(2);
+			/* FIFO0 empty. */
+			goto sport_end;
+		}
+	} else if (cfg->fifo_num == 2 || cfg->fifo_num == 3) {
+		if ((SPORTx->SP_FIFO_CTRL & SP_BIT_TX_FIFO_EMPTY_INTR_0) &&
+			((SPORTx->SP_FIFO_CTRL & SP_BIT_TX_FIFO_EMPTY_INTR_1))) {
+			/* Clear TX FIFO0 and FIFO1 irq. */
+			SPORTx->SP_INT_CTRL |= SP_INTR_CLR_0(2);
+			SPORTx->SP_INT_CTRL |= SP_INTR_CLR_1(2);
+			/* FIFO0 and FIFO1 are both empty. */
+			goto sport_end;
+		} /* else: wait for another irq end. */
 	}
-	k_timer_start(&data->i2s_fifo_timer,
-				  K_USEC(stream_cfg_tx->channels * fifo_sample_num * 1000000 / stream_cfg_tx->frame_clk_freq),
-				  K_NO_WAIT);
-	/* Disable and Deint DMA, but do not stop SPORT. */
+	return 0;
+
+sport_end:
+	i2s_ameba_tx_sport_fifo_empty_irq(dev, 0);
+	if (stream->state == I2S_STATE_STOPPING) {
+		LOG_DBG("I2S TX FIFO is empty. Deinit AUDIO SPORT.");
+		stream->state = I2S_STATE_READY;
+		AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
+	} else {
+		LOG_ERR("I2S FIFO empty with an error state %d.\n", stream->state);
+		stream->state = I2S_STATE_ERROR;
+	}
+	return 0;
+}
+
+static void i2s_ameba_tx_sport_fifo_empty_irq(const struct device *dev, bool enable)
+{
+	const struct i2s_ameba_cfg *cfg = dev->config;
+	AUDIO_SPORT_TypeDef *SPORTx = AUDIO_DEV_TABLE[cfg->index].SPORTx;
+
+	if (cfg->fifo_num == 2 || cfg->fifo_num == 3) {
+		if (enable) {
+			SPORTx->SP_INT_CTRL |= SP_INT_ENABLE_DSP_1(BIT(4));
+		} else {
+			SPORTx->SP_INT_CTRL &= ~SP_INT_ENABLE_DSP_1(BIT(4));
+		}
+	}
+
+	if (enable) {
+		irq_connect_dynamic(cfg->irq, 0, (void *)i2s_ameba_tx_fifo_empty_handler, (void *)dev, 0);
+		SPORTx->SP_INT_CTRL |= SP_INT_ENABLE_DSP_0(BIT(4));
+		irq_enable(cfg->irq);
+	} else {
+		SPORTx->SP_INT_CTRL &= ~SP_INT_ENABLE_DSP_0(BIT(4));
+		irq_disable(cfg->irq);
+		irq_connect_dynamic(cfg->irq, 0, NULL, NULL, 0);
+	}
 }
 
 static void i2s_tx_stream_disable(const struct device *dev, bool drop)
@@ -94,13 +138,12 @@ static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 		i2s_purge_stream_buffers(stream, data->tx.cfg.mem_slab, true, true);
 		stream->state = I2S_STATE_READY;
 	} else {
-		LOG_DBG("Start a timer to wait I2S FIFO empty.\n");
-		i2s_ameba_tx_fifo_clean_start(dev);
+		LOG_DBG("DMA DONE. Wait SPORT FIFO-EMPTY. \n");
+		i2s_ameba_tx_sport_fifo_empty_irq(dev, 1);
 	}
 }
 
-static void i2s_rx_stream_disable(const struct device *dev,
-								  bool in_drop, bool out_drop)
+static void i2s_rx_stream_disable(const struct device *dev, bool in_drop, bool out_drop)
 {
 	struct i2s_ameba_data *data = dev->data;
 	struct stream *stream = &data->rx;
@@ -123,24 +166,6 @@ static void i2s_rx_stream_disable(const struct device *dev,
 	/* purge buffers queued in the stream */
 	if (in_drop || out_drop) {
 		i2s_purge_stream_buffers(stream, data->rx.cfg.mem_slab, in_drop, out_drop);
-	}
-}
-
-static void i2s_ameba_fifo_clean_callback(struct k_timer *timer)
-{
-	const struct device *dev = (const struct device *)k_timer_user_data_get(timer);
-	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
-	const struct i2s_ameba_cfg *cfg = dev->config;
-
-	/* TX queue has drained */
-	if (stream->state == I2S_STATE_STOPPING) {
-		LOG_DBG("I2S TX FIFO is empty. Deinit AUDIO SPORT.");
-		stream->state = I2S_STATE_READY;
-		AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
-	} else {
-		LOG_ERR("I2S FIFO empty with an error state %d.\n", stream->state);
-		stream->state = I2S_STATE_ERROR;
 	}
 }
 
@@ -256,6 +281,7 @@ void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data,
 			return;
 		}
 	case I2S_STATE_ERROR:
+		LOG_ERR("Error state in tx callback.");
 	default:
 		i2s_tx_stream_disable(dev, true);
 		return;
@@ -338,6 +364,7 @@ void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data,
 		}
 		break;
 	case I2S_STATE_ERROR:
+		LOG_ERR("Error state in rx callback.");
 		i2s_rx_stream_disable(dev, true, true);
 		break;
 	}
@@ -376,10 +403,16 @@ static int i2s_ameba_enable_clock(const struct device *dev)
 
 static int i2s_ameba_start_state_check(struct stream *stream)
 {
+	int retry = 3;
+
 	while (stream->state == I2S_STATE_STOPPING) {
-		/* Wait i2s_fifo_timer to finish the former transform. */
 		k_sleep(K_MSEC(1));
+		LOG_WRN("Last SPORT is STOPPING, will wait a while...");
+		if (retry-- < 0) {
+			break;
+		}
 	}
+
 	if ((stream->state != I2S_STATE_READY) && (stream->state != I2S_STATE_NOT_READY)) {
 		LOG_ERR("Stream state (%d) is error for configure.\n", stream->state);
 		return -EIO;
@@ -542,11 +575,9 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	/* set MCLK */
 	AUDIO_SP_SetMclkDiv(cfg->index, Clock_Params.MCLK_NI, Clock_Params.MCLK_MI);
 
-#if I2S_INSIDE_LOOPBACK
 	if ((i2s_cfg->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK) {
 		AUDIO_SP_SetSelfLPBK(cfg->index);
 	}
-#endif
 
 	AUDIO_SP_Init(cfg->index, sp_dir, &SP_InitStruct);
 
@@ -563,6 +594,11 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		slave = false;     /* master */
 	}
 
+	if ((i2s_cfg->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK) {
+		/* Single i2s-loopback cannot be slave-mode (alaways need clock). */
+		slave = false;
+	}
+
 	AUDIO_SP_SetMasterSlave(cfg->index, slave);  /* master:0 slave:1 */
 
 	if (cfg->MultiIO == 1) {
@@ -571,13 +607,6 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 			case 1:
 			case 2: {
 				AUDIO_SP_SetPinMux(cfg->index, DIN0_FUNC);
-#if !I2S_INSIDE_LOOPBACK
-				const struct i2s_config *stream_cfg_rx = i2s_ameba_config_get(dev, I2S_DIR_RX);
-				if ((stream_cfg_rx->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK) {
-					/* Outside loopback for rx. */
-					AUDIO_SP_SetPinMux(cfg->index, DIN3_FUNC);
-				}
-#endif
 				break;
 			}
 			case 3:
@@ -826,7 +855,7 @@ static int i2s_tx_stream_start(const struct device *dev)
 
 static int i2s_rx_stream_start(const struct device *dev)
 {
-	int ret = 0;
+	int ret = 0, i = 0;
 	void *buffer;
 	struct i2s_ameba_data *data = dev->data;
 	struct stream *stream = &data->rx;
@@ -841,7 +870,7 @@ static int i2s_rx_stream_start(const struct device *dev)
 	 * Need at least NUM_DMA_BLOCKS_RX_PREP buffers on the RX memory slab
 	 * for reliable DMA reception.
 	 */
-	if (num_of_bufs < NUM_DMA_BLOCKS_RX_PREP) {
+	if (num_of_bufs < NUM_DMA_BLOCKS_RX_PREP || !IS_SP_SEL_RX_FIFO(cfg->fifo_num)) {
 		return -EINVAL;
 	}
 
@@ -857,6 +886,12 @@ static int i2s_rx_stream_start(const struct device *dev)
 	if (ret != 0) {
 		LOG_ERR("failed to put buffer in input queue, ret1 %d", ret);
 		return ret;
+	}
+
+	for (i = 0; i <= cfg->fifo_num; i++) {
+		/* Clear hardware RX FIFO. */
+		AUDIO_SP_RXSetFifo(cfg->index, i, 0);
+		AUDIO_SP_RXSetFifo(cfg->index, i, 1);
 	}
 
 	/* DMA enable and register irq */
@@ -939,7 +974,6 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 
 		stream->state = I2S_STATE_READY;
 		if (dir == I2S_DIR_TX) {
-			k_timer_stop(&data->i2s_fifo_timer);
 			i2s_tx_stream_disable(dev, true);
 		} else {
 			i2s_rx_stream_disable(dev, true, true);
@@ -973,7 +1007,6 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir,
 			ret = -EIO;
 			break;
 		}
-		k_timer_stop(&data->i2s_fifo_timer);
 		AUDIO_SP_Reset(cfg->index);
 		stream->state = I2S_STATE_READY;
 
@@ -1000,7 +1033,7 @@ static int i2s_ameba_read(const struct device *dev, void **mem_block,
 	struct stream *stream = &data->rx;
 
 	void *buffer;
-	int status, ret = 0;
+	int status;
 	if (stream->state == I2S_STATE_NOT_READY) {
 		LOG_ERR("invalid state %d", stream->state);
 		return -EIO;
@@ -1010,12 +1043,11 @@ static int i2s_ameba_read(const struct device *dev, void **mem_block,
 						SYS_TIMEOUT_MS(stream->cfg.timeout));
 	if (status != 0) {
 		if (stream->state == I2S_STATE_ERROR) {
-			ret = -EIO;
+			return -EIO;
 		} else {
 			LOG_DBG("need retry");
-			ret = -EAGAIN;
+			return -EAGAIN;
 		}
-		return ret;
 	}
 
 	*mem_block = buffer;
@@ -1030,8 +1062,8 @@ static int i2s_ameba_write(const struct device *dev, void *mem_block,
 	struct stream *stream = &data->tx;
 	int ret = 0;
 
-	if (stream->state != I2S_STATE_RUNNING &&
-		stream->state != I2S_STATE_READY) {
+	if (stream->state != I2S_STATE_READY &&
+		stream->state != I2S_STATE_RUNNING) {
 		LOG_ERR("invalid state (%d)", stream->state);
 		return -EIO;
 	}
@@ -1142,9 +1174,6 @@ static int i2s_ameba_initialize(const struct device *dev)
 	k_msgq_init(&data->rx.out_queue, (char *)data->rx_out_msgs,
 				sizeof(void *), CONFIG_I2S_RX_BLOCK_COUNT);
 
-	k_timer_init(&data->i2s_fifo_timer, i2s_ameba_fifo_clean_callback, NULL);
-	k_timer_user_data_set(&data->i2s_fifo_timer, (void *)dev);
-
 	AUDIO_SP_Reset(cfg->index);
 
 	return 0;
@@ -1155,8 +1184,6 @@ static int i2s_ameba_initialize(const struct device *dev)
     .dma_dev = AMEBA_DT_INST_DMA_CTLR(index, dir),                                          \
     .dma_channel = DT_INST_DMAS_CELL_BY_NAME(index, dir, channel),                          \
     .dma_cfg = AMEBA_DMA_CONFIG(index, dir, 1, NULL),                  \
-    .src_addr_increment = AMEBA_DMA_SRC_ADDR_ADJ_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),   \
-    .dst_addr_increment = AMEBA_DMA_DST_ADDR_ADJ_GET(AMEBA_DT_INST_DMA_CELL(index, dir, config)),   \
 
 #define I2S_DMA_CHANNEL(index, dir)    \
     .dma_##dir = {COND_CODE_1(DT_INST_DMAS_HAS_NAME(index, dir),               \
@@ -1183,6 +1210,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 		.mono_stereo =  DT_INST_PROP(n, mono_stereo),		\
 		.clock_mode = DT_INST_PROP(n, clock_mode),		\
 		.pll_tune = DT_INST_PROP(n, pll_tune),		\
+		.irq = DT_INST_IRQN(n),				\
 									\
 	};								\
 										\
