@@ -8,8 +8,8 @@
  * @brief Driver for Realtek Ameba Led Controller
  */
 
-#define DT_DRV_COMPAT realtek_ameba_ledc
-#define ENABLE_DMA_MODE  0
+#define DT_DRV_COMPAT   realtek_ameba_ledc
+#define ENABLE_DMA_MODE 0
 
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
@@ -26,18 +26,18 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ledc_ameba);
 
-#define RESULT_RUNNING             0
-#define RESULT_COMPLETE            1
-#define RESULT_ERR                 2
+#define RESULT_RUNNING  0
+#define RESULT_COMPLETE 1
+#define RESULT_ERR      2
 
 struct ameba_ledc_data_struct {
 	LEDC_InitTypeDef ledc_init_struct;
 	/* GDMA_InitTypeDef ledc_dma_struct; */
 
-	uint32_t *tx_data;         /* tx data handle */
-	uint16_t tx_total_len;     /* tx total length */
-	uint16_t tx_len ;          /* tx len that has been wrote to the FIFO */
-	uint8_t  irq_result : 2;   /* tx status */
+	uint32_t *tx_data;     /* tx data handle */
+	uint16_t tx_total_len; /* tx total length */
+	uint16_t tx_len;       /* tx len that has been wrote to the FIFO */
+	uint8_t irq_result: 2; /* tx status */
 };
 
 struct ameba_ledc_cfg_struct {
@@ -54,7 +54,7 @@ struct ameba_ledc_cfg_struct {
 	uint32_t t1h_ns;
 	uint32_t t1l_ns;
 
-	uint16_t led_num_cfg;     /* max 1024 */
+	uint16_t led_num_cfg; /* max 1024 */
 
 	uint8_t num_colors;
 	uint8_t output_RGB_mode;
@@ -82,7 +82,8 @@ static void ameba_ledc_isr_handle(const struct device *dev)
 		if ((pdata->tx_total_len - pdata->tx_len) >= ledc_fifothr) {
 			pdata->tx_len += LEDC_SendData(LEDC_DEV, start_addr, ledc_fifothr);
 		} else {
-			pdata->tx_len += LEDC_SendData(LEDC_DEV, start_addr, pdata->tx_total_len - pdata->tx_len);
+			pdata->tx_len += LEDC_SendData(LEDC_DEV, start_addr,
+										   pdata->tx_total_len - pdata->tx_len);
 		}
 
 		LEDC_INTConfig(LEDC_DEV, LEDC_BIT_GLOBAL_INT_EN, ENABLE);
@@ -114,8 +115,7 @@ static void ameba_ledc_isr_handle(const struct device *dev)
 	LEDC_INTConfig(LEDC_DEV, LEDC_BIT_GLOBAL_INT_EN, ENABLE);
 }
 
-static int ameba_ledc_update_rgb(const struct device *dev,
-								 struct led_rgb *pixels,
+static int ameba_ledc_update_rgb(const struct device *dev, struct led_rgb *pixels,
 								 size_t num_pixels)
 {
 	const struct ameba_ledc_cfg_struct *cfg = dev->config;
@@ -137,14 +137,14 @@ static int ameba_ledc_update_rgb(const struct device *dev,
 	pdata->ledc_init_struct.data_length = data_len;
 	LEDC_SetTotalLength(LEDC_DEV, pdata->ledc_init_struct.data_length);
 
-	LOG_DBG("Write %d data/0x%08x cnt %d", pdata->ledc_init_struct.data_length, pdata->tx_data[0],
-			cfg->num_colors);
+	LOG_DBG("Write %d data/0x%08x cnt %d", pdata->ledc_init_struct.data_length,
+			pdata->tx_data[0], cfg->num_colors);
 
 	/* Convert from RGB to on-wire format (e.g. GRB, GRBW, RGB, etc) */
 	for (i = 0; i < num_pixels; i++) {
 		uint8_t j;
-		struct led_rgb pixel_tmp = {0, 0, 0, 0} ;
-		uint8_t *ptr = (uint8_t *) &pixel_tmp;
+		struct led_rgb pixel_tmp = {0, 0, 0, 0};
+		uint8_t *ptr = (uint8_t *)&pixel_tmp;
 
 		for (j = 0; j < cfg->num_colors; j++) {
 			switch (cfg->color_mapping[j]) {
@@ -187,8 +187,7 @@ static int ameba_ledc_update_rgb(const struct device *dev,
 	return -EFAULT;
 }
 
-static int ameba_ledc_update_channels(const struct device *dev,
-									  uint8_t *channels,
+static int ameba_ledc_update_channels(const struct device *dev, uint8_t *channels,
 									  size_t num_channels)
 {
 	ARG_UNUSED(dev);
@@ -233,9 +232,10 @@ static int ameba_ledc_init(const struct device *dev)
 
 	/* check the dts config valid
 	 * LEDC_MAX_LED_NUM 1024
-	*/
+	 */
 	if (!IS_LEDC_LED_NUM(cfg->led_num_cfg)) {
-		LOG_ERR("Illegal parameter: LED cnt %d, force to Max %d\n", cfg->led_num_cfg, LEDC_MAX_LED_NUM);
+		LOG_ERR("Illegal parameter: LED cnt %d, force to Max %d\n", cfg->led_num_cfg,
+				LEDC_MAX_LED_NUM);
 		led_num = LEDC_MAX_LED_NUM;
 	} else {
 		led_num = cfg->led_num_cfg;
@@ -268,16 +268,16 @@ static int ameba_ledc_init(const struct device *dev)
 	LEDC_Init(LEDC_DEV, pledc_init_struct);
 
 	/* LEDC_SetInputMode(LEDC_DEV, 0);
-	   LEDC_SetOutputMode(LEDC_DEV, 0);  */
+	 * LEDC_SetOutputMode(LEDC_DEV, 0);
+	 */
 
-	/* register the interrupt */
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), ameba_ledc_isr_handle, DEVICE_DT_INST_GET(0),
-				0);
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), ameba_ledc_isr_handle,
+				DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
 
 	LOG_DBG("Ledc init finish");
 
-	return  0;
+	return 0;
 }
 
 PINCTRL_DT_INST_DEFINE(0);
@@ -301,11 +301,5 @@ static const struct ameba_ledc_cfg_struct ameba_ledc_cfg = {
 	.reset_ns = DT_PROP(DT_NODELABEL(ledc), refresh_time),
 };
 
-DEVICE_DT_INST_DEFINE(0,
-					  &ameba_ledc_init,
-					  NULL,
-					  &ameba_ledc_data,
-					  &ameba_ledc_cfg,
-					  POST_KERNEL,
-					  CONFIG_LED_STRIP_INIT_PRIORITY,
-					  &ameba_ledc_api);
+DEVICE_DT_INST_DEFINE(0, &ameba_ledc_init, NULL, &ameba_ledc_data, &ameba_ledc_cfg, POST_KERNEL,
+					  CONFIG_LED_STRIP_INIT_PRIORITY, &ameba_ledc_api);

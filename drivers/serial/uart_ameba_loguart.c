@@ -26,7 +26,7 @@ LOG_MODULE_REGISTER(loguart_ameba, CONFIG_UART_LOG_LEVEL);
  * This driver only supports one instance of this IP block, so the
  * instance number is always 0.
  */
-#define DT_DRV_COMPAT	realtek_ameba_loguart
+#define DT_DRV_COMPAT realtek_ameba_loguart
 
 /* Device config structure */
 struct loguart_ameba_config {
@@ -104,8 +104,7 @@ static int loguart_ameba_fifo_fill(const struct device *dev, const uint8_t *tx_d
 	return num_tx;
 }
 
-static int loguart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data,
-								   const int size)
+static int loguart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data, const int size)
 {
 	ARG_UNUSED(dev);
 
@@ -159,8 +158,7 @@ static int loguart_ameba_irq_tx_ready(const struct device *dev)
 	struct loguart_ameba_data *data = dev->data;
 
 	/* KM4: TX_PATH1 */
-	return (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) &&
-		   data->tx_int_en;
+	return (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) && data->tx_int_en;
 }
 
 static int loguart_ameba_irq_tx_complete(const struct device *dev)
@@ -211,8 +209,7 @@ static int loguart_ameba_irq_is_pending(const struct device *dev)
 {
 	struct loguart_ameba_data *data = dev->data;
 
-	return ((LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) &&
-			data->tx_int_en) ||
+	return ((LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) && data->tx_int_en) ||
 		   ((LOGUART_GetStatus(LOGUART_DEV) &
 			 (LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
 			data->rx_int_en);
@@ -224,8 +221,7 @@ static int loguart_ameba_irq_update(const struct device *dev)
 }
 
 static void loguart_ameba_irq_callback_set(const struct device *dev,
-		uart_irq_callback_user_data_t cb,
-		void *cb_data)
+		uart_irq_callback_user_data_t cb, void *cb_data)
 {
 	struct loguart_ameba_data *data = dev->data;
 
@@ -247,11 +243,11 @@ static void loguart_ameba_irq_callback_set(const struct device *dev,
  */
 static int loguart_ameba_init(const struct device *dev)
 {
-	const struct loguart_ameba_config *config = dev->config;
-
 	LOGUART_RxCmd(LOGUART_DEV, DISABLE);
 	LOGUART_INT_NP2AP();
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
+	const struct loguart_ameba_config *config = dev->config;
+
 	config->irq_config_func(dev);
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
@@ -261,22 +257,19 @@ static int loguart_ameba_init(const struct device *dev)
 }
 
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
-#define AMEBA_LOGUART_IRQ_HANDLER_DECL               \
-    static void loguart_ameba_irq_config_func(const struct device *dev);
-#define AMEBA_LOGUART_IRQ_HANDLER                    \
-    static void loguart_ameba_irq_config_func(const struct device *dev) \
-    {                                   \
-        IRQ_CONNECT(DT_INST_IRQN(0),                \
-                    DT_INST_IRQ(0, priority),               \
-                    loguart_ameba_isr, DEVICE_DT_INST_GET(0),       \
-                    0);                         \
-        irq_enable(DT_INST_IRQN(0));                \
-    }
-#define AMEBA_LOGUART_IRQ_HANDLER_FUNC               \
-    .irq_config_func = loguart_ameba_irq_config_func,
+#define AMEBA_LOGUART_IRQ_HANDLER_DECL                                                             \
+	static void loguart_ameba_irq_config_func(const struct device *dev);
+#define AMEBA_LOGUART_IRQ_HANDLER                                                                  \
+	static void loguart_ameba_irq_config_func(const struct device *dev)                        \
+	{                                                                                          \
+		IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), loguart_ameba_isr,          \
+			    DEVICE_DT_INST_GET(0), 0);                                             \
+		irq_enable(DT_INST_IRQN(0));                                                       \
+	}
+#define AMEBA_LOGUART_IRQ_HANDLER_FUNC .irq_config_func = loguart_ameba_irq_config_func,
 #else
 #define AMEBA_LOGUART_IRQ_HANDLER_DECL /* Not used */
-#define AMEBA_LOGUART_IRQ_HANDLER /* Not used */
+#define AMEBA_LOGUART_IRQ_HANDLER      /* Not used */
 #define AMEBA_LOGUART_IRQ_HANDLER_FUNC /* Not used */
 #endif
 
@@ -291,7 +284,6 @@ static void loguart_ameba_isr(const struct device *dev)
 		data->user_cb(dev, data->user_data);
 	}
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
-
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
@@ -319,12 +311,9 @@ static const struct uart_driver_api loguart_ameba_driver_api = {
 AMEBA_LOGUART_IRQ_HANDLER_DECL
 AMEBA_LOGUART_IRQ_HANDLER
 
-static const struct loguart_ameba_config loguart_config = {
-	AMEBA_LOGUART_IRQ_HANDLER_FUNC
-};
+static const struct loguart_ameba_config loguart_config = {AMEBA_LOGUART_IRQ_HANDLER_FUNC};
 
-static struct loguart_ameba_data loguart_data = {
-	.config = {
+static struct loguart_ameba_data loguart_data = {.config = {
 		.stop_bits = UART_CFG_STOP_BITS_1,
 		.data_bits = UART_CFG_DATA_BITS_8,
 		.baudrate = DT_INST_PROP(0, current_speed),
@@ -333,11 +322,5 @@ static struct loguart_ameba_data loguart_data = {
 	}
 };
 
-DEVICE_DT_INST_DEFINE(0,
-					  loguart_ameba_init,
-					  NULL,
-					  &loguart_data,
-					  &loguart_config,
-					  PRE_KERNEL_1,
-					  CONFIG_SERIAL_INIT_PRIORITY,
-					  &loguart_ameba_driver_api);
+DEVICE_DT_INST_DEFINE(0, loguart_ameba_init, NULL, &loguart_data, &loguart_config, PRE_KERNEL_1,
+					  CONFIG_SERIAL_INIT_PRIORITY, &loguart_ameba_driver_api);

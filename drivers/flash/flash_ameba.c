@@ -53,8 +53,12 @@ static inline void flash_ameba_sem_give(const struct device *dev)
 }
 #else
 
-#define flash_ameba_sem_take(dev) do {} while (0)
-#define flash_ameba_sem_give(dev) do {} while (0)
+#define flash_ameba_sem_take(dev)                                                                  \
+	do {                                                                                       \
+	} while (0)
+#define flash_ameba_sem_give(dev)                                                                  \
+	do {                                                                                       \
+	} while (0)
 
 #endif /* CONFIG_MULTITHREADING */
 
@@ -70,9 +74,7 @@ static int flash_ameba_read(const struct device *dev, off_t address, void *buffe
 	return ret;
 }
 
-static int flash_ameba_write(const struct device *dev,
-							 off_t address,
-							 const void *buffer,
+static int flash_ameba_write(const struct device *dev, off_t address, const void *buffer,
 							 size_t length)
 {
 	int ret = 0;
@@ -120,8 +122,7 @@ static const struct flash_pages_layout flash_ameba_pages_layout = {
 	.pages_size = DT_PROP(SOC_NV_FLASH_NODE, erase_block_size),
 };
 
-void flash_ameba_page_layout(const struct device *dev,
-							 const struct flash_pages_layout **layout,
+void flash_ameba_page_layout(const struct device *dev, const struct flash_pages_layout **layout,
 							 size_t *layout_size)
 {
 	*layout = &flash_ameba_pages_layout;
@@ -129,8 +130,7 @@ void flash_ameba_page_layout(const struct device *dev,
 }
 #endif /* CONFIG_FLASH_PAGE_LAYOUT */
 
-static const struct flash_parameters *
-flash_ameba_get_parameters(const struct device *dev)
+static const struct flash_parameters *flash_ameba_get_parameters(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 
@@ -164,8 +164,5 @@ static const struct flash_ameba_dev_config flash_ameba_config = {
 	.base_addr = DT_INST_REG_ADDR(0),
 };
 
-DEVICE_DT_INST_DEFINE(0, flash_ameba_init,
-					  NULL,
-					  &flash_ameba_data, &flash_ameba_config,
-					  POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY,
-					  &flash_ameba_driver_api);
+DEVICE_DT_INST_DEFINE(0, flash_ameba_init, NULL, &flash_ameba_data, &flash_ameba_config,
+					  POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, &flash_ameba_driver_api);

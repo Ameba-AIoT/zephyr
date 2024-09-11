@@ -25,8 +25,7 @@ LOG_MODULE_REGISTER(crypto_ameba);
 #error No AMEBA HW Crypto Accelerator in device tree
 #endif
 
-
-#define CRYP_SUPPORT (CAP_RAW_KEY | CAP_SEPARATE_IO_BUFS | CAP_SYNC_OPS | CAP_NO_IV_PREFIX)
+#define CRYP_SUPPORT    (CAP_RAW_KEY | CAP_SEPARATE_IO_BUFS | CAP_SYNC_OPS | CAP_NO_IV_PREFIX)
 #define BLOCK_LEN_BYTES 16
 #define BLOCK_LEN_WORDS (BLOCK_LEN_BYTES / sizeof(uint32_t))
 
@@ -39,10 +38,8 @@ struct crypto_ameba_data {
 	struct k_sem session_sem;
 };
 
-static int crypto_ameba_session_setup(const struct device *dev,
-									  struct cipher_ctx *ctx,
-									  enum cipher_algo algo,
-									  enum cipher_mode mode,
+static int crypto_ameba_session_setup(const struct device *dev, struct cipher_ctx *ctx,
+									  enum cipher_algo algo, enum cipher_mode mode,
 									  enum cipher_op op_type)
 {
 	ARG_UNUSED(dev);
@@ -59,8 +56,7 @@ static int crypto_ameba_session_setup(const struct device *dev,
 	 * not a multiple of 128 bits. Therefore, CCM mode is not supported by
 	 * this driver.
 	 */
-	if ((mode != CRYPTO_CIPHER_MODE_ECB) &&
-		(mode != CRYPTO_CIPHER_MODE_CBC) &&
+	if ((mode != CRYPTO_CIPHER_MODE_ECB) && (mode != CRYPTO_CIPHER_MODE_CBC) &&
 		(mode != CRYPTO_CIPHER_MODE_CTR)) {
 		LOG_ERR("Unsupported mode");
 		return -EINVAL;
@@ -69,8 +65,7 @@ static int crypto_ameba_session_setup(const struct device *dev,
 	return 0;
 }
 
-static int crypto_ameba_session_free(const struct device *dev,
-									 struct cipher_ctx *ctx)
+static int crypto_ameba_session_free(const struct device *dev, struct cipher_ctx *ctx)
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(ctx);
@@ -111,13 +106,9 @@ static const struct crypto_driver_api crypto_enc_funcs = {
 	.query_hw_caps = crypto_ameba_query_caps,
 };
 
-static struct crypto_ameba_data crypto_ameba_dev_data = {
-};
+static struct crypto_ameba_data crypto_ameba_dev_data = {};
 
-static const struct crypto_ameba_config crypto_ameba_dev_config = {
-};
+static const struct crypto_ameba_config crypto_ameba_dev_config = {};
 
-DEVICE_DT_INST_DEFINE(0, crypto_ameba_init, NULL,
-					  &crypto_ameba_dev_data,
-					  &crypto_ameba_dev_config, POST_KERNEL,
-					  CONFIG_CRYPTO_INIT_PRIORITY, (void *)&crypto_enc_funcs);
+DEVICE_DT_INST_DEFINE(0, crypto_ameba_init, NULL, &crypto_ameba_dev_data, &crypto_ameba_dev_config,
+					  POST_KERNEL, CONFIG_CRYPTO_INIT_PRIORITY, (void *)&crypto_enc_funcs);

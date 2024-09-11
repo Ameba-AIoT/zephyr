@@ -19,7 +19,7 @@ properties:
     required: true
     description: |
       16 bit timer prescale for the global clock.
-  
+
   clock-frequency:
     type: int
     default: 40000000

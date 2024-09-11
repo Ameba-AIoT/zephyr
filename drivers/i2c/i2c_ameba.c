@@ -141,8 +141,8 @@ error:
 	return err;
 }
 
-static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs,
-							  uint8_t num_msgs, uint16_t addr)
+static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msgs,
+							  uint16_t addr)
 {
 	struct i2c_ameba_data *data = dev->data;
 	const struct i2c_ameba_config *config = dev->config;
@@ -161,11 +161,10 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs,
 			next = current + 1;
 
 			/*
-			* If there have a R/W transfer state change between messages,
-			* An explicit I2C_MSG_RESTART flag is needed for the second message.
-			*/
-			if ((current->flags & I2C_MSG_RW_MASK) !=
-				(next->flags & I2C_MSG_RW_MASK)) {
+			 * If there have a R/W transfer state change between messages,
+			 * An explicit I2C_MSG_RESTART flag is needed for the second message.
+			 */
+			if ((current->flags & I2C_MSG_RW_MASK) != (next->flags & I2C_MSG_RW_MASK)) {
 				if ((next->flags & I2C_MSG_RESTART) == 0U) {
 					return -EINVAL;
 				}
@@ -180,8 +179,7 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs,
 			current->flags |= I2C_MSG_STOP;
 		}
 
-		if ((current->buf == NULL) ||
-			(current->len == 0U)) {
+		if ((current->buf == NULL) || (current->len == 0U)) {
 			return -EINVAL;
 		}
 
@@ -202,11 +200,15 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs,
 			I2C_INTConfig(i2c, I2C_BIT_R_STOP_DET, ENABLE);
 
 			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
-				I2C_MasterWriteInt(i2c, &data->i2c_intctrl, data->current->buf,  data->current->len);
-				while (data->flag_done == 0);
+				I2C_MasterWriteInt(i2c, &data->i2c_intctrl, data->current->buf,
+								   data->current->len);
+				while (data->flag_done == 0)
+					;
 			} else {
-				I2C_MasterReadInt(i2c,   &data->i2c_intctrl, data->current->buf,  data->current->len);
-				while (data->flag_done == 0);
+				I2C_MasterReadInt(i2c, &data->i2c_intctrl, data->current->buf,
+								  data->current->len);
+				while (data->flag_done == 0)
+					;
 			}
 		}
 	}
@@ -216,15 +218,15 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs,
 		data->current = &msgs[i];
 		if (data->master_mode == 1) {
 			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
-				I2C_MasterWrite(i2c,  data->current->buf,  data->current->len);
+				I2C_MasterWrite(i2c, data->current->buf, data->current->len);
 			} else {
-				I2C_MasterRead(i2c,  data->current->buf,  data->current->len);
+				I2C_MasterRead(i2c, data->current->buf, data->current->len);
 			}
 		} else {
 			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
-				I2C_SlaveWrite(i2c,  data->current->buf,  data->current->len);
+				I2C_SlaveWrite(i2c, data->current->buf, data->current->len);
 			} else {
-				I2C_SlaveRead(i2c,  data->current->buf,  data->current->len);
+				I2C_SlaveRead(i2c, data->current->buf, data->current->len);
 			}
 		}
 	}
@@ -264,7 +266,7 @@ static int i2c_ameba_init(const struct device *dev)
 	k_sem_take(&rxSemaphore, K_FOREVER);
 
 	data->i2c_intctrl.I2Cx = config->I2Cx;
-	data->i2c_intctrl.I2CSendSem =  i2c_give_sema;
+	data->i2c_intctrl.I2CSendSem = i2c_give_sema;
 	data->i2c_intctrl.I2CWaitSem = i2c_take_sema;
 	config->irq_cfg_func();
 #endif
@@ -275,33 +277,29 @@ static int i2c_ameba_init(const struct device *dev)
 	return 0;
 }
 
-
-#define AMEBA_I2C_INIT(n)						   \
-    PINCTRL_DT_INST_DEFINE(n);  \
-    static void i2c_ameba_irq_cfg_func_##n(void)             \
-    {  \
-          IRQ_CONNECT(DT_INST_IRQN(n),        \
-                    DT_INST_IRQ(n, priority),       \
-                    i2c_ameba_isr,                   \
-                    DEVICE_DT_INST_GET(n),              \
-                    0);                         \
-        irq_enable(DT_INST_IRQN(n));        \
-    } \
-												   \
-	static struct i2c_ameba_data i2c_ameba_data_##n; \
-												   \
-	static const struct i2c_ameba_config i2c_ameba_config_##n = {				   \
-		.index = n,		\
-        .I2Cx=(I2C_TypeDef *)DT_INST_REG_ADDR(n), 							   \
-        .pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),          \
-        .bitrate = DT_INST_PROP(n, clock_frequency),          \
-        .clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
-		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
-        .irq_cfg_func = i2c_ameba_irq_cfg_func_##n,          \
-	};					\
-						\
-	I2C_DEVICE_DT_INST_DEFINE(n, i2c_ameba_init, NULL, &i2c_ameba_data_##n, \
-			     &i2c_ameba_config_##n, POST_KERNEL, CONFIG_I2C_INIT_PRIORITY,	   \
-			     &i2c_ameba_driver_api);
+#define AMEBA_I2C_INIT(n)                                                                          \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	static void i2c_ameba_irq_cfg_func_##n(void)                                               \
+	{                                                                                          \
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), i2c_ameba_isr,              \
+			    DEVICE_DT_INST_GET(n), 0);                                             \
+		irq_enable(DT_INST_IRQN(n));                                                       \
+	}                                                                                          \
+                                                                                                   \
+	static struct i2c_ameba_data i2c_ameba_data_##n;                                           \
+                                                                                                   \
+	static const struct i2c_ameba_config i2c_ameba_config_##n = {                              \
+		.index = n,                                                                        \
+		.I2Cx = (I2C_TypeDef *)DT_INST_REG_ADDR(n),                                        \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.bitrate = DT_INST_PROP(n, clock_frequency),                                       \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
+		.irq_cfg_func = i2c_ameba_irq_cfg_func_##n,                                        \
+	};                                                                                         \
+                                                                                                   \
+	I2C_DEVICE_DT_INST_DEFINE(n, i2c_ameba_init, NULL, &i2c_ameba_data_##n,                    \
+				  &i2c_ameba_config_##n, POST_KERNEL, CONFIG_I2C_INIT_PRIORITY,    \
+				  &i2c_ameba_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(AMEBA_I2C_INIT)

@@ -11,21 +11,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
 
-
-#define SECTION(_name)      __attribute__ ((__section__(_name)))
-
-#define IMAGE2_ENTRY_SECTION                     \
-        SECTION(".image2.entry.data")
-
-
 void z_arm_reset(void);
 
 IMAGE2_ENTRY_SECTION
-RAM_START_FUNCTION Img2EntryFun0 = {
-	z_arm_reset,
-	NULL,//BOOT_RAM_WakeFromPG,
-	(uint32_t)NewVectorTable
-};
+RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
+									(uint32_t)NewVectorTable
+								   };
 
 static void app_vdd1833_detect(void)
 {
@@ -39,7 +30,7 @@ static void app_vdd1833_detect(void)
 	ADC_StructInit(&ADC_InitStruct);
 	ADC_InitStruct.ADC_OpMode = ADC_AUTO_MODE;
 	ADC_InitStruct.ADC_CvlistLen = 0;
-	ADC_InitStruct.ADC_Cvlist[0] = ADC_CH9; // AVDD33
+	ADC_InitStruct.ADC_Cvlist[0] = ADC_CH9; /* AVDD33 */
 	ADC_Init(&ADC_InitStruct);
 
 	ADC_Cmd(ENABLE);
@@ -52,11 +43,10 @@ static void app_vdd1833_detect(void)
 	data >>= 4;
 
 	temp = HAL_READ32(SYSTEM_CTRL_BASE, REG_AON_RSVD_FOR_SW1);
-	if (data > 3000) { // 3000: about 2.4V
+	if (data > 3000) { /* 3000: about 2.4V */
 		temp |= AON_BIT_WIFI_RF_1833_SEL;
 	} else {
 		temp &= ~AON_BIT_WIFI_RF_1833_SEL;
-		//RTK_LOGI(TAG, "IO Power 1.8V\n");
 	}
 	HAL_WRITE32(SYSTEM_CTRL_BASE, REG_AON_RSVD_FOR_SW1, temp);
 }
@@ -64,7 +54,7 @@ static void app_vdd1833_detect(void)
 static int amebadplus_app_init(void)
 {
 	/* Register IPC interrupt */
-	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI5, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
+	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
 	irq_enable(IPC_KM4_IRQ);
 
 	/* IPC table initialization */
@@ -92,8 +82,9 @@ static int amebadplus_init(void)
 	if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) { /* Only Asic need OSC Calibration */
 		OSC4M_Init();
 		OSC4M_Calibration(30000);
-		if ((((BOOT_Reason()) & AON_BIT_RSTF_DSLP) == FALSE) && (RTCIO_IsEnabled() == FALSE)) {
-			OSC131K_Calibration(30000); /* PPM=30000=3% *//* 7.5ms */
+		if ((((BOOT_Reason()) & AON_BIT_RSTF_DSLP) == FALSE) &&
+			(RTCIO_IsEnabled() == FALSE)) {
+			OSC131K_Calibration(30000); /* PPM=30000=3% */ /* 7.5ms */
 		}
 	}
 	return 0;

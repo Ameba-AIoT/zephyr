@@ -278,10 +278,10 @@ rsource "Kconfig.ene"
 
 rsource "Kconfig.rzt2m"
 
+rsource "Kconfig.ameba"
+
+rsource "Kconfig.ameba_loguart"
+
 source "drivers/serial/Kconfig.renesas_ra8"
-
-source "drivers/serial/Kconfig.ameba_loguart"
-
-source "drivers/serial/Kconfig.ameba"
 
 endif # SERIAL

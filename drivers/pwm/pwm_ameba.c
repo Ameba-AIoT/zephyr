@@ -84,14 +84,18 @@ static int pwm_ameba_set_cycles(const struct device *dev, uint32_t channel_idx,
 
 	if (flags & AMEBA_PWM_MODE) {
 		if (flags & AMEBA_OPMode_ETP_BothActive) {
-			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single, TIM_OPMode_ETP_bothedge);
+			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single,
+									   TIM_OPMode_ETP_bothedge);
 		} else if (flags & AMEBA_OPMode_ETP_ActiveEdge) {
-			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single, TIM_OPMode_ETP_negative);
+			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single,
+									   TIM_OPMode_ETP_negative);
 		} else {
-			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single, TIM_OPMode_ETP_positive);
+			RTIM_SetOnePulseOutputMode(config->pwm_timer, TIM_OPMode_Single,
+									   TIM_OPMode_ETP_positive);
 		}
 		if (flags & AMEBA_OPMode_DefaultLevel) {
-			RTIM_SetOnePulseDefaultLevel(config->pwm_timer, channel_idx, TIMPWM_DefaultLevel_High);
+			RTIM_SetOnePulseDefaultLevel(config->pwm_timer, channel_idx,
+										 TIMPWM_DefaultLevel_High);
 		}
 	}
 	RTIM_CCxCmd(config->pwm_timer, channel_idx, TIM_CCx_Enable);
@@ -177,8 +181,8 @@ static void pwm_ameba_isr(const struct device *dev)
 	}
 
 	if (data->capture[channel_idx].skip_irq < SKIP_IRQ_NUM) {
-		data->capture[channel_idx].value[data->capture[channel_idx].skip_irq]\
-			= RTIM_CCRxGet(config->pwm_timer, channel_idx);
+		data->capture[channel_idx].value[data->capture[channel_idx].skip_irq] =
+			RTIM_CCRxGet(config->pwm_timer, channel_idx);
 		if (data->CC_polarity) {
 			RTIM_CCxPolarityConfig(config->pwm_timer, TIM_CCPolarity_High, channel_idx);
 		} else {
@@ -187,17 +191,21 @@ static void pwm_ameba_isr(const struct device *dev)
 		data->CC_polarity = !data->CC_polarity;
 		data->capture[channel_idx].skip_irq++;
 	} else {
-		data->capture[channel_idx].period = \
-											data->capture[channel_idx].value[2] - data->capture[channel_idx].value[0];
+		data->capture[channel_idx].period =
+			data->capture[channel_idx].value[2] - data->capture[channel_idx].value[0];
 		data->capture[channel_idx].pulse = data->CC_polarity
-										   ? (data->capture[channel_idx].value[1] - data->capture[channel_idx].value[0])
-										   : (data->capture[channel_idx].value[2] - data->capture[channel_idx].value[1]);
+										   ? (data->capture[channel_idx].value[1] -
+											  data->capture[channel_idx].value[0])
+										   : (data->capture[channel_idx].value[2] -
+											  data->capture[channel_idx].value[1]);
 	}
 	RTIM_INTClear(config->pwm_timer);
 
 	if (data->capture[channel_idx].callback) {
-		data->capture[channel_idx].callback(dev, channel_idx, data->capture[channel_idx].capture_period,
-											data->capture[channel_idx].capture_pulse, 0, data->capture[channel_idx].user_data);
+		data->capture[channel_idx].callback(dev, channel_idx,
+											data->capture[channel_idx].capture_period,
+											data->capture[channel_idx].capture_pulse, 0,
+											data->capture[channel_idx].user_data);
 	}
 }
 #endif /* CONFIG_PWM_CAPTURE */
@@ -250,15 +258,12 @@ static const struct pwm_driver_api pwm_ameba_api = {
 };
 
 #ifdef CONFIG_PWM_CAPTURE
-#define IRQ_CONFIG_FUNC(n)                                                      \
-	static void pwm_ameba_irq_config_func_##n(const struct device *dev)         \
-	{																			\
-        IRQ_CONNECT(DT_INST_IRQN(n),        									\
-                    DT_INST_IRQ(n, priority),       							\
-                    pwm_ameba_isr,                   							\
-                    DEVICE_DT_INST_GET(n),              						\
-                    0);                         								\
-        irq_enable(DT_INST_IRQN(n));        									\
+#define IRQ_CONFIG_FUNC(n)                                                                         \
+	static void pwm_ameba_irq_config_func_##n(const struct device *dev)                        \
+	{                                                                                          \
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), pwm_ameba_isr,              \
+			    DEVICE_DT_INST_GET(n), 0);                                             \
+		irq_enable(DT_INST_IRQN(n));                                                       \
 	}
 #define CAPTURE_INIT(n) .irq_config_func = pwm_ameba_irq_config_func_##n
 #else
@@ -266,22 +271,21 @@ static const struct pwm_driver_api pwm_ameba_api = {
 #define CAPTURE_INIT(n)
 #endif /* CONFIG_PWM_CAPTURE */
 
-#define AMEBA_PWM_INIT(n)                                                                \
-	PINCTRL_DT_INST_DEFINE(n);                                                           \
-	IRQ_CONFIG_FUNC(n);                                                                  \
-	static struct pwm_ameba_data pwm_ameba_data_##n = {									 \
-		.prescale = DT_INST_PROP(n, prescale),											 \
-	};																					 \
-	static const struct pwm_ameba_config pwm_ameba_config_##n = {                        \
-		.pwm_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n),                     		  	 \
-		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                     \
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                              \
-		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),      	     \
-		.clock_frequency = DT_INST_PROP(n, clock_frequency),                             \
-		CAPTURE_INIT(n)																	 \
-		};                                                               				 \
-	DEVICE_DT_INST_DEFINE(n, &pwm_ameba_init, NULL, &pwm_ameba_data_##n,               	 \
-			      &pwm_ameba_config_##n, POST_KERNEL,                              		 \
-			      CONFIG_PWM_INIT_PRIORITY, &pwm_ameba_api);
+#define AMEBA_PWM_INIT(n)                                                                          \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	IRQ_CONFIG_FUNC(n);                                                                        \
+	static struct pwm_ameba_data pwm_ameba_data_##n = {                                        \
+		.prescale = DT_INST_PROP(n, prescale),                                             \
+	};                                                                                         \
+	static const struct pwm_ameba_config pwm_ameba_config_##n = {                              \
+		.pwm_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n),                                  \
+		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                       \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
+		.clock_frequency = DT_INST_PROP(n, clock_frequency),                               \
+		CAPTURE_INIT(n)};                                                                  \
+	DEVICE_DT_INST_DEFINE(n, &pwm_ameba_init, NULL, &pwm_ameba_data_##n,                       \
+			      &pwm_ameba_config_##n, POST_KERNEL, CONFIG_PWM_INIT_PRIORITY,        \
+			      &pwm_ameba_api);
 
 DT_INST_FOREACH_STATUS_OKAY(AMEBA_PWM_INIT)

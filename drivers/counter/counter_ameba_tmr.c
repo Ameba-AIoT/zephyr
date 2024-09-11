@@ -57,8 +57,8 @@ static int counter_ameba_init(const struct device *dev)
 	cfg->irq_config_func(dev);
 
 	RTIM_TimeBaseStructInit(&TIM_InitStruct);
-	RTIM_TimeBaseInit(cfg->basic_timer, &TIM_InitStruct, cfg->irq_source, (IRQ_FUN)counter_ameba_isr,
-					  (u32)&TIM_InitStruct);
+	RTIM_TimeBaseInit(cfg->basic_timer, &TIM_InitStruct, cfg->irq_source,
+					  (IRQ_FUN)counter_ameba_isr, (u32)&TIM_InitStruct);
 
 	return 0;
 }
@@ -66,24 +66,24 @@ static int counter_ameba_init(const struct device *dev)
 static int counter_ameba_start(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
-	RTIM_Cmd(cfg->basic_timer, ENABLE);
 
+	RTIM_Cmd(cfg->basic_timer, ENABLE);
 	return 0;
 }
 
 static int counter_ameba_stop(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
-	RTIM_Cmd(cfg->basic_timer, DISABLE);
 
+	RTIM_Cmd(cfg->basic_timer, DISABLE);
 	return 0;
 }
 
 static int counter_ameba_get_value(const struct device *dev, uint32_t *ticks)
 {
 	const struct counter_ameba_config *cfg = dev->config;
-	*ticks = RTIM_GetCount(cfg->basic_timer);
 
+	*ticks = RTIM_GetCount(cfg->basic_timer);
 	return 0;
 }
 
@@ -122,6 +122,7 @@ static int counter_ameba_cancel_alarm(const struct device *dev, uint8_t chan_id)
 	ARG_UNUSED(chan_id);
 	struct counter_ameba_data *data = dev->data;
 	const struct counter_ameba_config *cfg = dev->config;
+
 	data->alarm_cfg.callback = NULL;
 
 	RTIM_INTConfig(cfg->basic_timer, TIM_IT_Update, DISABLE);
@@ -129,8 +130,7 @@ static int counter_ameba_cancel_alarm(const struct device *dev, uint8_t chan_id)
 	return 0;
 }
 
-static int counter_ameba_set_top_value(const struct device *dev,
-									   const struct counter_top_cfg *cfg)
+static int counter_ameba_set_top_value(const struct device *dev, const struct counter_top_cfg *cfg)
 {
 	const struct counter_ameba_config *config = dev->config;
 	struct counter_ameba_data *data = dev->data;
@@ -150,12 +150,14 @@ static int counter_ameba_set_top_value(const struct device *dev,
 static uint32_t counter_ameba_get_pending_int(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
+
 	return RTIM_GetINTStatus(cfg->basic_timer, TIM_IT_Update);
 }
 
 static uint32_t counter_ameba_get_freq(const struct device *dev)
 {
 	const struct counter_ameba_config *cfg = dev->config;
+
 	return cfg->clock_frequency;
 }
 
@@ -177,6 +179,7 @@ static void counter_ameba_isr(const struct device *dev)
 	const struct counter_ameba_config *cfg = dev->config;
 	counter_alarm_callback_t cb;
 	uint32_t ticks;
+
 	counter_ameba_get_value(dev, &ticks);
 	cb = data->alarm_cfg.callback;
 	data->alarm_cfg.callback = NULL;
@@ -186,42 +189,30 @@ static void counter_ameba_isr(const struct device *dev)
 	RTIM_INTClear(cfg->basic_timer);
 }
 
-#define TIMER_IRQ_CONFIG(n)                                                    \
-    static void irq_config_##n(const struct device *dev)                   \
-    {                                                                      \
-        IRQ_CONNECT(DT_INST_IRQN(n),                \
-                    DT_INST_IRQ(n, priority),               \
-                    counter_ameba_isr, DEVICE_DT_INST_GET(n),       \
-                    0);                         \
-        irq_enable(DT_INST_IRQN(n));                \
-    }
+#define TIMER_IRQ_CONFIG(n)                                                                        \
+	static void irq_config_##n(const struct device *dev)                                       \
+	{                                                                                          \
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), counter_ameba_isr,          \
+			    DEVICE_DT_INST_GET(n), 0);                                             \
+		irq_enable(DT_INST_IRQN(n));                                                       \
+	}
 
-#define AMEBA_COUNTER_INIT(n)			 \
-	TIMER_IRQ_CONFIG(n)                  \
-	static struct counter_ameba_data counter_data_##n;			 \
-										 \
-	static const struct counter_ameba_config counter_config_##n = {	 \
-		.counter_info = {						 \
-			.max_top_value = UINT32_MAX,				 \
-			.flags = COUNTER_CONFIG_INFO_COUNT_UP,			 \
-			.channels = 1						 \
-		},										\
-		.basic_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n), 								 \
-		.irq_source = DT_INST_IRQN(n),				 \
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                     \
-		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),    \
-		.clock_frequency = DT_INST_PROP(n, clock_frequency),	\
-		.irq_config_func = irq_config_##n\
-	};									 \
-										 \
-										 \
-	DEVICE_DT_INST_DEFINE(n,						 \
-			      counter_ameba_init,				 \
-			      NULL,						 \
-			      &counter_data_##n,				 \
-			      &counter_config_##n,				 \
-			      PRE_KERNEL_1,					 \
-			      CONFIG_COUNTER_INIT_PRIORITY,			 \
-			      &counter_api);
+#define AMEBA_COUNTER_INIT(n)                                                                      \
+	TIMER_IRQ_CONFIG(n)                                                                        \
+	static struct counter_ameba_data counter_data_##n;                                         \
+                                                                                                   \
+	static const struct counter_ameba_config counter_config_##n = {                            \
+		.counter_info = {.max_top_value = UINT32_MAX,                                      \
+				 .flags = COUNTER_CONFIG_INFO_COUNT_UP,                            \
+				 .channels = 1},                                                   \
+		.basic_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n),                                \
+		.irq_source = DT_INST_IRQN(n),                                                     \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
+		.clock_frequency = DT_INST_PROP(n, clock_frequency),                               \
+		.irq_config_func = irq_config_##n};                                                \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(n, counter_ameba_init, NULL, &counter_data_##n, &counter_config_##n, \
+			      PRE_KERNEL_1, CONFIG_COUNTER_INIT_PRIORITY, &counter_api);
 
 DT_INST_FOREACH_STATUS_OKAY(AMEBA_COUNTER_INIT);

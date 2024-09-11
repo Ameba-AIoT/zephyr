@@ -17,4 +17,11 @@ config SPI_AMEBA_INTERRUPT
 	help
 		Enables interrupt support for AMEBA SPI driver.
 
+config SPI_AMEBA_DMA
+	bool "AMEBA SPI DMA Support"
+	select DMA
+	select CACHE_MANAGEMENT if CPU_HAS_DCACHE
+	help
+	  Enable the SPI DMA mode.
+
 endif # SPI_AMEBA

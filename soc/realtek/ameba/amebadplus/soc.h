@@ -12,7 +12,6 @@
 #include <zephyr/sys/util.h>
 #include "cmsis_cpu.h"
 
-
 #endif /* _ASMLANGUAGE */
 
-#endif  /* ZEPHYR_SOC_REALTEK_AMEBA_AMEBADPLUS_H_ */
+#endif /* ZEPHYR_SOC_REALTEK_AMEBA_AMEBADPLUS_H_ */

@@ -21,9 +21,9 @@ LOG_MODULE_REGISTER(adc_ameba, CONFIG_ADC_LOG_LEVEL);
 #define AMEBA_ADC_VREF_MV DT_INST_PROP(0, vref_mv)
 
 /* Validate resolution in bits */
-#define ADC_RESOLUTION_MIN		(12)
-#define VALID_RESOLUTION(r) 	((r) >= ADC_RESOLUTION_MIN)
-#define INVALID_RESOLUTION(r) 	(!VALID_RESOLUTION(r))
+#define ADC_RESOLUTION_MIN    (12)
+#define VALID_RESOLUTION(r)   ((r) >= ADC_RESOLUTION_MIN)
+#define INVALID_RESOLUTION(r) (!VALID_RESOLUTION(r))
 
 struct adc_ameba_config {
 	const uint8_t channel_count;
@@ -90,7 +90,7 @@ static int adc_ameba_read(const struct device *dev, const struct adc_sequence *s
 	cal = cal < 0 ? 0 : cal;
 
 	/* Store result */
-	data->buffer = (uint16_t *) seq->buffer;
+	data->buffer = (uint16_t *)seq->buffer;
 	data->buffer[0] = cal;
 
 	return 0;
@@ -141,6 +141,7 @@ static int adc_ameba_init(const struct device *dev)
 	}
 
 	int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+
 	if (ret < 0) {
 		return ret;
 	}
@@ -155,8 +156,8 @@ static int adc_ameba_init(const struct device *dev)
 
 static const struct adc_driver_api api_ameba_driver_api = {
 	.channel_setup = adc_ameba_channel_setup,
-	.read          = adc_ameba_read,
-	.ref_internal  = AMEBA_ADC_VREF_MV,
+	.read = adc_ameba_read,
+	.ref_internal = AMEBA_ADC_VREF_MV,
 };
 
 PINCTRL_DT_INST_DEFINE(0);
@@ -172,10 +173,5 @@ static struct adc_ameba_data adc_data = {
 	.meas_ref_internal = AMEBA_ADC_VREF_MV,
 };
 
-DEVICE_DT_INST_DEFINE(0, &adc_ameba_init, NULL,
-					  &adc_data,
-					  &adc_config,
-					  POST_KERNEL,
-					  CONFIG_ADC_INIT_PRIORITY,
-					  &api_ameba_driver_api);
-
+DEVICE_DT_INST_DEFINE(0, &adc_ameba_init, NULL, &adc_data, &adc_config, POST_KERNEL,
+					  CONFIG_ADC_INIT_PRIORITY, &api_ameba_driver_api);

@@ -7,7 +7,7 @@
 /**
  * @brief Driver for Realtek Ameba TRNG
  */
-#define DT_DRV_COMPAT                   realtek_ameba_trng
+#define DT_DRV_COMPAT realtek_ameba_trng
 
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
@@ -39,15 +39,14 @@ static int entropy_ameba_get_entropy(const struct device *dev, uint8_t *buf, uin
 	return 0;
 }
 
-static int entropy_ameba_get_entropy_isr(const struct device *dev,
-		uint8_t *buf,
-		uint16_t len, uint32_t flags)
+static int entropy_ameba_get_entropy_isr(const struct device *dev, uint8_t *buf, uint16_t len,
+		uint32_t flags)
 {
 	ARG_UNUSED(flags);
 
 	/* the TRNG may cost some time to generator the data, the speed is 10Mbps
-	*  we assume that it is fast enough for ISR use
-	*/
+	 *  we assume that it is fast enough for ISR use
+	 */
 	int ret = entropy_ameba_get_entropy(dev, buf, len);
 
 	if (ret == 0) {
@@ -85,11 +84,5 @@ static const struct entropy_ameba_config entropy_config = {
 	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
 };
 
-DEVICE_DT_INST_DEFINE(0,
-					  entropy_ameba_init,
-					  NULL,
-					  NULL,
-					  &entropy_config,
-					  PRE_KERNEL_1,
-					  CONFIG_ENTROPY_INIT_PRIORITY,
-					  &entropy_ameba_api_funcs);
+DEVICE_DT_INST_DEFINE(0, entropy_ameba_init, NULL, NULL, &entropy_config, PRE_KERNEL_1,
+					  CONFIG_ENTROPY_INIT_PRIORITY, &entropy_ameba_api_funcs);

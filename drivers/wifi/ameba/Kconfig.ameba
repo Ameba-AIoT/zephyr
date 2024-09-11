@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 menuconfig WIFI_AMEBA
-	bool "Enable AMEBA Wifi"
+	bool "AMEBA SoC WiFi support"
 	default y
 	select THREAD_CUSTOM_DATA
 	select WIFI_USE_NATIVE_NETWORKING

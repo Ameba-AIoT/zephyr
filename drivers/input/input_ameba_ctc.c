@@ -100,6 +100,7 @@ static int ctc_ameba_init(const struct device *dev)
 	}
 
 	int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+
 	if (ret < 0) {
 		return ret;
 	}
@@ -123,9 +124,7 @@ static int ctc_ameba_init(const struct device *dev)
 	CapTouch_INTConfig(pctc, CT_BIT_AFIFO_OVERLVL_INTR_EN, DISABLE);
 	CapTouch_INTConfig(pctc, CT_BIT_AFIFO_OVERFLOW_INTR_EN, DISABLE);
 
-	IRQ_CONNECT(DT_INST_IRQN(0),
-				DT_INST_IRQ(0, priority),
-				ctc_ameba_isr, DEVICE_DT_INST_GET(0),
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), ctc_ameba_isr, DEVICE_DT_INST_GET(0),
 				0);
 	irq_enable(DT_INST_IRQN(0));
 
@@ -142,5 +141,5 @@ static const struct ctc_ameba_config ctc_config = {
 	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(0),
 };
 
-DEVICE_DT_INST_DEFINE(0, ctc_ameba_init, NULL, NULL, &ctc_config,
-					  POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);
+DEVICE_DT_INST_DEFINE(0, ctc_ameba_init, NULL, NULL, &ctc_config, POST_KERNEL,
+					  CONFIG_INPUT_INIT_PRIORITY, NULL);

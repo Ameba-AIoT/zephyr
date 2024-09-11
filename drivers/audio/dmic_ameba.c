@@ -30,9 +30,9 @@ struct dmic_ameba_config {
 };
 
 struct dmic_ameba_data {
-	enum dmic_state		state;
-	size_t			pcm_mem_size;
-	struct k_mem_slab	*pcm_mem_slab;
+	enum dmic_state state;
+	size_t pcm_mem_size;
+	struct k_mem_slab *pcm_mem_slab;
 };
 
 static int dmic_ameba_enable_clock(const struct device *dev)
@@ -167,7 +167,6 @@ int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 	default:
 		LOG_ERR("invalid sample rate");
 		return -EINVAL;
-
 	}
 
 	AUDIO_CODEC_I2S_StructInit(&I2S_InitStruct);
@@ -231,8 +230,8 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 	return 0;
 }
 
-int dmic_ameba_read(const struct device *dev, uint8_t stream, void **buffer,
-					size_t *size, int32_t timeout)
+int dmic_ameba_read(const struct device *dev, uint8_t stream, void **buffer, size_t *size,
+					int32_t timeout)
 {
 	int ret;
 	const struct dmic_ameba_config *config = dev->config;
@@ -246,15 +245,15 @@ int dmic_ameba_read(const struct device *dev, uint8_t stream, void **buffer,
 	return 0;
 }
 
-#define I2S(idx) 		DT_NODELABEL(i2s##idx)
-#define I2S_NODE(idx) 	I2S(idx)
-#define I2S_BINDING 	I2S_NODE(DT_INST_PROP(0, i2s_index))
+#define I2S(idx)      DT_NODELABEL(i2s##idx)
+#define I2S_NODE(idx) I2S(idx)
+#define I2S_BINDING   I2S_NODE(DT_INST_PROP(0, i2s_index))
 
 static const struct _dmic_ops dmic_ameba_api = {
 #if DT_NODE_HAS_STATUS(I2S_BINDING, okay)
-	.configure		= dmic_ameba_configure,
-	.trigger		= dmic_ameba_trigger,
-	.read			= dmic_ameba_read,
+	.configure = dmic_ameba_configure,
+	.trigger = dmic_ameba_trigger,
+	.read = dmic_ameba_read,
 #endif /* DT_ANY_INST_ON_BUS_STATUS_OKAY(i2s) */
 };
 
@@ -286,20 +285,20 @@ static int dmic_ameba_init(const struct device *dev)
 	return 0;
 }
 
-#define DMIC_AMEBA_INIT(n)							\
-											\
-PINCTRL_DT_INST_DEFINE(n);							\
-static const struct dmic_ameba_config dmic_ameba_config_##n = {			\
-	.comm_master = DEVICE_DT_GET(I2S_BINDING),				\
-	.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)), 			\
-	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),	\
-	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),				\
-};										\
-										\
-static struct dmic_ameba_data dmic_ameba_data_##n;					\
-										\
-DEVICE_DT_INST_DEFINE(n, dmic_ameba_init, NULL, &dmic_ameba_data_##n,		\
-					  &dmic_ameba_config_##n, POST_KERNEL,	\
-					  CONFIG_AUDIO_DMIC_INIT_PRIORITY, &dmic_ameba_api);
+#define DMIC_AMEBA_INIT(n)                                                                         \
+                                                                                                   \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	static const struct dmic_ameba_config dmic_ameba_config_##n = {                            \
+		.comm_master = DEVICE_DT_GET(I2S_BINDING),                                         \
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+	};                                                                                         \
+                                                                                                   \
+	static struct dmic_ameba_data dmic_ameba_data_##n;                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(n, dmic_ameba_init, NULL, &dmic_ameba_data_##n,                      \
+			      &dmic_ameba_config_##n, POST_KERNEL,                                 \
+			      CONFIG_AUDIO_DMIC_INIT_PRIORITY, &dmic_ameba_api);
 
 DMIC_AMEBA_INIT(0)

@@ -9,7 +9,7 @@
 #include <realtek/amebadplus/amebadplus.dtsi>
 #include "rtl872xda_evb-pinctrl.dtsi"
 
- / {
+/ {
 	model = "RealTek AmebaDplus RTL872XDA EVB";
 	compatible = "realtek,rtl872xda_evb";
 

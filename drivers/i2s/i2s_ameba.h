@@ -63,11 +63,11 @@ struct i2s_ameba_data {
 	void *rx_in_msgs[1];
 	void *tx_in_msgs[CONFIG_I2S_TX_BLOCK_COUNT];
 	void *rx_out_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
-	struct i2s_dma_stream dma_rx;//dma rx
-	struct i2s_dma_stream dma_tx;//dma tx
+	struct i2s_dma_stream dma_rx; /* dma rx */
+	struct i2s_dma_stream dma_tx; /* dma tx */
 #if defined(I2S_CHANNEL_EXT) && I2S_CHANNEL_EXT
-	struct i2s_dma_stream dma_rx_ext;//dma rx_ext
-	struct i2s_dma_stream dma_tx_ext;//dma tx_ext
+	struct i2s_dma_stream dma_rx_ext; /* dma rx_ext */
+	struct i2s_dma_stream dma_tx_ext; /* dma tx_ext */
 #endif
 };
-#endif	/* _ameba_I2S_H_ */
+#endif /* _ameba_I2S_H_ */

@@ -11,13 +11,9 @@ properties:
   reg:
     required: true
 
-  interrupts:
-    required: false
-
   clock-frequency:
     type: int
     enum:
       - 32768
       - 1000000
     description: clock-frequency of basic timer clk source
-

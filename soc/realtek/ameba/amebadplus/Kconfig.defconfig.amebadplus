@@ -6,10 +6,9 @@ if SOC_AMEBADPLUS
 config NUM_IRQS
 	default 96
 
+# This option for code in modules/hal
 config AMEBADPLUS
 	bool
 	default y
-	help
-	  This option for code in modules/hal
 
 endif # SOC_AMEBADPLUS

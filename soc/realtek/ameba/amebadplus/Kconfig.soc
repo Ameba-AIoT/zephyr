@@ -9,8 +9,8 @@ config SOC_SERIES
 	default "amebadplus" if SOC_SERIES_AMEBADPLUS
 
 config SOC_AMEBADPLUS
-	bool "Real-M300 on AmebaDplus"
+	bool
 	select SOC_SERIES_AMEBADPLUS
 
 config SOC
-	default "SOC_AMEBADPLUS" if SOC_AMEBADPLUS
+	default "amebadplus" if SOC_AMEBADPLUS

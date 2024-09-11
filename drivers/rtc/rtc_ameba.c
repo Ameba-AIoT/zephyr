@@ -18,10 +18,10 @@
 LOG_MODULE_REGISTER(rtc_ameba, CONFIG_RTC_LOG_LEVEL);
 
 /* RTC start time: 1st, Jan, 1900 */
-#define RTC_YEAR_REF			RTC_BASE_YEAR
+#define RTC_YEAR_REF RTC_BASE_YEAR
 
 /* struct tm start time:   1st, Jan, 1900 */
-#define TM_YEAR_REF 			1900
+#define TM_YEAR_REF 1900
 
 /* Convert part per billion calibration value to a number of clock pulses added or removed each
  * 2^20 clock cycles so it is suitable for the CALR register fields
@@ -68,36 +68,35 @@ struct rtc_ameba_data {
 	rtc_alarm_callback alarm_cb;
 	void *alarm_cbdata;
 #endif
-
 };
 
-static const uint8_t dim[12] = {
-	31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-};
+static const uint8_t dim[12] = {31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 /**
-  * @brief  Judge whether a year is a leap year or not.
-  * @param  year: Actual year - 1900.
-  * @return Result.
-  * @retval 1: This year is a leap year.
-  * @retval 0: This year is not a leap year.
-  */
+ * @brief  Judge whether a year is a leap year or not.
+ * @param  year: Actual year - 1900.
+ * @return Result.
+ * @retval 1: This year is a leap year.
+ * @retval 0: This year is not a leap year.
+ */
 static inline bool is_leap_year(uint32_t year)
 {
-	uint32_t full_year = year + RTC_BASE_YEAR;	/* start from 1900 */
+	uint32_t full_year = year + RTC_BASE_YEAR; /* start from 1900 */
+
 	return (!(full_year % 4) && (full_year % 100)) || !(full_year % 400);
 }
 
 /**
-  * @brief  Calculate total days in a specified month of a specified year.
-  * @param  year: Actual year - 1900.
-  * @param  month: Specified month, which can be 0~11.
-  * @note 0 represents January.
-  * @return Number of days in the month of the year.
-  */
+ * @brief  Calculate total days in a specified month of a specified year.
+ * @param  year: Actual year - 1900.
+ * @param  month: Specified month, which can be 0~11.
+ * @note 0 represents January.
+ * @return Number of days in the month of the year.
+ */
 static uint8_t days_in_month(uint8_t month, uint8_t year)
 {
 	uint8_t ret = dim[month % 12];
+
 	if (ret == 0) {
 		ret = is_leap_year(year + month / 12) ? 29 : 28;
 	}
@@ -105,20 +104,20 @@ static uint8_t days_in_month(uint8_t month, uint8_t year)
 }
 
 /**
-  * @brief  Calculate month and day of the month according to year and day of the year.
-  * @param  year: Actual year - 1900.
-  * @param  yday: Day of the year.
-  * @param  mon: Pointer to the variable that stores month, which can be 0~11.
-  * @note 0 represents January.
-  * @param  mday: Pointer to the variable that stores day of month, which can be 1~31.
-  * @retval none
-  */
+ * @brief  Calculate month and day of the month according to year and day of the year.
+ * @param  year: Actual year - 1900.
+ * @param  yday: Day of the year.
+ * @param  mon: Pointer to the variable that stores month, which can be 0~11.
+ * @note 0 represents January.
+ * @param  mday: Pointer to the variable that stores day of month, which can be 1~31.
+ * @retval none
+ */
 static void rtc_calculate_mday(int year, int yday, int *mon, int *mday)
 {
 	int t_mon = -1, t_yday = yday + 1;
 
 	while (t_yday > 0) {
-		t_mon ++;
+		t_mon++;
 		t_yday -= days_in_month(t_mon, year);
 	}
 
@@ -127,21 +126,21 @@ static void rtc_calculate_mday(int year, int yday, int *mon, int *mday)
 }
 
 /**
-  * @brief  Calculate the day of a week according to date.
-  * @param  year: Actual year - 1900.
-  * @param  mon: Month of the year, which can be 0~11.
-  * @note 0 represents January.
-  * @param  mday: Day of the month.
-  * @param  wday: Pointer to the variable that stores day of a week, which can be 0~6.
-  * @note 0 represents Sunday.
-  * @retval none
-  */
+ * @brief  Calculate the day of a week according to date.
+ * @param  year: Actual year - 1900.
+ * @param  mon: Month of the year, which can be 0~11.
+ * @note 0 represents January.
+ * @param  mday: Day of the month.
+ * @param  wday: Pointer to the variable that stores day of a week, which can be 0~6.
+ * @note 0 represents Sunday.
+ * @retval none
+ */
 static void rtc_calculate_wday(int year, int mon, int mday, int *wday)
 {
 	int t_year = year + 1900, t_mon = mon + 1;
 
 	if (t_mon == 1 || t_mon == 2) {
-		t_year --;
+		t_year--;
 		t_mon += 12;
 	}
 
@@ -161,19 +160,20 @@ static int rtc_ameba_configure(const struct device *dev)
 {
 	const struct rtc_ameba_config *cfg = dev->config;
 	int err = 0;
-	uint32_t initilized = 0;
+	uint32_t initialized = 0;
 
 	RTC_InitTypeDef rtc_initstruct;
 
 	RTC_StructInit(&rtc_initstruct);
 	rtc_initstruct.RTC_AsynchPrediv = cfg->async_prescaler;
 	rtc_initstruct.RTC_SynchPrediv = cfg->sync_prescaler;
-	rtc_initstruct.RTC_HourFormat = RTC_HourFormat_24;/* force this hour fmt for time_t reason */
+	rtc_initstruct.RTC_HourFormat =
+		RTC_HourFormat_24; /* force this hour fmt for time_t reason */
 
-	initilized = RTC_Init(&rtc_initstruct);
+	initialized = RTC_Init(&rtc_initstruct);
 
-	if (!initilized) {
-		LOG_ERR(" rtc_ameba_configure initilized fail . \r\n");
+	if (!initialized) {
+		LOG_ERR("rtc initial fail.\r\n");
 		err = -EIO;
 	}
 
@@ -222,17 +222,19 @@ static int rtc_ameba_set_time(const struct device *dev, const struct rtc_time *t
 		return -EINVAL;
 	}
 
-	/* Do not check follwing two members. For getting function, need to set designated Unknown value */
-	/* if (timeptr->tm_isdst != -1) */
-	/* if (!(timeptr->tm_nsec)) */
+	/* Do not check following two members.
+	 * For getting function, need to set designated Unknown value
+	 * if (timeptr->tm_isdst != -1)
+	 * if (!(timeptr->tm_nsec))
+	 */
 
 	err = k_mutex_lock(&data->lock, K_NO_WAIT);
 	if (err != 0) {
-		LOG_ERR(" rtc_ameba_set_time lock fail !!! \r\n");
+		LOG_ERR("%s lock fail !!!\r\n", __func__);
 		return err;
 	}
 
-	rtc_timestruct.RTC_H12_PMAM = RTC_H12_AM;/* cautious in zsdk */
+	rtc_timestruct.RTC_H12_PMAM = RTC_H12_AM; /* cautious in zsdk */
 	rtc_timestruct.RTC_Year = timeptr->tm_year + RTC_BASE_YEAR;
 	rtc_timestruct.RTC_Days = timeptr->tm_yday;
 	rtc_timestruct.RTC_Hours = timeptr->tm_hour;
@@ -283,10 +285,11 @@ static int rtc_ameba_get_time(const struct device *dev, struct rtc_time *timeptr
 		rtc_timestruct.RTC_Year++;
 
 		/* fix for test_y2k */
-		timeptr->tm_mon = 0;	/* base 0 [0, 11] */
-		timeptr->tm_mday = 1;	/* base 1 [1, 31] */
+		timeptr->tm_mon = 0;  /* base 0 [0, 11] */
+		timeptr->tm_mday = 1; /* base 1 [1, 31] */
 		timeptr->tm_yday = rtc_timestruct.RTC_Days;
-		timeptr->tm_year = rtc_timestruct.RTC_Year - RTC_BASE_YEAR; /* struct tm start from 1900 */
+		timeptr->tm_year =
+			rtc_timestruct.RTC_Year - RTC_BASE_YEAR; /* struct tm start from 1900 */
 
 		RTC_SetTime(RTC_Format_BIN, &rtc_timestruct);
 	}
@@ -324,18 +327,16 @@ static int rtc_ameba_alarm_get_supported_fields(const struct device *dev, uint16
 		return -EINVAL;
 	}
 
-	(*mask) = (RTC_ALARM_TIME_MASK_SECOND
-			   | RTC_ALARM_TIME_MASK_MINUTE
-			   | RTC_ALARM_TIME_MASK_HOUR
-			   | RTC_ALARM_TIME_MASK_YEARDAY);
+	(*mask) = (RTC_ALARM_TIME_MASK_SECOND | RTC_ALARM_TIME_MASK_MINUTE |
+			   RTC_ALARM_TIME_MASK_HOUR | RTC_ALARM_TIME_MASK_YEARDAY);
 
 	return 0;
 }
 
-
 static uint8_t rtc_ameba_validate_alarm_time(const struct rtc_time *timeptr, uint16_t mask)
 {
 	uint16_t sprt_mask = 0;
+
 	rtc_ameba_alarm_get_supported_fields(NULL, 0, &sprt_mask);
 
 	if (sprt_mask & mask) {
@@ -430,7 +431,7 @@ static int rtc_ameba_alarm_set_time(const struct device *dev, uint16_t id, uint1
 
 	/* step1: Init Ameba alarm struct */
 	RTC_AlarmStructInit(&rtc_alarmstruct);
-	rtc_alarmstruct.RTC_AlarmMask = RTC_AlarmMask_All;	/* fix for mask seconds unset above */
+	rtc_alarmstruct.RTC_AlarmMask = RTC_AlarmMask_All; /* fix for mask seconds unset above */
 	rtc_alarmstruct.RTC_Alarm2Mask = RTC_Alarm2Mask_Days;
 
 	/* step2: Set Ameba RTC_AlarmMask */
@@ -449,8 +450,10 @@ static int rtc_ameba_alarm_set_time(const struct device *dev, uint16_t id, uint1
 		alarm_mask |= RTC_AlarmMask_Hours;
 	}
 
-	/* Note: In Ameba, if the mask parameter is 0, the alarm will be enabled, which is contrary to zephyr file declarations
-	The RTC alarm will trigger when all enabled fields of the alarm time match the RTC time. */
+	/* Note: In Ameba, if the mask parameter is 0, the alarm will be enabled, which is contrary
+	 * to zephyr file declarations The RTC alarm will trigger when all enabled fields of
+	 * the alarm time match the RTC time.
+	 */
 	if (alarm_mask != 0) {
 		rtc_alarmstruct.RTC_AlarmMask &= (~alarm_mask);
 	}
@@ -547,7 +550,7 @@ static int rtc_ameba_alarm_is_pending(const struct device *dev, uint16_t id)
 	}
 
 	ret = data->alarm_pending ? 1 : 0;
-	data->alarm_pending = false;/* Doc: Invoke this api will clear pending status */
+	data->alarm_pending = false; /* Doc: Invoke this api will clear pending status */
 
 	k_mutex_unlock(&data->lock);
 
@@ -574,14 +577,14 @@ static int rtc_ameba_alarm_set_callback(const struct device *dev, uint16_t id,
 	data->alarm_cbdata = user_data;
 
 	/* Note: This enable alarm cb but not alarm, refer to doc.
-	 The alarm will remain enabled until manually disabled using rtc_alarm_set_time(). */
+	 * The alarm will remain enabled until manually disabled using rtc_alarm_set_time().
+	 */
 
 	k_mutex_unlock(&data->lock);
 
 	return 0;
 }
 #endif
-
 
 struct rtc_driver_api rtc_ameba_driver_api = {
 	.set_time = rtc_ameba_set_time,
@@ -596,8 +599,8 @@ struct rtc_driver_api rtc_ameba_driver_api = {
 #endif /* CONFIG_RTC_ALARM */
 
 #if defined(CONFIG_RTC_UPDATE) || defined(__DOXYGEN__)
-	.update_set_callback = rtc_ameba_update_set_callback,//aa not support?
-#endif /* CONFIG_RTC_UPDATE */
+	.update_set_callback = rtc_ameba_update_set_callback, /* aa not support? */
+#endif                                                        /* CONFIG_RTC_UPDATE */
 
 #if defined(CONFIG_RTC_CALIBRATION) || defined(__DOXYGEN__)
 	.set_calibration = rtc_ameba_set_calibration,
@@ -607,17 +610,13 @@ struct rtc_driver_api rtc_ameba_driver_api = {
 };
 
 #if defined(CONFIG_RTC_ALARM)
-static void rtc_ameba_irq_configure(void)						\
+static void rtc_ameba_irq_configure(void)
 {
-	\
-	IRQ_CONNECT(DT_INST_IRQN(0),								\
-				DT_INST_IRQ(0, priority),						\
-				rtc_ameba_alarm_isr,							\
-				DEVICE_DT_INST_GET(0),							\
-				0);
-	\
+
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), rtc_ameba_alarm_isr,
+				DEVICE_DT_INST_GET(0), 0);
+
 	irq_enable(DT_INST_IRQN(0));
-	\
 }
 #endif
 
@@ -634,11 +633,5 @@ static const struct rtc_ameba_config rtc_config = {
 
 static struct rtc_ameba_data rtc_data;
 
-DEVICE_DT_INST_DEFINE(0,									\
-					  &rtc_ameba_init,						\
-					  NULL,									\
-					  &rtc_data,							\
-					  &rtc_config,							\
-					  PRE_KERNEL_1,							\
-					  CONFIG_RTC_INIT_PRIORITY,				\
-					  &rtc_ameba_driver_api);
+DEVICE_DT_INST_DEFINE(0, &rtc_ameba_init, NULL, &rtc_data, &rtc_config, PRE_KERNEL_1,
+					  CONFIG_RTC_INIT_PRIORITY, &rtc_ameba_driver_api);
