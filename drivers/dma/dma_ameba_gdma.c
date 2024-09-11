@@ -320,6 +320,8 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 			return -EINVAL;
 		}
 #ifdef CONFIG_DMA_AMEBA_LLI
+		BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE > 0,
+					 "CONFIG_HEAP_MEM_POOL_SIZE must be configured in the .conf file");
 		struct dma_block_config *cur_block = config_dma->head_block;
 		dma_init_struct.GDMA_LlpSrcEn = config_dma->source_chaining_en;
 		dma_init_struct.GDMA_LlpDstEn = config_dma->dest_chaining_en;
