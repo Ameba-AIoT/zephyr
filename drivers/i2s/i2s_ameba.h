@@ -18,7 +18,6 @@ struct i2s_ameba_cfg {
 	bool MultiIO;
 	bool mono_stereo;
 	uint8_t index;
-	uint8_t tdmmode;
 	uint8_t pll_tune;
 	uint16_t chn_len;
 	uint32_t mclk_multiple;
@@ -46,7 +45,7 @@ struct i2s_dma_stream {
 };
 
 struct stream {
-	int32_t state;
+	volatile int32_t state;
 	struct i2s_config cfg;
 	uint8_t free_tx_dma_blocks;
 	bool last_block;
@@ -54,20 +53,35 @@ struct stream {
 	struct k_msgq out_queue;
 };
 
+#define BUFFER_REORDER_8_24 BIT(2) /* pay attention to the paddings */
+#define BUFFER_REORDER_CH(n) n
+
+/* For <IS_REORDER_CH = 1 mode>, block size should be 384, 512, 1024 or above. */
+#define IS_REORDER_CH(reorder_mode) (reorder_mode & BIT(1))
+
+/* For <IS_REORDER_CH_8_24> mode, upper layer shall give u32-padded blocks, and word_size = 24. */
+/* The useful data bytes take the 2/3 of block_size for <IS_REORDER_CH_8_24> mode. */
+#define IS_REORDER_CH_8_24(reorder_mode) (reorder_mode & BIT(1)) && (reorder_mode & BIT(2))
+
+#define IS_REORDER_NULL(reorder_mode) !(reorder_mode & BIT(2)) && !(reorder_mode & BIT(1))
+
 /* Device run time data */
 struct i2s_ameba_data {
+	uint8_t tdmmode;
 	uint8_t fifo_num;
+	uint8_t reorder_mode;
 	struct stream tx;
 	struct stream rx;
 	void *tx_out_msgs[1];
 	void *rx_in_msgs[1];
 	void *tx_in_msgs[CONFIG_I2S_TX_BLOCK_COUNT];
 	void *rx_out_msgs[CONFIG_I2S_RX_BLOCK_COUNT];
-	struct i2s_dma_stream dma_rx; /* dma rx */
-	struct i2s_dma_stream dma_tx; /* dma tx */
-#if defined(I2S_CHANNEL_EXT) && I2S_CHANNEL_EXT
-	struct i2s_dma_stream dma_rx_ext; /* dma rx_ext */
-	struct i2s_dma_stream dma_tx_ext; /* dma tx_ext */
+	struct i2s_dma_stream dma_rx;
+	struct i2s_dma_stream dma_tx;
+#if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
+	uint8_t dma_sw_irq;
+	struct i2s_dma_stream dma_rx_ext;
+	struct i2s_dma_stream dma_tx_ext;
 #endif
 };
 #endif /* _ameba_I2S_H_ */

@@ -292,7 +292,6 @@
 			index = <0>;
 			mclk-multiple = <128>;
 			mclk-fixed-max = <0>;
-			tdmmode = <0>;
 			multiio = <0>;
 			chn-len = <4>;
 			mono-stereo = <0>;
@@ -313,7 +312,6 @@
 			index = <1>;
 			mclk-multiple = <128>;
 			mclk-fixed-max = <0>;
-			tdmmode = <0>;
 			multiio = <0>;
 			chn-len = <4>;
 			mono-stereo = <0>;

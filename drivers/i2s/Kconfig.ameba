@@ -24,7 +24,6 @@ config I2S_TX_BLOCK_COUNT
 config I2S_CHANNEL_EXT
 	bool "AMEBA I2S controller support for more channels"
 	default n
-	select DMA_AMEBA_LLI
 	help
 	  Enable I2S support for 6~8 channels
 
