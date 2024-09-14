@@ -219,7 +219,7 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 	default:
 		return -EINVAL;
 	}
-	DelayMs(150);
+
 	ret = i2s_trigger(config->comm_master, I2S_DIR_RX, i2s_cmd);
 	if (ret != 0) {
 		LOG_ERR("trigger failed with %d error", ret);
