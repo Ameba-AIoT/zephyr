@@ -29,7 +29,8 @@ struct dma_ameba_channel {
 	uint32_t block_size;
 	uint32_t block_num;
 	uint32_t block_id;
-	uint32_t trans_width;
+	uint32_t src_trans_width;
+	uint32_t dst_trans_width;
 	uint32_t src_addr;
 	uint32_t dst_addr;
 	dma_callback_t callback;
@@ -391,7 +392,8 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	data->channel_status[channel].block_num = config_dma->block_count;
 	data->channel_status[channel].block_size = config_dma->head_block->block_size;
 	data->channel_status[channel].chnl_direction = config_dma->channel_direction;
-	data->channel_status[channel].trans_width = dma_init_struct.GDMA_SrcDataWidth;
+	data->channel_status[channel].src_trans_width = dma_init_struct.GDMA_SrcDataWidth;
+	data->channel_status[channel].dst_trans_width = dma_init_struct.GDMA_DstDataWidth;
 	data->channel_status[channel].dst_addr = config_dma->head_block->dest_address;
 	data->channel_status[channel].src_addr = config_dma->head_block->source_address;
 	data->channel_status[channel].callback = config_dma->dma_callback;
@@ -488,7 +490,7 @@ static int dma_ameba_reload(const struct device *dev, uint32_t channel, uint32_t
 	/* The size required by the gdma hardware must be aligned
 	 * with the source transmission width.
 	 */
-	size = size >> data->channel_status[channel].trans_width;
+	size = size >> data->channel_status[channel].src_trans_width;
 	GDMA_SetBlkSize(config->instane_id, channel, (u32)size);
 
 	return 0;
@@ -580,7 +582,8 @@ static int dma_ameba_init(const struct device *dev)
 		data->channel_status[i].block_size = 0;
 		data->channel_status[i].block_num = 0;
 		data->channel_status[i].block_id = 0;
-		data->channel_status[i].trans_width = 0;
+		data->channel_status[i].src_trans_width = 0;
+		data->channel_status[i].dst_trans_width = 0;
 		data->channel_status[i].dst_addr = 0;
 		data->channel_status[i].src_addr = 0;
 		data->channel_status[i].chnl_direction = 0;
