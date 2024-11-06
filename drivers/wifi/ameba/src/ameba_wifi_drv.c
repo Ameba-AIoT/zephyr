@@ -191,7 +191,7 @@ pkt_unref:
 static void scan_done_handler(unsigned int scanned_AP_num, void *user_data)
 {
 	struct wifi_scan_result res = {0};
-	rtw_scan_result_t *scanned_AP_info;
+	struct rtw_scan_result *scanned_AP_info;
 	char *scan_buf = NULL;
 	unsigned int i = 0;
 	int ssid_len;
@@ -202,7 +202,7 @@ static void scan_done_handler(unsigned int scanned_AP_num, void *user_data)
 		goto out;
 	}
 
-	scan_buf = rtos_mem_zmalloc(scanned_AP_num * sizeof(rtw_scan_result_t));
+	scan_buf = rtos_mem_zmalloc(scanned_AP_num * sizeof(struct rtw_scan_result));
 	if (scan_buf == NULL) {
 		LOG_INF("Failed to malloc buffer to print scan results");
 		goto out;
@@ -216,7 +216,7 @@ static void scan_done_handler(unsigned int scanned_AP_num, void *user_data)
 	if (ameba_data.scan_cb) {
 		for (i = 0; i < scanned_AP_num; i++) {
 			scanned_AP_info =
-				(rtw_scan_result_t *)(scan_buf + i * (sizeof(rtw_scan_result_t)));
+				(struct rtw_scan_result *)(scan_buf + i * (sizeof(struct rtw_scan_result)));
 			scanned_AP_info->SSID.val[scanned_AP_info->SSID.len] =
 				0; /* Ensure the SSID is null terminated */
 

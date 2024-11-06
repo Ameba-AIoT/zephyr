@@ -138,18 +138,25 @@ enum rtw_wps_type {
 	RTW_WPS_TYPE_NOUSE = 0xffffffff            /**< unsed type */
 };
 
-typedef struct rtw_scan_result {
-	struct _rtw_ssid_t SSID; /**< Service Set Identification (i.e. Name of Access Point) */
+struct rtw_scan_result {
+	struct _rtw_ssid_t
+		SSID;             /**< Service Set Identification (i.e. Name of Access Point)                    */
 	struct _rtw_mac_t
-		BSSID; /**< Basic Service Set Identification (i.e. MAC address of Access Point) */
-	signed short signal_strength; /**< Receive Signal Strength Indication in dBm. <-90=Very
-					 poor, >-30=Excellent */
-	enum rtw_bss_type bss_type;   /**< Network type   */
-	enum rtw_security security;   /**< Security type   */
-	enum rtw_wps_type wps_type;   /**< WPS type   */
-	unsigned int channel;         /**< Radio channel that the AP beacon was received on	 */
-	enum rtw_802_11_band band;    /**< Radio band    */
-} rtw_scan_result_t;
+		BSSID;            /**< Basic Service Set Identification (i.e. MAC address of Access Point)       */
+	signed short
+	signal_strength;  /**< Receive Signal Strength Indication in dBm. <-90=Very poor, >-30=Excellent */
+	uint8_t
+	bss_type;         /**< val: RTW_BSS_TYPE_INFRASTRUCTURE, RTW_BSS_TYPE_WTN_HELPER*/
+	uint32_t					       security;         /**< val: RTW_SECURITY_OPEN, RTW_SECURITY_WEP_PSK...*/
+	uint8_t
+	wps_type;         /**< val: RTW_WPS_TYPE_DEFAULT, RTW_WPS_TYPE_USER_SPECIFIED...*/
+	unsigned int
+	channel;          /**< Radio channel that the AP beacon was received on                          */
+	uint8_t					       band;             /**< val: RTW_802_11_BAND_5GHZ, RTW_802_11_BAND_2_4GHZ*/
+	char	country_code[2];
+	uint8_t		rom_rsvd[4];
+};
+
 
 typedef enum _rtw_result_t {
 	RTW_SUCCESS = 0,     /**< Success */
