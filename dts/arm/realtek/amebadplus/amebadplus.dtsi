@@ -131,6 +131,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
+			dmas = 	<&dma 4 22 0>,
+          			<&dma 5 21 0>;
+     		dma-names = "rx", "tx";
 		};
 
 		i2c1: i2c1@4110a000 {
@@ -142,6 +145,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
+			dmas = 	<&dma 4 24 0>,
+          			<&dma 5 23 0>;
+     		dma-names = "rx", "tx";
 		};
 
 		gpioa: gpio@41010000 {
