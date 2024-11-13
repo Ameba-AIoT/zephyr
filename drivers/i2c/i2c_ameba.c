@@ -25,28 +25,15 @@ LOG_MODULE_REGISTER(i2c_ameba, CONFIG_I2C_LOG_LEVEL);
 #if CONFIG_I2C_ASYNC_API
 #include <zephyr/drivers/dma/dma_ameba_gdma.h>
 #include <zephyr/drivers/dma.h>
-#endif
 
-#ifdef CONFIG_I2C_ASYNC_API
 struct i2c_dma_stream {
 	const struct device *dma_dev;
 	uint32_t dma_channel;
 	struct dma_config dma_cfg;
-	uint8_t priority;
-	uint8_t src_addr_increment;
-	uint8_t dst_addr_increment;
 	struct dma_block_config blk_cfg;
 	uint8_t *buffer;
 	size_t buffer_length;
-	// size_t offset;
-	volatile size_t counter;
-	// int32_t timeout;
-	// struct k_work_delayable timeout_work;
-	bool enabled;
 };
-
-#define I2C_DMA_DATA_TX_LENGTH		255
-#define I2C_DMA_DATA_RX_LENGTH		255
 #endif
 
 struct i2c_ameba_data {
@@ -59,10 +46,11 @@ struct i2c_ameba_data {
 	I2C_IntModeCtrl i2c_intctrl;
 #endif
 #ifdef CONFIG_I2C_ASYNC_API
-	i2c_callback_t async_cb;//异步回调函数
-	void *async_user_data;//异步回调函数所需数据
+	i2c_callback_t async_cb;
+	void *async_user_data;
 	struct i2c_dma_stream dma_rx;
 	struct i2c_dma_stream dma_tx;
+	volatile int flag_dma_done;
 #endif
 };
 
@@ -126,7 +114,6 @@ static void i2c_ameba_isr(const struct device *dev)
 #endif
 
 #ifdef CONFIG_I2C_ASYNC_API
-
 void i2c_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
 						 int status)
 {
@@ -136,6 +123,7 @@ void i2c_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t
 	I2C_TypeDef *i2c = cfg->I2Cx;
 
 	I2C_DMAControl(i2c, I2C_BIT_TDMAE, DISABLE);
+	data->flag_dma_done = 1;
 
 	while (0 == I2C_CheckFlagState(i2c, I2C_BIT_TFE));
 
@@ -162,6 +150,7 @@ void i2c_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t
 
 	I2C_TypeDef *i2c = cfg->I2Cx;
 	I2C_DMAControl(i2c, I2C_BIT_RDMAE, DISABLE);
+	data->flag_dma_done = 1;
 
 	while (0 == I2C_CheckFlagState(i2c, I2C_BIT_TFE));
 
@@ -173,9 +162,8 @@ void i2c_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t
 
 	if (status < 0) {
 		LOG_ERR("DMA rx is in error state.");
-		return;
 	}
-
+	return;
 }
 static int i2c_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 {
@@ -225,7 +213,9 @@ static int i2c_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	i2c_dma->dma_cfg.dest_burst_length = 4;
 	i2c_dma->dma_cfg.user_data = (void *)dev;
 
-	// const struct device *const dma = &(i2c_dma->dma_dev);//获取dma设备指针
+	i2c_dma->buffer = pdata;
+	i2c_dma->buffer_length = length;
+
 	dma_config(i2c_dma->dma_dev, i2c_dma->dma_channel, &(i2c_dma->dma_cfg));
 	return 0;
 }
@@ -235,8 +225,6 @@ static int i2c_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	struct i2c_ameba_data *data = dev->data;
 	const struct i2c_ameba_config *cfg = dev->config;
 	struct i2c_dma_stream *i2c_dma = NULL;
-
-	// DCache_CleanInvalidate((u32) pdata, length);
 
 	i2c_dma = &data->dma_rx;
 	memset(&i2c_dma->dma_cfg, 0, sizeof(struct dma_config));
@@ -248,12 +236,10 @@ static int i2c_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	i2c_dma->dma_cfg.dma_callback = i2c_ameba_dma_rx_cb;
 
 	i2c_dma->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
-	// i2c_dma->dma_cfg.complete_callback_en = 1;
 	i2c_dma->dma_cfg.error_callback_dis = 1;
 	i2c_dma->dma_cfg.source_handshake = 0;
 	i2c_dma->dma_cfg.dest_handshake = 1;
 	i2c_dma->dma_cfg.channel_priority = 1;
-	// i2c_dma->dma_cfg.cyclic = 0;
 
 	if (((u32)(pdata) & 0x03) == 0) {
 		/* 4-bytes aligned, move 4 bytes each transfer */
@@ -279,6 +265,9 @@ static int i2c_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	i2c_dma->dma_cfg.source_burst_length = 4;
 	i2c_dma->dma_cfg.user_data = (void *)dev;
 
+	i2c_dma->buffer = pdata;
+	i2c_dma->buffer_length = length;
+
 	return dma_config(i2c_dma->dma_dev, i2c_dma->dma_channel, &i2c_dma->dma_cfg);
 }
 
@@ -300,6 +289,25 @@ static int i2c_send_dma_master(const struct device *dev, u8 *pdata, u32 length)
 	return 0;
 }
 
+static int i2c_send_dma_slave(const struct device *dev, u8 *pdata, u32 length)
+{
+	struct i2c_ameba_data *data = dev->data;
+	const struct i2c_ameba_config *cfg = dev->config;
+	I2C_TypeDef *i2c = cfg->I2Cx;
+
+	if (i2c_tx_dma_config(dev, pdata, length) < 0) {
+		LOG_ERR("i2s tx dma config failed.");
+		return -EIO;
+	}
+	dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
+
+	I2C_DmaMode1Config(i2c, I2C_BIT_DMODE_ENABLE, length);
+	while ((i2c->IC_RAW_INTR_STAT & I2C_BIT_RD_REQ) == 0);
+	I2C_DMAControl(i2c, I2C_BIT_TDMAE, ENABLE);
+
+	return 0;
+}
+
 static int i2c_receive_dma_master(const struct device *dev, u8 *pdata, u32 length)
 {
 	struct i2c_ameba_data *data = dev->data;
@@ -312,6 +320,24 @@ static int i2c_receive_dma_master(const struct device *dev, u8 *pdata, u32 lengt
 	}
 	dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 	I2C_DmaMode1Config(i2c, I2C_BIT_DMODE_ENABLE | I2C_BIT_DMODE_STOP | I2C_BIT_DMODE_CMD,
+					   length);
+	I2C_DMAControl(i2c, I2C_BIT_RDMAE, ENABLE);
+
+	return 0;
+}
+
+static int i2c_receive_dma_slave(const struct device *dev, u8 *pdata, u32 length)
+{
+	struct i2c_ameba_data *data = dev->data;
+	const struct i2c_ameba_config *cfg = dev->config;
+	I2C_TypeDef *i2c = cfg->I2Cx;
+
+	if (i2c_rx_dma_config(dev, (u8 *)pdata, length) < 0) {
+		LOG_ERR("i2s rx dma config failed.");
+		return -EIO;
+	}
+	dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
+	I2C_DmaMode1Config(i2c, I2C_BIT_DMODE_ENABLE,
 					   length);
 	I2C_DMAControl(i2c, I2C_BIT_RDMAE, ENABLE);
 
@@ -363,11 +389,11 @@ static int i2c_ameba_configure(const struct device *dev, uint32_t dev_config)
 		err = -EINVAL;
 		goto error;
 	}
+
 	data->master_mode = I2C_InitStruct.I2CMaster;
 	data->addr_mode = I2C_InitStruct.I2CAddrMod;
 
 	I2C_Init(i2c, &I2C_InitStruct);
-	I2C_Cmd(i2c, ENABLE);
 
 error:
 	return err;
@@ -421,8 +447,7 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 	I2C_SetSlaveAddress(i2c, addr);
 	/* Enable i2c device */
 	I2C_Cmd(i2c, ENABLE);
-
-
+	data->slave_address = addr;
 
 #if defined(CONFIG_I2C_AMEBA_INTERRUPT)
 	for (uint8_t i = 0; i < num_msgs; ++i) {
@@ -434,13 +459,11 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
 				I2C_MasterWriteInt(i2c, &data->i2c_intctrl, data->current->buf,
 								   data->current->len);
-				while (data->flag_done == 0)
-					;
+				while (data->flag_done == 0);
 			} else {
 				I2C_MasterReadInt(i2c, &data->i2c_intctrl, data->current->buf,
 								  data->current->len);
-				while (data->flag_done == 0)
-					;
+				while (data->flag_done == 0);
 			}
 		}
 	}
@@ -448,16 +471,25 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 	for (uint8_t i = 0; i < num_msgs; ++i) {
 		k_sleep(K_MSEC(5));
 		data->current = &msgs[i];
+		data->flag_dma_done = 0;
 		if (data->master_mode == 1) {
 			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
 				i2c_send_dma_master(dev, data->current->buf, data->current->len);
+				while (data->flag_dma_done == 0);
 			} else {
 				i2c_receive_dma_master(dev, data->current->buf, data->current->len);
+				while (data->flag_dma_done == 0);
+			}
+		} else {
+			if ((data->current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
+				i2c_send_dma_slave(dev, data->current->buf, data->current->len);
+				while (data->flag_dma_done == 0);
+			} else {
+				i2c_receive_dma_slave(dev, data->current->buf, data->current->len);
+				while (data->flag_dma_done == 0);
 			}
 		}
 	}
-
-
 #else
 	for (uint8_t i = 0; i < num_msgs; ++i) {
 		k_sleep(K_MSEC(5));
