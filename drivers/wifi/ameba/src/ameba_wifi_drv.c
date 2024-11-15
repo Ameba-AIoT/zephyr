@@ -31,21 +31,20 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 
 typedef int (*wifi_rxcb_t)(uint8_t idx, void *buffer, uint16_t len);
 extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
-extern int (*tx_read_pkt_ptr)(void *pkt_addr, void *data, size_t length);
+extern void (*tx_read_pkt_ptr)(void *pkt_addr, void *data, size_t length);
 
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
-static struct net_if *ameba_wifi_iface[NET_IF_MAX_CONFIGS];
+static struct net_if *ameba_wifi_iface[2];
 
 /* zephyr wifi todo, temp */
 static struct ameba_wifi_runtime ameba_data;
 
 /* global para for wifi connect and ap info now */
-_Alignas(4) static rtw_network_info_t1 wifi = {0};
+_Alignas(4) static struct _rtw_network_info_t wifi = {0};
 static unsigned char password[129] = {0};
-_Alignas(4) static rtw_softap_info_t1 ap = {0};
+_Alignas(4) static struct _rtw_softap_info_t ap = {0};
 
-static int init_done = 0;
 static unsigned char if_idx = 0;
 
 static void ameba_wifi_event_task(void);
@@ -63,8 +62,8 @@ static struct net_mgmt_event_callback ameba_dhcp_cb = {0};
 
 char ip_addr_str[MAX_IP_ADDR_LEN];
 
-static void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
-						   struct net_if *iface)
+void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
+					struct net_if *iface)
 {
 	struct net_if_addr *if_addr;
 	struct in_addr ip_addr;
@@ -111,11 +110,12 @@ int ameba_event_send_internal(int32_t event_id, void *event_data, size_t event_d
 
 	memcpy(&evt.event_info, event_data, event_data_size);
 	k_msgq_put(&ameba_wifi_msgq, &evt, K_FOREVER);
+	return 0;
 }
 
 static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 {
-	struct ameba_wifi_runtime *data = dev->data;
+	//struct ameba_wifi_runtime *data = dev->data;
 	const int pkt_len = net_pkt_get_len(pkt);
 	int ret, idx;
 
@@ -134,15 +134,6 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 	return ret;
 }
 
-static void dump_buf(char *info, uint8_t *buf, uint32_t len)
-{
-	LOG_INF("%s", info);
-	for (int i = 0; i < len; i++) {
-		DiagPrintf("%s0x%02X%s", i % 16 == 0 ? "\n     " : ",", buf[i],
-				   i == len - 1 ? "\n" : "");
-	}
-}
-
 /* should called in driver after rx, can call rx_callback_ptr in driver */
 static int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
 {
@@ -152,7 +143,6 @@ static int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
 		LOG_ERR("network interface unavailable");
 		return -EIO;
 	}
-	// dump_buf("recv", buffer, len);
 
 	pkt = net_pkt_rx_alloc_with_buffer(ameba_wifi_iface[idx], len, AF_UNSPEC, 0, K_MSEC(100));
 	if (!pkt) {
@@ -174,13 +164,13 @@ static int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
 	ameba_data.stats.pkts.rx++;
 #endif
 
-	rtos_mem_free(buffer);
+	k_free(buffer);
 
 	return 0;
 
 pkt_unref:
 	net_pkt_unref(pkt);
-	rtos_mem_free(buffer);
+	k_free(buffer);
 #if defined(CONFIG_NET_STATISTICS_WIFI)
 	ameba_data.stats.errors.rx++;
 #endif
@@ -274,43 +264,6 @@ static void ameba_wifi_handle_disconnect_event(void)
 
 	/* zephyr wifi todo, Note: reconnect is no need for rtk, auto reconnect set in driver,
 	 * remove note after reconnect test pass */
-}
-
-int ameba_wifi_connect_test(struct wifi_connect_req_params *params)
-{
-	int ret;
-	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
-	wifi.ssid.val[params->ssid_length] = '\0';
-	wifi.ssid.len = params->ssid_length;
-
-	if (params->security == WIFI_SECURITY_TYPE_PSK) {
-		memcpy(password, params->psk, params->psk_length);
-		password[params->psk_length] = '\0';
-		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
-		wifi.password = password;
-	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
-		wifi.security_type = RTW_SECURITY_OPEN;
-		wifi.password = NULL;
-	} else {
-		LOG_ERR("Authentication method not supported");
-		return -EIO;
-	}
-
-	if (params->channel) {
-		wifi.channel = params->channel;
-	}
-
-	ret = wifi_connect(&wifi, 1);
-
-	if (ret != RTW_SUCCESS) {
-		LOG_ERR("Failed to connect to Wi-Fi access point");
-		return -EAGAIN;
-	} else {
-		ameba_wifi_handle_connect_event();
-		LOG_INF("assoc successed \r\n");
-	}
-
-	return 0;
 }
 
 static void ameba_wifi_event_task(void)
@@ -437,7 +390,7 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	int ret = 0;
-	rtw_join_status_t join_status = RTW_JOINSTATUS_UNKNOWN;
+	int join_status = RTW_JOINSTATUS_UNKNOWN;
 
 	if (data->scan_cb != NULL) {
 		LOG_INF("Scan callback in progress");
@@ -464,9 +417,6 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	int ret = 0;
-	uint32_t ip_addr;
-	uint32_t netmask;
-	uint32_t gw;
 
 	/* Build Wi-Fi configuration for AP mode */
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
@@ -478,7 +428,6 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	if (params->psk_length == 0) {
 		ap.password_len = 0;
 		ap.security_type = RTW_SECURITY_OPEN;
-		// data->status.security = RTW_SECURITY_OPEN;
 	} else {
 		strncpy((char *)password, params->psk, params->psk_length);
 		ap.password = password;
@@ -499,22 +448,22 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	return 0;
 }
 
-void ameba_wifi_ap_disable(const struct device *dev)
+int ameba_wifi_ap_disable(const struct device *dev)
 {
 	(void)dev;
 
-	wifi_stop_ap();
+	int ret = wifi_stop_ap();
 
 	/* zephyr wifi todo, need?? es32 no why? by sema? */
 	net_eth_carrier_off(ameba_wifi_iface[1]);
+
+	return ret;
+
 }
 
 static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status *status)
 {
 	struct ameba_wifi_runtime *data = dev->data;
-	// wifi_mode_t mode;
-	// wifi_config_t conf;
-	/// wifi_ap_record_t ap_info;
 	enum rtw_security security_type;
 
 	wifi_status_zephyr(0, status->ssid, status->bssid, &status->channel, &security_type);
@@ -584,7 +533,6 @@ static void configure_ap_mode(struct net_if *iface)
 {
 	struct in_addr ipaddr, netmask, gateway;
 
-	/* 用硬编码的方法设置IP地址 */
 	if (net_addr_pton(AF_INET, "192.168.43.1", &ipaddr) < 0) {
 		LOG_ERR("Invalid IP address\n");
 		return;
@@ -600,9 +548,9 @@ static void configure_ap_mode(struct net_if *iface)
 		return;
 	}
 
-	/* 设置网络接口的IP地址 */
+
 	net_if_ipv4_addr_add(iface, &ipaddr, NET_ADDR_MANUAL, 0);
-	net_if_ipv4_set_netmask(iface, &netmask);
+	net_if_ipv4_set_netmask_by_addr(iface, &ipaddr, &netmask);
 	net_if_ipv4_set_gw(iface, &gateway);
 }
 
