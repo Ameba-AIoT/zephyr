@@ -72,7 +72,7 @@ static int amebadplus_init(void)
 	 */
 	Cache_Enable(DISABLE);
 	sys_cache_instr_enable();
-	//sys_cache_data_enable();
+	sys_cache_data_enable();
 
 	/* do xtal/osc clk init */
 	SystemCoreClockUpdate();
