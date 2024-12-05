@@ -331,17 +331,11 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 	int ret;
 	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
 
-	if (data->state == RTK_STA_CONNECTING || data->state == RTK_STA_CONNECTED) {
+	if (data->state == RTK_STA_CONNECTING) {
 		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], -1);
 		return -EALREADY;
 	}
 
-	// TBD
-	// if (data->state != RTK_STA_STARTED) {
-	// LOG_ERR("Wi-Fi not in station mode");
-	///	wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], -1);
-	//	return -EIO;
-	///}
 
 	data->state = RTK_STA_CONNECTING;
 
@@ -351,8 +345,6 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
 	wifi.ssid.val[params->ssid_length] = '\0';
 	wifi.ssid.len = params->ssid_length;
-
-	wifi.channel = params->channel;
 
 	if (params->security == WIFI_SECURITY_TYPE_PSK) {
 		memcpy(password, params->psk, params->psk_length);
@@ -365,17 +357,21 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 		wifi.password = NULL;
 	} else {
 		LOG_ERR("Authentication method not supported");
+		data->state = RTK_STA_STARTED;
 		return -EIO;
 	}
 
-	if (params->channel) {
+	if (params->channel != WIFI_CHANNEL_ANY) {
 		wifi.channel = params->channel;
+	} else {
+		wifi.channel = 0;
 	}
 
 	ret = wifi_connect(&wifi, 1);
 
 	if (ret != RTW_SUCCESS) {
 		LOG_ERR("Failed to connect to Wi-Fi access point");
+		data->state = RTK_STA_STARTED;
 		return -EAGAIN;
 	} else {
 		ameba_wifi_handle_connect_event();
