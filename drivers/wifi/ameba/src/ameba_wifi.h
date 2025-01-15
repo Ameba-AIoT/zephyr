@@ -11,6 +11,11 @@
 #include "wifi_ind.h"
 #include "os_wrapper_memory.h"
 
+#define DT_DRV_COMPAT         realtek_ameba_wifi
+#define WIFI_EVENT_STACK_SIZE 4096
+#define DHCPV4_MASK           (NET_EVENT_IPV4_DHCP_BOUND | NET_EVENT_IPV4_DHCP_STOP)
+#define MAX_IP_ADDR_LEN       16
+
 #if defined(__IAR_SYSTEMS_ICC__) || defined(__GNUC__) || defined(__CC_ARM) ||                      \
 	(defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050))
 /* SET pack mode 1-alignment for the following area. */
@@ -82,11 +87,9 @@ enum rtk_state_flag {
 	RTK_AP_STOPPED,
 };
 
-void wifi_status_zephyr(u8 iface, char *ssid, char *bssid, int *chl, enum rtw_security *type);
 void wlan_initialize(void);
+int wifi_get_setting(unsigned char wlan_idx, struct _rtw_wifi_setting_t *psetting);
 int wifi_get_scan_records(unsigned int *AP_num, char *scan_buf);
-void print_scan_result(struct rtw_scan_result *record);
-int wifi_scan_zephyr(void *handler);
-int inic_host_send_zephyr(int idx, void *pkt_addr, uint32_t len);
+int inic_host_send(int idx, void *pkt_addr, uint32_t len);
 int wifi_get_mac_address(int idx, struct _rtw_mac_t *mac, u8 efuse);
-
+int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len);
