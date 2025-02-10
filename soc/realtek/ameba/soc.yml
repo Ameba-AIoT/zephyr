@@ -4,3 +4,6 @@ family:
   - name: amebadplus
     socs:
     - name: amebadplus
+  - name: amebad
+    socs:
+    - name: amebad
