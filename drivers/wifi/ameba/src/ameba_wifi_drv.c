@@ -210,6 +210,23 @@ pkt_unref:
 	return -EIO;
 }
 
+u8 *ameba_wifi_get_ip(u8 idx)
+{
+	struct net_if_addr *ifaddr;
+
+	for (int i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
+		ifaddr = &ameba_wifi_iface[idx]->config.ip.ipv4->unicast[i];
+		if (ifaddr->is_used) {
+			return &ifaddr->address.in_addr;
+		}
+	}
+}
+
+u8 *ameba_wifi_get_gw(u8 idx)
+{
+	return &ameba_wifi_iface[idx]->config.ip.ipv4->gw;
+}
+
 static int ameba_scan_done_cb(unsigned int scanned_AP_num, void *user_data)
 {
 	struct wifi_scan_result res = {0};
