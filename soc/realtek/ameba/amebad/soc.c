@@ -46,9 +46,9 @@ static int amebad_init(void)
 	 */
 	Cache_Enable(DISABLE);
 	sys_cache_data_enable();
+	sys_cache_instr_enable();
 
 #if AMEBAD_ZEPHYR_TODO
-	sys_cache_instr_enable();
 
 	/* do xtal/osc clk init */
 	SystemCoreClockUpdate();
