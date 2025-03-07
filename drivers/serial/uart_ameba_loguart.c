@@ -187,8 +187,8 @@ static int loguart_ameba_irq_rx_ready(const struct device *dev)
 	struct loguart_ameba_data *data = dev->data;
 
 	return (LOGUART_GetStatus(LOGUART_DEV) &
-			(LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
-		   data->rx_int_en;
+		(LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
+	       data->rx_int_en;
 }
 
 static void loguart_ameba_irq_err_enable(const struct device *dev)
@@ -207,12 +207,7 @@ static void loguart_ameba_irq_err_disable(const struct device *dev)
 
 static int loguart_ameba_irq_is_pending(const struct device *dev)
 {
-	struct loguart_ameba_data *data = dev->data;
-
-	return ((LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) && data->tx_int_en) ||
-		   ((LOGUART_GetStatus(LOGUART_DEV) &
-			 (LOGUART_BIT_DRDY | LOGUART_BIT_RXFIFO_INT | LOGUART_BIT_TIMEOUT_INT)) &&
-			data->rx_int_en);
+	return loguart_ameba_irq_tx_ready(dev) || loguart_ameba_irq_rx_ready(dev);
 }
 
 static int loguart_ameba_irq_update(const struct device *dev)
@@ -221,7 +216,7 @@ static int loguart_ameba_irq_update(const struct device *dev)
 }
 
 static void loguart_ameba_irq_callback_set(const struct device *dev,
-		uart_irq_callback_user_data_t cb, void *cb_data)
+					   uart_irq_callback_user_data_t cb, void *cb_data)
 {
 	struct loguart_ameba_data *data = dev->data;
 
@@ -314,13 +309,12 @@ AMEBA_LOGUART_IRQ_HANDLER
 static const struct loguart_ameba_config loguart_config = {AMEBA_LOGUART_IRQ_HANDLER_FUNC};
 
 static struct loguart_ameba_data loguart_data = {.config = {
-		.stop_bits = UART_CFG_STOP_BITS_1,
-		.data_bits = UART_CFG_DATA_BITS_8,
-		.baudrate = DT_INST_PROP(0, current_speed),
-		.parity = UART_CFG_PARITY_NONE,
-		.flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
-	}
-};
+							 .stop_bits = UART_CFG_STOP_BITS_1,
+							 .data_bits = UART_CFG_DATA_BITS_8,
+							 .baudrate = DT_INST_PROP(0, current_speed),
+							 .parity = UART_CFG_PARITY_NONE,
+							 .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+						 }};
 
 DEVICE_DT_INST_DEFINE(0, loguart_ameba_init, NULL, &loguart_data, &loguart_config, PRE_KERNEL_1,
-					  CONFIG_SERIAL_INIT_PRIORITY, &loguart_ameba_driver_api);
+		      CONFIG_SERIAL_INIT_PRIORITY, &loguart_ameba_driver_api);

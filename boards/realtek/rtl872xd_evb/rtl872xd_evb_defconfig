@@ -18,11 +18,11 @@ CONFIG_TRUSTED_EXECUTION_NONSECURE=y
 # enable uart
 CONFIG_SERIAL=y
 
-# # console
+# console
 CONFIG_CONSOLE=y
 CONFIG_UART_CONSOLE=y
 
-# # enable stdout and printk
+# enable stdout and printk
 CONFIG_STDOUT_CONSOLE=y
 CONFIG_PRINTK=y
 # CONFIG_CONSOLE_HANDLER=y
@@ -30,7 +30,7 @@ CONFIG_PRINTK=y
 
 # CONFIG_HWINFO=y
 # CONFIG_HWINFO_SHELL=y
-# CONFIG_SHELL=y
+CONFIG_SHELL=y
 CONFIG_LOG=y
 
 # # enable trng
