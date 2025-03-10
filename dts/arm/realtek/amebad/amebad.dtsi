@@ -86,6 +86,18 @@
 				/* Flash size is specified in board dts */
 			};
 		};
+
+		wifi: wifi@40000000 {
+			compatible = "realtek,ameba-wifi";
+			reg = <0x40000000 0x80000>;
+			status = "disabled";
+		};
+
+		eth: eth {
+			compatible = "realtek,ameba-eth";
+			status = "disabled";
+		};
+
 	};
 };
 
