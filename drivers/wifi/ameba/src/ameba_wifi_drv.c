@@ -365,11 +365,6 @@ static int ameba_wifi_disconnect(const struct device *dev)
 	int ret = 0;
 	struct ameba_wifi_runtime *data = dev->data;
 
-	if (wifi_is_connected_to_ap() != RTW_SUCCESS) {
-		LOG_INF("\n\rnot connected yet");
-		return -EALREADY;
-	}
-
 	ret = wifi_disconnect();
 	data->state = RTK_STA_STOPPED;
 	return ret;
