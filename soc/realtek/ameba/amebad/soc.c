@@ -38,6 +38,18 @@ static int amebad_app_init(void)
 	return 0;
 }
 
+/* Disable KM0 Loguart Interrupt */
+void shell_loguratRx_Ipc_Tx(u32 ipc_dir, u32 ipc_ch)
+{
+	IPC_MSG_STRUCT ipc_msg_temp;
+
+	ipc_msg_temp.msg_type = IPC_USER_POINT;
+	ipc_msg_temp.msg = 0;
+	ipc_msg_temp.msg_len = 1;
+	ipc_msg_temp.rsvd = 0; /* for coverity init issue */
+	ipc_send_message(ipc_dir, ipc_ch, &ipc_msg_temp);
+}
+
 static int amebad_init(void)
 {
 	/*
@@ -47,6 +59,8 @@ static int amebad_init(void)
 	Cache_Enable(DISABLE);
 	sys_cache_data_enable();
 	sys_cache_instr_enable();
+
+	shell_loguratRx_Ipc_Tx((u32)NULL, IPC_INT_CHAN_SHELL_SWITCH);
 
 #if AMEBAD_ZEPHYR_TODO
 
