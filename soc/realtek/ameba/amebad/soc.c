@@ -9,6 +9,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
+#include "ameba_system.h"
 
 void z_arm_reset(void);
 
@@ -18,9 +19,16 @@ RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, *
 
 static void app_vdd1833_detect(void)
 {
-#if AMEBAD_ZEPHYR_TODO
+	u32 temp;
 
-#endif
+	if (FALSE == is_power_supply18()) {
+		temp = HAL_READ32(SYSTEM_CTRL_BASE_HP, REG_HS_RFAFE_IND_VIO1833);
+		temp |= BIT_RFAFE_IND_VIO1833;
+		HAL_WRITE32(SYSTEM_CTRL_BASE_HP, REG_HS_RFAFE_IND_VIO1833, temp);
+	}
+
+	printk("REG_HS_RFAFE_IND_VIO1833 (0 is 1.8V): %x\n",
+	       HAL_READ32(SYSTEM_CTRL_BASE_HP, REG_HS_RFAFE_IND_VIO1833));
 }
 
 /* Disable KM0 Loguart Interrupt */
@@ -47,31 +55,14 @@ void soc_early_init_hook(void)
 
 	shell_loguratRx_Ipc_Tx((u32)NULL, IPC_INT_CHAN_SHELL_SWITCH);
 
-#if AMEBAD_ZEPHYR_TODO
+	SystemSetCpuClk(CONFIG_CPU_CLOCK_SEL_VALUE);
 
-	/* do xtal/osc clk init */
-	SystemCoreClockUpdate();
-
-	XTAL_INIT();
-
-	if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) { /* Only Asic need OSC Calibration */
-		OSC4M_Init();
-		OSC4M_Calibration(30000);
-		if ((((BOOT_Reason()) & AON_BIT_RSTF_DSLP) == FALSE) &&
-		    (RTCIO_IsEnabled() == FALSE)) {
-			OSC131K_Calibration(30000); /* PPM=30000=3% */ /* 7.5ms */
-		}
-	}
-#endif
-
-#if AMEBAD_ZEPHYR_TODO
 	/* Register IPC interrupt */
-	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
-	irq_enable(IPC_KM4_IRQ);
+	IRQ_CONNECT(IPC_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCM0_DEV, 0);
+	irq_enable(IPC_IRQ);
 
 	/* IPC table initialization */
-	ipc_table_init(IPCKM4_DEV);
-#endif
+	ipc_table_init(IPCM4_DEV);
 
 	app_vdd1833_detect();
 }
