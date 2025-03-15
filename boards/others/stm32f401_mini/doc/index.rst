@@ -1,7 +1,4 @@
-.. _stm32f401_mini:
-
-STM32 Mini F401
-###############
+.. zephyr:board:: stm32f401_mini
 
 Overview
 ********
@@ -9,10 +6,6 @@ Overview
 The STM32 Mini F401 is an extremely low cost and bare-bones
 development board featuring the STM32F401CC, see `STM32F401CC website`_.
 More info about the board with schematics available `here <stm32-base-board-page_>`_
-
-.. image:: img/STM32_Mini_F401-1.jpg
-      :align: center
-      :alt: STM32 Mini F401
 
 Hardware
 ********
@@ -42,35 +35,7 @@ hardware components:
 Supported Features
 ==================
 
-The Zephyr stm32f401_mini board configuration supports the following
-hardware features:
-
-+------------+------------+-------------------------------------+
-| Interface  | Controller | Driver/Component                    |
-+============+============+=====================================+
-| NVIC       | on-chip    | nested vector interrupt controller  |
-+------------+------------+-------------------------------------+
-| SYSTICK    | on-chip    | system clock                        |
-+------------+------------+-------------------------------------+
-| UART       | on-chip    | serial port                         |
-+------------+------------+-------------------------------------+
-| GPIO       | on-chip    | gpio                                |
-+------------+------------+-------------------------------------+
-| PINMUX     | on-chip    | pinmux                              |
-+------------+------------+-------------------------------------+
-| FLASH      | on-chip    | flash                               |
-+------------+------------+-------------------------------------+
-| SPI        | on-chip    | spi                                 |
-+------------+------------+-------------------------------------+
-| I2C        | on-chip    | i2c                                 |
-+------------+------------+-------------------------------------+
-| ADC        | on-chip    | ADC Controller                      |
-+------------+------------+-------------------------------------+
-| USB OTG FS | on-chip    | USB device                          |
-+------------+------------+-------------------------------------+
-
-The default configuration can be found in
-:zephyr_file:`boards/others/stm32f401_mini/stm32f401_mini_defconfig`
+.. zephyr:board-supported-hw::
 
 Default Zephyr Peripheral Mapping:
 ----------------------------------

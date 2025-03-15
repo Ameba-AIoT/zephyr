@@ -51,20 +51,7 @@ static void app_vdd1833_detect(void)
 	HAL_WRITE32(SYSTEM_CTRL_BASE, REG_AON_RSVD_FOR_SW1, temp);
 }
 
-static int amebadplus_app_init(void)
-{
-	/* Register IPC interrupt */
-	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
-	irq_enable(IPC_KM4_IRQ);
-
-	/* IPC table initialization */
-	ipc_table_init(IPCKM4_DEV);
-
-	app_vdd1833_detect();
-	return 0;
-}
-
-static int amebadplus_init(void)
+void soc_early_init_hook(void)
 {
 	/*
 	 * Cache is enabled by default at reset, disable it before
@@ -87,8 +74,13 @@ static int amebadplus_init(void)
 			OSC131K_Calibration(30000); /* PPM=30000=3% */ /* 7.5ms */
 		}
 	}
-	return 0;
-}
 
-SYS_INIT(amebadplus_init, PRE_KERNEL_1, 0);
-SYS_INIT(amebadplus_app_init, APPLICATION, 0);
+	/* Register IPC interrupt */
+	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
+	irq_enable(IPC_KM4_IRQ);
+
+	/* IPC table initialization */
+	ipc_table_init(IPCKM4_DEV);
+
+	app_vdd1833_detect();
+}

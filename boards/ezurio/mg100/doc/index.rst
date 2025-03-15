@@ -1,7 +1,4 @@
-.. _mg100:
-
-Ezurio Sentrius™ MG100 Gateway
-##############################
+.. zephyr:board:: mg100
 
 Overview
 ********
@@ -46,59 +43,13 @@ and the following devices:
 * :abbr:`HL7800 (Sierra Wireless HL7800 LTE-M1/NB-IoT modem)`
 * :abbr:`SD Card`
 
-.. figure:: img/mg100.jpg
-     :align: center
-     :alt: MG100
-
-     MG100 (450-00054-K1)
-
 Hardware
 ********
 
 Supported Features
 ==================
 
-The MG100 board configuration supports the following
-hardware features:
-
-+-----------+------------+----------------------+
-| Interface | Controller | Driver/Component     |
-+===========+============+======================+
-| ADC       | on-chip    | adc                  |
-+-----------+------------+----------------------+
-| CLOCK     | on-chip    | clock_control        |
-+-----------+------------+----------------------+
-| FLASH     | on-chip    | flash                |
-+-----------+------------+----------------------+
-| GPIO      | on-chip    | gpio                 |
-+-----------+------------+----------------------+
-| I2C(M)    | on-chip    | i2c                  |
-+-----------+------------+----------------------+
-| MPU       | on-chip    | arch/arm             |
-+-----------+------------+----------------------+
-| NVIC      | on-chip    | arch/arm             |
-+-----------+------------+----------------------+
-| PWM       | on-chip    | pwm                  |
-+-----------+------------+----------------------+
-| RADIO     | on-chip    | Bluetooth,           |
-|           |            | ieee802154           |
-+-----------+------------+----------------------+
-| RTC       | on-chip    | system clock         |
-+-----------+------------+----------------------+
-| SPI(M/S)  | on-chip    | spi                  |
-+-----------+------------+----------------------+
-| UART      | on-chip    | serial               |
-+-----------+------------+----------------------+
-| WDT       | on-chip    | watchdog             |
-+-----------+------------+----------------------+
-| QSPI      | on-chip    | qspi/MX25R64(8MB)    |
-+-----------+------------+----------------------+
-| LIS3DH    | I2C(M)     | sensor/lis3dh        |
-+-----------+------------+----------------------+
-| HL7800    | UART       | HL7800 modem driver  |
-+-----------+------------+----------------------+
-| SDMMC     | SPI(M)     | SD Card via SPI      |
-+-----------+------------+----------------------+
+.. zephyr:board-supported-hw::
 
 See `MG100 website`_ for a complete list
 of MG100 hardware features.
@@ -174,7 +125,7 @@ found in :ref:`nordic_segger_flashing`. Then build and flash
 applications as usual (see :ref:`build_an_application` and
 :ref:`application_run` for more details).
 
-Here is an example for the :ref:`hello_world` application.
+Here is an example for the :zephyr:code-sample:`hello_world` application.
 
 First, run your favorite terminal program to listen for output.
 
@@ -213,9 +164,9 @@ Testing Bluetooth on the MG100
 Many of the Bluetooth examples will work on the MG100.
 Try them out:
 
-* :ref:`ble_peripheral`
-* :ref:`bluetooth-eddystone-sample`
-* :ref:`bluetooth-ibeacon-sample`
+* :zephyr:code-sample:`ble_peripheral`
+* :zephyr:code-sample:`bluetooth_eddystone`
+* :zephyr:code-sample:`bluetooth_ibeacon`
 
 Testing the LEDs and buttons in the MG100
 ====================================================

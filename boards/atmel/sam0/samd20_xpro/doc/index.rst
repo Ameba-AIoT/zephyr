@@ -1,7 +1,4 @@
-.. _samd20_xpro:
-
-SAM D20 Xplained Pro Evaluation Kit
-###################################
+.. zephyr:board:: samd20_xpro
 
 Overview
 ********
@@ -11,13 +8,6 @@ prototyping with the SAM D20 Cortex®-M0+ processor-based
 microcontrollers. The kit includes Atmel’s Embedded Debugger (EDBG),
 which provides a full debug interface without the need for additional
 hardware.
-
-.. figure:: img/atsamd20_xpro.jpg
-    :width: 500px
-    :align: center
-    :alt: SAMD20-XPRO
-
-    SAMD20-XPRO (Credit: `Microchip Technology`_)
 
 Hardware
 ********
@@ -33,47 +23,7 @@ Hardware
 Supported Features
 ==================
 
-The samd20_xpro board configuration supports the following hardware
-features:
-
-.. list-table::
-    :header-rows: 1
-
-    * - Interface
-      - Controller
-      - Driver / Component
-    * - NVIC
-      - on-chip
-      - nested vector interrupt controller
-    * - Flash
-      - on-chip
-      - Can be used with LittleFS to store files
-    * - SYSTICK
-      - on-chip
-      - systick
-    * - WDT
-      - on-chip
-      - Watchdog
-    * - ADC
-      - on-chip
-      - Analog to Digital Converter
-    * - GPIO
-      - on-chip
-      - I/O ports
-    * - USART
-      - on-chip
-      - Serial ports
-    * - I2C
-      - on-chip
-      - I2C ports
-    * - SPI
-      - on-chip
-      - Serial Peripheral Interface ports
-
-Other hardware features are not currently supported by Zephyr.
-
-The default configuration can be found in the Kconfig
-:zephyr_file:`boards/atmel/sam0/samd20_xpro/samd20_xpro_defconfig`.
+.. zephyr:board-supported-hw::
 
 Connections and IOs
 ===================
@@ -110,7 +60,7 @@ OpenOCD.
 Flashing
 ========
 
-#. Build the Zephyr kernel and the :ref:`hello_world` sample application:
+#. Build the Zephyr kernel and the :zephyr:code-sample:`hello_world` sample application:
 
    .. zephyr-app-commands::
       :zephyr-app: samples/hello_world

@@ -33,7 +33,17 @@
 #endif
 
 #include "uart_pl011_registers.h"
+
+#if defined(CONFIG_SOC_FAMILY_AMBIQ)
 #include "uart_pl011_ambiq.h"
+#endif
+
+#if defined(CONFIG_SOC_SERIES_APOLLO3X)
+#define PM_INST_GET(n) PM_DEVICE_DT_INST_GET(n)
+#else
+#define PM_INST_GET(n) NULL
+#endif
+
 #include "uart_pl011_raspberrypi_pico.h"
 
 struct pl011_config {
@@ -64,6 +74,7 @@ struct pl011_data {
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	volatile bool sw_call_txdrdy;
 	uart_irq_callback_user_data_t irq_cb;
+	struct k_spinlock irq_cb_lock;
 	void *irq_cb_data;
 #endif
 };
@@ -307,7 +318,7 @@ static int pl011_runtime_config_get(const struct device *dev,
 static int pl011_fifo_fill(const struct device *dev,
 				    const uint8_t *tx_data, int len)
 {
-	uint8_t num_tx = 0U;
+	int num_tx = 0U;
 
 	while (!(get_uart(dev)->fr & PL011_FR_TXFF) && (len - num_tx > 0)) {
 		get_uart(dev)->dr = tx_data[num_tx++];
@@ -318,7 +329,7 @@ static int pl011_fifo_fill(const struct device *dev,
 static int pl011_fifo_read(const struct device *dev,
 				    uint8_t *rx_data, const int len)
 {
-	uint8_t num_rx = 0U;
+	int num_rx = 0U;
 
 	while ((len - num_rx > 0) && !(get_uart(dev)->fr & PL011_FR_RXFE)) {
 		rx_data[num_rx++] = get_uart(dev)->dr;
@@ -332,29 +343,45 @@ static void pl011_irq_tx_enable(const struct device *dev)
 	struct pl011_data *data = dev->data;
 
 	get_uart(dev)->imsc |= PL011_IMSC_TXIM;
-	if (data->sw_call_txdrdy) {
-		/* Verify if the callback has been registered */
-		if (data->irq_cb) {
-			/*
-			 * Due to HW limitation, the first TX interrupt should
-			 * be triggered by the software.
-			 *
-			 * PL011 TX interrupt is based on a transition through
-			 * a level, rather than on the level itself[1]. So that,
-			 * enable TX interrupt can not trigger TX interrupt if
-			 * no data was filled to TX FIFO at the beginning.
-			 *
-			 * [1]: PrimeCell UART (PL011) Technical Reference Manual
-			 *      functional-overview/interrupts
-			 */
+	if (!data->sw_call_txdrdy) {
+		return;
+	}
+	data->sw_call_txdrdy = false;
+
+	/*
+	 * Verify if the callback has been registered. Due to HW limitation, the
+	 * first TX interrupt should be triggered by the software.
+	 *
+	 * PL011 TX interrupt is based on a transition through a level, rather
+	 * than on the level itself[1]. So that, enable TX interrupt can not
+	 * trigger TX interrupt if no data was filled to TX FIFO at the
+	 * beginning.
+	 *
+	 * [1]: PrimeCell UART (PL011) Technical Reference Manual
+	 *      functional-overview/interrupts
+	 */
+	if (!data->irq_cb) {
+		return;
+	}
+
+	/*
+	 * Execute callback while TX interrupt remains enabled. If
+	 * uart_fifo_fill() is called with small amounts of data, the 1/8 TX
+	 * FIFO threshold may never be reached, and the hardware TX interrupt
+	 * will never trigger.
+	 */
+	while (get_uart(dev)->imsc & PL011_IMSC_TXIM) {
+		K_SPINLOCK(&data->irq_cb_lock) {
 			data->irq_cb(dev, data->irq_cb_data);
 		}
-		data->sw_call_txdrdy = false;
 	}
 }
 
 static void pl011_irq_tx_disable(const struct device *dev)
 {
+	struct pl011_data *data = dev->data;
+
+	data->sw_call_txdrdy = true;
 	get_uart(dev)->imsc &= ~PL011_IMSC_TXIM;
 }
 
@@ -368,8 +395,9 @@ static int pl011_irq_tx_ready(const struct device *dev)
 {
 	struct pl011_data *data = dev->data;
 
-	if (!data->sbsa && !(get_uart(dev)->cr & PL011_CR_TXE))
+	if (!data->sbsa && !(get_uart(dev)->cr & PL011_CR_TXE)) {
 		return false;
+	}
 
 	return ((get_uart(dev)->imsc & PL011_IMSC_TXIM) &&
 		/* Check for TX interrupt status is set or TX FIFO is empty. */
@@ -390,8 +418,9 @@ static int pl011_irq_rx_ready(const struct device *dev)
 {
 	struct pl011_data *data = dev->data;
 
-	if (!data->sbsa && !(get_uart(dev)->cr & PL011_CR_RXE))
+	if (!data->sbsa && !(get_uart(dev)->cr & PL011_CR_RXE)) {
 		return false;
+	}
 
 	return ((get_uart(dev)->imsc & PL011_IMSC_RXIM) &&
 		(!(get_uart(dev)->fr & PL011_FR_RXFE)));
@@ -429,7 +458,7 @@ static void pl011_irq_callback_set(const struct device *dev,
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
-static const struct uart_driver_api pl011_driver_api = {
+static DEVICE_API(uart, pl011_driver_api) = {
 	.poll_in = pl011_poll_in,
 	.poll_out = pl011_poll_out,
 	.err_check = pl011_err_check,
@@ -608,7 +637,9 @@ void pl011_isr(const struct device *dev)
 
 	/* Verify if the callback has been registered */
 	if (data->irq_cb) {
-		data->irq_cb(dev, data->irq_cb_data);
+		K_SPINLOCK(&data->irq_cb_lock) {
+			data->irq_cb(dev, data->irq_cb_data);
+		}
 	}
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
@@ -648,33 +679,30 @@ void pl011_isr(const struct device *dev)
 	};
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
-#define PL011_INIT(n)						\
-	PINCTRL_DEFINE(n)					\
-	COMPAT_SPECIFIC_DEFINE(n)				\
-	PL011_CONFIG_PORT(n)					\
-								\
-	static struct pl011_data pl011_data_port_##n = {	\
-		.uart_cfg = {					\
-			.baudrate = DT_INST_PROP(n, current_speed), \
-			.parity = UART_CFG_PARITY_NONE,			\
-			.stop_bits = UART_CFG_STOP_BITS_1,		\
-			.data_bits = UART_CFG_DATA_BITS_8,		\
-			.flow_ctrl = DT_INST_PROP(n, hw_flow_control)	\
-				? UART_CFG_FLOW_CTRL_RTS_CTS		\
-				: UART_CFG_FLOW_CTRL_NONE,		\
-		},							\
-		.clk_freq = COND_CODE_1(                                                \
-			DT_NODE_HAS_COMPAT(DT_INST_CLOCKS_CTLR(n), fixed_clock),        \
-			(DT_INST_PROP_BY_PHANDLE(n, clocks, clock_frequency)), (0)),    \
-	};							\
-								\
-	DEVICE_DT_INST_DEFINE(n, &pl011_init,			\
-			NULL,					\
-			&pl011_data_port_##n,			\
-			&pl011_cfg_port_##n,			\
-			PRE_KERNEL_1,				\
-			CONFIG_SERIAL_INIT_PRIORITY,		\
-			&pl011_driver_api);
+#define PL011_INIT(n)                                                                              \
+	PINCTRL_DEFINE(n)                                                                          \
+	COMPAT_SPECIFIC_DEFINE(n)                                                                  \
+	PL011_CONFIG_PORT(n)                                                                       \
+                                                                                                   \
+	static struct pl011_data pl011_data_port_##n = {                                           \
+		.uart_cfg =                                                                        \
+			{                                                                          \
+				.baudrate = DT_INST_PROP(n, current_speed),                        \
+				.parity = UART_CFG_PARITY_NONE,                                    \
+				.stop_bits = UART_CFG_STOP_BITS_1,                                 \
+				.data_bits = UART_CFG_DATA_BITS_8,                                 \
+				.flow_ctrl = DT_INST_PROP(n, hw_flow_control)                      \
+						     ? UART_CFG_FLOW_CTRL_RTS_CTS                  \
+						     : UART_CFG_FLOW_CTRL_NONE,                    \
+			},                                                                         \
+		.clk_freq =                                                                        \
+			COND_CODE_1(DT_NODE_HAS_COMPAT(DT_INST_CLOCKS_CTLR(n), fixed_clock),       \
+				    (DT_INST_PROP_BY_PHANDLE(n, clocks, clock_frequency)), (0)),   \
+	};                                                                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(n, pl011_init, PM_INST_GET(n), &pl011_data_port_##n,       \
+			      &pl011_cfg_port_##n, PRE_KERNEL_1, CONFIG_SERIAL_INIT_PRIORITY,      \
+			      &pl011_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PL011_INIT)
 
@@ -709,7 +737,7 @@ DT_INST_FOREACH_STATUS_OKAY(PL011_INIT)
 		.sbsa = true,					\
 	};							\
 								\
-	DEVICE_DT_INST_DEFINE(n, &pl011_init,			\
+	DEVICE_DT_INST_DEFINE(n, pl011_init,			\
 			NULL,					\
 			&pl011_data_sbsa_##n,			\
 			&pl011_cfg_sbsa_##n,			\

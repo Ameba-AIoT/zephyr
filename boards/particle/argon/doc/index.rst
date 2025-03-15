@@ -1,7 +1,4 @@
-.. _particle_argon:
-
-Particle Argon
-##############
+.. zephyr:board:: particle_argon
 
 Overview
 ********
@@ -29,12 +26,6 @@ Hardware
 On the front of the board are RGB-LED, LED and LIPO circuitry.
 The RGB-LED is controlled by the nRF52840 via GPIO pins.
 
-.. figure:: img/particle_argon.jpg
-     :align: center
-     :alt: Particle Argon
-
-     Particle Argon (Credit: Particle Industries)
-
 Power supply
 ============
 
@@ -46,31 +37,7 @@ It contains circuitry for LIPO usage and can be charged via the USB port.
 Supported Features
 ==================
 
-The particle_argon board configuration supports the following
-hardware features:
-
-+-----------+------------+----------------------+
-| Interface | Controller | Driver/Component     |
-+===========+============+======================+
-| NVIC      | on-chip    | nested vectored      |
-|           |            | interrupt controller |
-+-----------+------------+----------------------+
-| RTC       | on-chip    | system clock         |
-+-----------+------------+----------------------+
-| UART      | on-chip    | serial port          |
-+-----------+------------+----------------------+
-| I2C       | on-chip    | i2c                  |
-+-----------+------------+----------------------+
-| SPI       | on-chip    | spi                  |
-+-----------+------------+----------------------+
-| GPIO      | on-chip    | gpio                 |
-+-----------+------------+----------------------+
-| FLASH     | on-chip    | flash                |
-+-----------+------------+----------------------+
-| RADIO     | on-chip    | Bluetooth            |
-+-----------+------------+----------------------+
-
-Other hardware features have not been enabled yet for this board.
+.. zephyr:board-supported-hw::
 
 Connections and IOs
 ===================
@@ -145,7 +112,7 @@ Debugging
 =========
 
 You can debug an application in the usual way.  Here is an example for the
-:ref:`hello_world` application.
+:zephyr:code-sample:`hello_world` application.
 
 .. zephyr-app-commands::
    :zephyr-app: samples/hello_world

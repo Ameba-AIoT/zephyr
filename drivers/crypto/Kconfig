@@ -22,14 +22,14 @@ module-str = CRYPTO
 source "subsys/logging/Kconfig.template.log_config"
 
 config CRYPTO_TINYCRYPT_SHIM
-	bool "TinyCrypt shim driver [EXPERIMENTAL]"
+	bool "TinyCrypt shim driver [DEPRECATED]"
 	select TINYCRYPT
 	select TINYCRYPT_AES
 	select TINYCRYPT_AES_CBC
 	select TINYCRYPT_AES_CTR
 	select TINYCRYPT_AES_CCM
 	select TINYCRYPT_AES_CMAC
-	select EXPERIMENTAL
+	select DEPRECATED
 	help
 	  Enable TinyCrypt shim layer compliant with crypto APIs.
 
@@ -74,6 +74,7 @@ config CRYPTO_MBEDTLS_SHIM_MAX_SESSION
 	  This can be used to tweak the amount of sessions the driver
 	  can handle in parallel.
 
+source "drivers/crypto/Kconfig.ameba"
 source "drivers/crypto/Kconfig.ataes132a"
 source "drivers/crypto/Kconfig.stm32"
 source "drivers/crypto/Kconfig.nrf_ecb"
@@ -82,7 +83,7 @@ source "drivers/crypto/Kconfig.npcx"
 source "drivers/crypto/Kconfig.xec"
 source "drivers/crypto/Kconfig.it8xxx2"
 source "drivers/crypto/Kconfig.mcux_dcp"
-source "drivers/crypto/Kconfig.ameba"
+source "drivers/crypto/Kconfig.si32"
 source "drivers/crypto/Kconfig.smartbond"
 
 endif # CRYPTO

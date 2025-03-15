@@ -23,21 +23,6 @@ static void app_vdd1833_detect(void)
 #endif
 }
 
-static int amebad_app_init(void)
-{
-#if AMEBAD_ZEPHYR_TODO
-	/* Register IPC interrupt */
-	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
-	irq_enable(IPC_KM4_IRQ);
-
-	/* IPC table initialization */
-	ipc_table_init(IPCKM4_DEV);
-#endif
-
-	app_vdd1833_detect();
-	return 0;
-}
-
 /* Disable KM0 Loguart Interrupt */
 void shell_loguratRx_Ipc_Tx(u32 ipc_dir, u32 ipc_ch)
 {
@@ -50,7 +35,7 @@ void shell_loguratRx_Ipc_Tx(u32 ipc_dir, u32 ipc_ch)
 	ipc_send_message(ipc_dir, ipc_ch, &ipc_msg_temp);
 }
 
-static int amebad_init(void)
+void soc_early_init_hook(void)
 {
 	/*
 	 * Cache is enabled by default at reset, disable it before
@@ -79,8 +64,14 @@ static int amebad_init(void)
 	}
 #endif
 
-	return 0;
-}
+#if AMEBAD_ZEPHYR_TODO
+	/* Register IPC interrupt */
+	IRQ_CONNECT(IPC_KM4_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCKM4_DEV, 0);
+	irq_enable(IPC_KM4_IRQ);
 
-SYS_INIT(amebad_init, PRE_KERNEL_1, 0);
-SYS_INIT(amebad_app_init, APPLICATION, 0);
+	/* IPC table initialization */
+	ipc_table_init(IPCKM4_DEV);
+#endif
+
+	app_vdd1833_detect();
+}

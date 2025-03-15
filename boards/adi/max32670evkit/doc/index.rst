@@ -1,7 +1,4 @@
-.. _max32670_evkit:
-
-MAX32670EVKIT
-#############
+.. zephyr:board:: max32670evkit
 
 Overview
 ********
@@ -14,10 +11,6 @@ The MAX32670 also offers legacy designs an easy and cost optimal upgradepath
 from 8-bit or 16-bit microcontrollers.
 
 The Zephyr port is running on the MAX32670 MCU.
-
-.. image:: img/max32670evkit.webp
-   :align: center
-   :alt: MAX32670 EVKIT
 
 Hardware
 ********
@@ -106,7 +99,22 @@ Below interfaces are supported by Zephyr on MAX32670EVKIT.
 +-----------+------------+-------------------------------------+
 | UART      | on-chip    | serial                              |
 +-----------+------------+-------------------------------------+
-
+| TRNG      | on-chip    | entropy                             |
++-----------+------------+-------------------------------------+
+| I2C       | on-chip    | i2c                                 |
++-----------+------------+-------------------------------------+
+| DMA       | on-chip    | dma controller                      |
++-----------+------------+-------------------------------------+
+| Watchdog  | on-chip    | watchdog                            |
++-----------+------------+-------------------------------------+
+| SPI       | on-chip    | spi                                 |
++-----------+------------+-------------------------------------+
+| Timer     | on-chip    | counter                             |
++-----------+------------+-------------------------------------+
+| PWM       | on-chip    | pwm                                 |
++-----------+------------+-------------------------------------+
+| Flash     | on-chip    | flash                               |
++-----------+------------+-------------------------------------+
 
 Connections and IOs
 ===================
@@ -177,7 +185,8 @@ The MAX32670 EVKIT integrates a MAX32625PICO based debugger for DAPLink function
 
 
 Once the debug probe is connected to your host computer, then you can simply run the
-``west flash`` command to write a firmware image into flash.
+``west flash`` command to write a firmware image into flash. To perform a full erase,
+pass the ``--erase`` option when executing ``west flash``.
 
 Debugging
 =========

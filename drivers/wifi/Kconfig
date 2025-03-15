@@ -35,12 +35,15 @@ config WIFI_USE_NATIVE_NETWORKING
 	  When selected, this hidden configuration enables Wi-Fi driver
 	  to use native ethernet stack interface.
 
+source "drivers/wifi/ameba/Kconfig.ameba"
 source "drivers/wifi/winc1500/Kconfig.winc1500"
 source "drivers/wifi/simplelink/Kconfig.simplelink"
 source "drivers/wifi/eswifi/Kconfig.eswifi"
 source "drivers/wifi/esp_at/Kconfig.esp_at"
 source "drivers/wifi/esp32/Kconfig.esp32"
-source "drivers/wifi/ameba/Kconfig.ameba"
+source "drivers/wifi/nxp/Kconfig.nxp"
 source "drivers/wifi/infineon/Kconfig.airoc"
+source "drivers/wifi/nrf_wifi/Kconfig.nrfwifi"
+source "drivers/wifi/siwx91x/Kconfig.siwx91x"
 
 endif # WIFI

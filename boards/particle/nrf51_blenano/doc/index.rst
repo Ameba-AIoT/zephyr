@@ -1,7 +1,4 @@
-.. _nrf51_blenano:
-
-Redbear Labs Nano
-#################
+.. zephyr:board:: nrf51_blenano
 
 Overview
 ********
@@ -18,25 +15,7 @@ is 32.768 kHz. The frequency of the main clock is 16 MHz.
 Supported Features
 ==================
 
-The nrf51_blenano board configuration supports the following nRF51
-hardware features:
-
-+-----------+------------+----------------------+
-| Interface | Controller | Driver/Component     |
-+===========+============+======================+
-| NVIC      | on-chip    | nested vectored      |
-|           |            | interrupt controller |
-+-----------+------------+----------------------+
-| RTC       | on-chip    | system clock         |
-+-----------+------------+----------------------+
-| UART      | on-chip    | serial port          |
-+-----------+------------+----------------------+
-| GPIO      | on-chip    | gpio                 |
-+-----------+------------+----------------------+
-| FLASH     | on-chip    | flash                |
-+-----------+------------+----------------------+
-| RADIO     | on-chip    | Bluetooth            |
-+-----------+------------+----------------------+
+.. zephyr:board-supported-hw::
 
 Connections and IOs
 ====================
@@ -79,7 +58,7 @@ DAPLink board, then attach that to your computer via USB.
    properly solder headers and assemble the DAPLink and BLE Nano boards.
 
 Now build and flash applications as usual. Here is an example for the
-:ref:`hello_world` application.
+:zephyr:code-sample:`hello_world` application.
 
 .. zephyr-app-commands::
    :zephyr-app: samples/hello_world
@@ -91,7 +70,7 @@ Debugging
 
 After mounting the BLE Nano on its DAPLink board as described above,
 you can debug an application in the usual way. Here is an example for
-the :ref:`hello_world` application.
+the :zephyr:code-sample:`hello_world` application.
 
 .. zephyr-app-commands::
    :zephyr-app: samples/hello_world

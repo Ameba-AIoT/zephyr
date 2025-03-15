@@ -1,7 +1,4 @@
-.. _same54_xpro:
-
-SAM E54 Xplained Pro Evaluation Kit
-###################################
+.. zephyr:board:: same54_xpro
 
 Overview
 ********
@@ -11,10 +8,6 @@ prototyping with the SAM E54 Cortex®-M4F processor-based
 microcontrollers. The kit includes Atmel’s Embedded Debugger (EDBG),
 which provides a full debug interface without the need for additional
 hardware.
-
-.. image:: img/atsame54_xpro.jpg
-     :align: center
-     :alt: SAME54-XPRO
 
 Hardware
 ********
@@ -43,61 +36,7 @@ Hardware
 Supported Features
 ==================
 
-The same54_xpro board configuration supports the following hardware
-features:
-
-+---------------+------------+----------------------------+
-| Interface     | Controller | Driver/Component           |
-+===============+============+============================+
-| ADC           | on-chip    | adc                        |
-+---------------+------------+----------------------------+
-| DAC           | on-chip    | dac                        |
-+---------------+------------+----------------------------+
-| DMAC          | on-chip    | dma                        |
-+---------------+------------+----------------------------+
-| EEPROM        | i2c        | eeprom, EUI-48 MAC Address |
-+---------------+------------+----------------------------+
-| EIC           | on-chip    | interrupt_controller       |
-+---------------+------------+----------------------------+
-| GMAC          | on-chip    | ethernet, mdio             |
-+---------------+------------+----------------------------+
-| GPIO          | on-chip    | gpio                       |
-+---------------+------------+----------------------------+
-| MPU           | on-chip    | arch/arm                   |
-+---------------+------------+----------------------------+
-| NVIC          | on-chip    | arch/arm                   |
-+---------------+------------+----------------------------+
-| NVMCTRL       | on-chip    | flash                      |
-+---------------+------------+----------------------------+
-| PORT          | on-chip    | pinctrl                    |
-+---------------+------------+----------------------------+
-| RTC           | on-chip    | timer                      |
-+---------------+------------+----------------------------+
-| SERCOM I2C    | on-chip    | i2c                        |
-+---------------+------------+----------------------------+
-| SERCOM SPI    | on-chip    | spi                        |
-+---------------+------------+----------------------------+
-| SERCOM USART  | on-chip    | serial, console            |
-+---------------+------------+----------------------------+
-| Serial Number | on-chip    | hwinfo                     |
-+---------------+------------+----------------------------+
-| SYSTICK       | on-chip    | timer                      |
-+---------------+------------+----------------------------+
-| TC            | on-chip    | counter                    |
-+---------------+------------+----------------------------+
-| TCC           | on-chip    | counter, pwm               |
-+---------------+------------+----------------------------+
-| TRNG          | on-chip    | entropy                    |
-+---------------+------------+----------------------------+
-| USB           | on-chip    | usb                        |
-+---------------+------------+----------------------------+
-| WDT           | on-chip    | watchdog                   |
-+---------------+------------+----------------------------+
-
-Other hardware features are not currently supported by Zephyr.
-
-The default configuration can be found in the Kconfig
-:zephyr_file:`boards/atmel/sam0/same54_xpro/same54_xpro_defconfig`.
+.. zephyr:board-supported-hw::
 
 Pin Mapping
 ===========

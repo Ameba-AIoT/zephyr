@@ -1,7 +1,4 @@
-.. _neorv32:
-
-NEORV32
-#######
+.. zephyr:board:: neorv32
 
 Overview
 ********
@@ -21,30 +18,11 @@ The currently supported version is 1.8.6.
 Supported Features
 ==================
 
-The ``neorv32`` board configuration can be used a generic definition for NEORV32
-based boards. Customisation to fit custom NEORV32 implementations can be done
+The ``neorv32`` board target can be used a generic definition for NEORV32
+based boards. Customization to fit custom NEORV32 implementations can be done
 using :ref:`devicetree overlays <use-dt-overlays>`.
 
-Zephyr currently supports the following hardware features of the NEORV32
-Processor (SoC):
-
-+-----------+------------+-------------------------------------+
-| Interface | Controller | Driver/Component                    |
-+===========+============+=====================================+
-| INTC      | on-chip    | interrupt controller                |
-+-----------+------------+-------------------------------------+
-| MTIME     | on-chip    | system timer                        |
-+-----------+------------+-------------------------------------+
-| GPIO      | on-chip    | gpio, non-interrupt                 |
-+-----------+------------+-------------------------------------+
-| UART      | on-chip    | serial port-polling;                |
-|           |            | serial port-interrupt               |
-+-----------+------------+-------------------------------------+
-| TRNG      | on-chip    | entropy                             |
-+-----------+------------+-------------------------------------+
-
-The default board configuration for the NEORV32 Processor (SoC) can be found in
-the defconfig file: :file:`boards/riscv/neorv32/neorv32_defconfig`.
+.. zephyr:board-supported-hw::
 
 System Clock
 ============
@@ -121,7 +99,7 @@ etc.):
 Flashing via JTAG
 =================
 
-Here is an example for building and flashing the :ref:`hello_world` application
+Here is an example for building and flashing the :zephyr:code-sample:`hello_world` application
 for the NEORV32 via JTAG. Flashing via JTAG requires a NEORV32 SoC
 implementation with the On-Chip Debugger (OCD) and bootloader enabled.
 
@@ -185,7 +163,7 @@ built-in bootloader as described in the NEORV32 user guide.
 Debugging via JTAG
 ==================
 
-Here is an example for the :ref:`hello_world` application.
+Here is an example for the :zephyr:code-sample:`hello_world` application.
 
 .. zephyr-app-commands::
    :zephyr-app: samples/hello_world

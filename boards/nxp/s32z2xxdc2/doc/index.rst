@@ -1,7 +1,4 @@
-.. _s32z2xxdc2:
-
-NXP X-S32Z27X-DC (DC2)
-######################
+.. zephyr:board:: s32z2xxdc2
 
 Overview
 ********
@@ -52,6 +49,24 @@ The boards support the following hardware features:
 | SWT       | on-chip    | watchdog                            |
 +-----------+------------+-------------------------------------+
 | CANEXCEL  | on-chip    | can                                 |
++-----------+------------+-------------------------------------+
+| FLEXCAN   | on-chip    | can                                 |
++-----------+------------+-------------------------------------+
+| SAR_ADC   | on-chip    | adc                                 |
++-----------+------------+-------------------------------------+
+| LPI2C     | on-chip    | i2c                                 |
++-----------+------------+-------------------------------------+
+| EDMA      | on-chip    | dma                                 |
++-----------+------------+-------------------------------------+
+| DSPI      | on-chip    | spi                                 |
++-----------+------------+-------------------------------------+
+| eMIOS     | on-chip    | pwm                                 |
++-----------+------------+-------------------------------------+
+| QSPI      | on-chip    | flash                               |
++-----------+------------+-------------------------------------+
+| STM       | on-chip    | counter                             |
++-----------+------------+-------------------------------------+
+| PIT       | on-chip    | counter                             |
 +-----------+------------+-------------------------------------+
 
 Other hardware features are not currently supported by the port.
@@ -106,13 +121,13 @@ board.
 System Clock
 ============
 
-The Cortex-R52 cores are configured to run at 800 MHz.
+The Cortex-R52 cores are configured to run at 1 GHz.
 
 Serial Port
 ===========
 
 The SoC has 12 LINFlexD instances that can be used in UART mode. The console can
-be accessed by default on the USB micro-B connector `J119`.
+be accessed by default on the USB micro-B connector J119.
 
 Watchdog
 ========
@@ -126,18 +141,48 @@ Ethernet
 
 NETC driver supports to manage the Physical Station Interface (PSI0) and/or a
 single Virtual SI (VSI). The rest of the VSI's shall be assigned to different
-cores of the system. Refer to :ref:`nxp_s32_netc-samples` to learn how to
+cores of the system. Refer to :zephyr:code-sample:`nxp_s32_netc` to learn how to
 configure the Ethernet network controller.
 
-Controller Area Network (CAN)
-=============================
+Controller Area Network
+=======================
 
-Currently, the CANXL transceiver is not populated in this board. So CAN transceiver
-connection is required for running external traffic. We can use any CAN transceiver,
-which supports CAN 2.0 and CAN FD protocol.
+CANEXCEL
+--------
 
-CAN driver supports classic (CAN 2.0) and CAN FD mode. Remote transmission request is
-not supported as this feature is not available on NXP S32 CANXL HAL.
+CANEXCEL supports CAN Classic (CAN 2.0) and CAN FD modes. Remote transmission
+request is not supported.
+
+Note that this board does not currently come with CAN transceivers installed for
+the CANEXCEL ports. To facilitate external traffic, you will need to add a CAN
+transceiver. Any transceiver pin-compatible with CAN 2.0 and CAN FD protocols
+can be used.
+
+FlexCAN
+-------
+
+FlexCAN supports CAN Classic (CAN 2.0) and CAN FD modes.
+
+ADC
+===
+
+ADC is provided through ADC SAR controller with 2 instances. Each ADC SAR instance has
+12-bit resolution. ADC channels are divided into 2 groups (precision and internal/standard).
+
+.. note::
+   All channels of an instance only run on 1 group channel at the same time.
+
+EDMA
+====
+
+The EDMA modules feature four EDMA3 instances: Instance 0 with 32 channels,
+and instances 1, 4, and 5, each with 16 channels.
+
+External Flash
+==============
+
+The on-board S26HS512T 512M-bit HyperFlash memory is connected to the QSPI controller
+port A1. This board configuration selects it as the default flash controller.
 
 Programming and Debugging
 *************************
@@ -176,7 +221,7 @@ under Linux, ``/dev/ttyUSB0``.
 Debugging
 =========
 
-You can build and debug the :ref:`hello_world` sample for the board
+You can build and debug the :zephyr:code-sample:`hello_world` sample for the board
 ``s32z2xxdc2/s32z270/rtu0`` with:
 
 .. zephyr-app-commands::
@@ -201,13 +246,11 @@ the terminal:
 
    Hello World! s32z2xxdc2
 
-To debug with Lauterbach TRACE32 softare run instead:
+To debug with Lauterbach TRACE32 software run instead:
 
-.. zephyr-app-commands::
-   :zephyr-app: samples/hello_world
-   :board: s32z2xxdc2/s32z270/rtu0
-   :goals: build debug -r trace32
-   :compact:
+.. code-block:: console
+
+   west debug -r trace32
 
 Flashing
 ========
@@ -220,7 +263,8 @@ SRAM and run.
 .. zephyr-app-commands::
    :zephyr-app: samples/hello_world
    :board: s32z2xxdc2/s32z270/rtu0
-   :goals: build flash -r trace32
+   :goals: build flash
+   :flash-args: -r trace32
    :compact:
 
 .. note::
@@ -232,11 +276,9 @@ SRAM and run.
 To imitate a similar behavior using NXP S32 Debug Probe runner, you can run the
 ``debug`` command with GDB in batch mode:
 
-.. zephyr-app-commands::
-   :zephyr-app: samples/hello_world
-   :board: s32z2xxdc2/s32z270/rtu0
-   :goals: build debug --tool-opt='--batch'
-   :compact:
+.. code-block:: console
+
+   west debug --tool-opt='--batch'
 
 RTU and Core Configuration
 ==========================
@@ -272,7 +314,7 @@ Where:
 - ``<core_id>`` is the zero-based core index relative to the RTU on which to
   run the Zephyr application (0, 1, 2 or 3)
 
-For example, to build the :ref:`hello_world` sample for the board
+For example, to build the :zephyr:code-sample:`hello_world` sample for the board
 ``s32z2xxdc2/s32z270/rtu0`` with split-lock core configuration:
 
 .. zephyr-app-commands::
@@ -293,7 +335,7 @@ line:
 
 .. code-block:: console
 
-   west debug --startup-args elfFile=<elf_path> rtu=<rtu_id> core=<core_id> lockstep=<yes/no>
+   west debug -r trace32 --startup-args elfFile=<elf_path> rtu=<rtu_id> core=<core_id> lockstep=<yes/no>
 
 Where ``<elf_path>`` is the path to the Zephyr application ELF in the output
 directory.

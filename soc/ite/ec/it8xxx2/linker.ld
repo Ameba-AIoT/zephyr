@@ -131,9 +131,9 @@ SECTIONS
     } GROUP_LINK_IN(ROMABLE_REGION)
 
 #ifdef CONFIG_SOC_IT8XXX2_JTAG_DEBUG_INTERFACE
-#define JTAG_DEBUG_RESERVED_ADDR_START 0x80000800
-#define JTAG_DEBUG_RESERVED_ADDR_END 0x800008FF
-	/* The CPU address from 0x80000800 to 0x800008FF is reserved for JTAG
+#define JTAG_DEBUG_RESERVED_ADDR_START (ROM_BASE + 0x800)
+#define JTAG_DEBUG_RESERVED_ADDR_END (ROM_BASE + 0x8FF)
+	/* The flash range at offset 0x800 to 0x8FF is reserved for JTAG
 	 * debug usage. */
 	SECTION_PROLOGUE(jtag_dbg,,)
 	{
@@ -165,9 +165,46 @@ SECTIONS
 		KEEP(*(".openocd_debug.*"))
 
 		__text_region_start = .;
-
+#ifndef CONFIG_SOC_IT8XXX2_LIBRARY_TO_RAM
 		*(.text)
 		*(".text.*")
+#endif
+
+#ifdef CONFIG_SOC_IT8XXX2_LIBRARY_TO_RAM
+		*(EXCLUDE_FILE (
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_SERIAL_IN_RAM
+			*libdrivers__serial.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_KERNEL_IN_RAM
+			*libkernel.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_ZEPHYR_IN_RAM
+			*libzephyr.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_LIBRARY_TO_RAM
+		)
+			.text
+		)
+#endif
+
+#ifdef CONFIG_SOC_IT8XXX2_LIBRARY_TO_RAM
+		*(EXCLUDE_FILE (
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_SERIAL_IN_RAM
+			*libdrivers__serial.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_KERNEL_IN_RAM
+			*libkernel.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_ZEPHYR_IN_RAM
+			*libzephyr.a:*
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_LIBRARY_TO_RAM
+		)
+			.text.*
+		)
+#endif
 		*(.gnu.linkonce.t.*)
 #include <zephyr/linker/kobject-text.ld>
 
@@ -189,6 +226,21 @@ SECTIONS
 #ifdef CONFIG_SOC_IT8XXX2_EXCEPTIONS_IN_RAM
 		KEEP(*(".exception.entry.*"))
 		*(".exception.other.*")
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_SERIAL_IN_RAM
+		*libdrivers__serial.a:*(.text .text.*)
+		*libdrivers__serial.a:*(.rodata .rodata.*)
+		*libdrivers__serial.a:*(.srodata .srodata.*)
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_KERNEL_IN_RAM
+		*libkernel.a:*(.text .text.*)
+		*libkernel.a:*(.rodata .rodata.*)
+		*libkernel.a:*(.srodata .srodata.*)
+#endif
+#ifdef CONFIG_SOC_IT8XXX2_ZEPHYR_IN_RAM
+		*libzephyr.a:*(.text .text.*)
+		*libzephyr.a:*(.rodata .rodata.*)
+		*libzephyr.a:*(.srodata .srodata.*)
 #endif
 		__ilm_flash_end = .;
 		/* ILM mapping is always a multiple of 4k size; ensure following

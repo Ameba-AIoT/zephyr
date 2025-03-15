@@ -1,7 +1,4 @@
-.. _kv260_r5:
-
-Xilinx KV260 Development Board RPU Cortex-R5
-############################################
+.. zephyr:board:: kv260_r5
 
 Overview
 ********
@@ -17,29 +14,12 @@ This processing unit is based on an ARM Cortex-R5 CPU, it also enables the follo
 * Xilinx Zynq TTC (Cadence TTC)
 * Xilinx Zynq UART
 
-.. figure:: kv260-starter-kit.jpg
-   :align: center
-   :alt: Xilinx KV260 Starter Kit
-
 Hardware
 ********
 Supported Features
 ==================
 
-The following hardware features are supported:
-
-+--------------+------------+----------------------+
-| Interface    | Controller | Driver/Component     |
-+==============+============+======================+
-| GIC          | on-chip    | generic interrupt    |
-|              |            | controller           |
-+--------------+------------+----------------------+
-| TTC          | on-chip    | system timer         |
-+--------------+------------+----------------------+
-| UART         | on-chip    | serial port          |
-+--------------+------------+----------------------+
-
-The kernel currently does not support other hardware features on this platform.
+.. zephyr:board-supported-hw::
 
 Devices
 ========
