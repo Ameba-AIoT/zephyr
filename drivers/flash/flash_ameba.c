@@ -75,7 +75,7 @@ static int flash_ameba_read(const struct device *dev, off_t address, void *buffe
 }
 
 static int flash_ameba_write(const struct device *dev, off_t address, const void *buffer,
-							 size_t length)
+			     size_t length)
 {
 	int ret = 0;
 
@@ -123,7 +123,7 @@ static const struct flash_pages_layout flash_ameba_pages_layout = {
 };
 
 void flash_ameba_page_layout(const struct device *dev, const struct flash_pages_layout **layout,
-							 size_t *layout_size)
+			     size_t *layout_size)
 {
 	*layout = &flash_ameba_pages_layout;
 	*layout_size = 1;
@@ -165,4 +165,4 @@ static const struct flash_ameba_dev_config flash_ameba_config = {
 };
 
 DEVICE_DT_INST_DEFINE(0, flash_ameba_init, NULL, &flash_ameba_data, &flash_ameba_config,
-					  POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, &flash_ameba_driver_api);
+		      POST_KERNEL, CONFIG_FLASH_INIT_PRIORITY, &flash_ameba_driver_api);

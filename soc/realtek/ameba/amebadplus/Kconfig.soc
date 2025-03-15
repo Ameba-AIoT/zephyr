@@ -14,3 +14,7 @@ config SOC_AMEBADPLUS
 
 config SOC
 	default "amebadplus" if SOC_AMEBADPLUS
+
+config ARM_CORE_CM4
+	bool
+	default y if SOC_AMEBADPLUS

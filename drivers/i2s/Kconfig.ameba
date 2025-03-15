@@ -7,6 +7,7 @@ menuconfig I2S_AMEBA
 	bool "AMEBA MCU I2S controller driver"
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_I2S_ENABLED
+	select PINCTRL
 	select DMA
 	help
 	  Enable I2S support on the AMEBA family of processors.

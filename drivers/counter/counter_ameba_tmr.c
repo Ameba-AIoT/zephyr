@@ -58,7 +58,7 @@ static int counter_ameba_init(const struct device *dev)
 
 	RTIM_TimeBaseStructInit(&TIM_InitStruct);
 	RTIM_TimeBaseInit(cfg->basic_timer, &TIM_InitStruct, cfg->irq_source,
-					  (IRQ_FUN)counter_ameba_isr, (u32)&TIM_InitStruct);
+			  (IRQ_FUN)counter_ameba_isr, (u32)&TIM_InitStruct);
 
 	return 0;
 }
@@ -95,7 +95,7 @@ static uint32_t counter_ameba_get_top_value(const struct device *dev)
 }
 
 static int counter_ameba_set_alarm(const struct device *dev, uint8_t chan_id,
-								   const struct counter_alarm_cfg *alarm_cfg)
+				   const struct counter_alarm_cfg *alarm_cfg)
 {
 	ARG_UNUSED(chan_id);
 	struct counter_ameba_data *data = dev->data;

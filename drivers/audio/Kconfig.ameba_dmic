@@ -6,6 +6,7 @@ config AUDIO_AMEBA_DMIC
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_CODEC_ENABLED
 	select I2S
+	select PINCTRL
 	# select HAS_STLIB
 	help
 	  Enable Ameba microphone support on the selected board

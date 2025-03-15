@@ -8,7 +8,7 @@
  * @brief Driver for Realtek Ameba UDC
  */
 
-#define DT_DRV_COMPAT                   realtek_ameba_udc
+#define DT_DRV_COMPAT realtek_ameba_udc
 
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
@@ -29,25 +29,25 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(udc_ameba, CONFIG_UDC_DRIVER_LOG_LEVEL);
 
-#define AMEBA_GET_USB_EP_NUM(x)     (((x) & 0x000F0000) >> 16)
-#define AMEBA_GET_USB_EP_IS_OUT(x)  (((x) & 0x00008000) >> 15)
-#define AMEBA_GET_USB_EP_TYPE(x)    (((x) & 0x00007800) >> 11)
-#define AMEBA_GET_USB_EP_MPS(x)     (((x) & 0x000007FF) >> 0)
+#define AMEBA_GET_USB_EP_NUM(x)    (((x) & 0x000F0000) >> 16)
+#define AMEBA_GET_USB_EP_IS_OUT(x) (((x) & 0x00008000) >> 15)
+#define AMEBA_GET_USB_EP_TYPE(x)   (((x) & 0x00007800) >> 11)
+#define AMEBA_GET_USB_EP_MPS(x)    (((x) & 0x000007FF) >> 0)
 
-#define AMEBA_USB_EP_TYPE_CHECK(x,mask)     ((x&mask)?(1):(0))
-#define EP0_MPS 64U
+#define AMEBA_USB_EP_TYPE_CHECK(x, mask) ((x & mask) ? (1) : (0))
+#define EP0_MPS                          64U
 
 K_THREAD_STACK_DEFINE(udc_isr_thread_stack, USBD_ISR_THREAD_STACK_SIZE);
 static struct k_thread udc_isr_thread;
 static struct k_sem udc_sema;
 
-struct udc_ameba_data  {
-	usbd_pcd_t *pcd;     /* usbd_pcd_t* */
-	usb_dev_t usb_dev;  /* usb_dev_t */
+struct udc_ameba_data {
+	usbd_pcd_t *pcd;   /* usbd_pcd_t* */
+	usb_dev_t usb_dev; /* usb_dev_t */
 
 	uint32_t irq;
 
-	const struct device *dev;  /* zephyr udc driver */
+	const struct device *dev; /* zephyr udc driver */
 };
 
 struct udc_ameba_config {
@@ -55,14 +55,17 @@ struct udc_ameba_config {
 	enum udc_bus_speed max_speed;
 };
 
-static const usbd_config_t udc_cfg = {
-	.speed = USB_SPEED_FULL,
-	.dma_enable   = 0U,
-	.intr_use_ptx_fifo  = 0U,
-	.nptx_max_epmis_cnt = 10U,
-	.ext_intr_en        = 0,
-	.nptx_max_err_cnt   = {0U, 0U, 0U, 2000U, }
-};
+static const usbd_config_t udc_cfg = {.speed = USB_SPEED_FULL,
+				      .dma_enable = 0U,
+				      .intr_use_ptx_fifo = 0U,
+				      .nptx_max_epmis_cnt = 10U,
+				      .ext_intr_en = 0,
+				      .nptx_max_err_cnt = {
+					      0U,
+					      0U,
+					      0U,
+					      2000U,
+				      }};
 
 static struct udc_ameba_data udc0_priv;
 static struct udc_ep_config ep_cfg_in[DT_INST_PROP(0, in_ep_cnt)];
@@ -71,7 +74,7 @@ static struct udc_ep_config ep_cfg_out[DT_INST_PROP(0, out_ep_cnt)];
 static struct udc_ameba_data *udc_ameba_get_data_handle(usbd_pcd_t *pcd)
 {
 	ARG_UNUSED(pcd);
-	return  &udc0_priv;
+	return &udc0_priv;
 }
 
 static int udc_ameba_ctrl_feed_dout(const struct device *dev, const size_t length)
@@ -92,8 +95,7 @@ static int udc_ameba_ctrl_feed_dout(const struct device *dev, const size_t lengt
 	return 0;
 }
 
-static int udc_ameba_tx(const struct device *dev, uint8_t ep,
-						struct net_buf *buf)
+static int udc_ameba_tx(const struct device *dev, uint8_t ep, struct net_buf *buf)
 {
 	struct udc_ameba_data *priv = udc_get_private(dev);
 	const struct udc_ameba_config *cfg = dev->config;
@@ -134,8 +136,7 @@ static int udc_ameba_tx(const struct device *dev, uint8_t ep,
 	return 0;
 }
 
-static int udc_ameba_rx(const struct device *dev, uint8_t ep,
-						struct net_buf *buf)
+static int udc_ameba_rx(const struct device *dev, uint8_t ep, struct net_buf *buf)
 {
 	struct udc_ameba_data *priv = udc_get_private(dev);
 	int status;
@@ -177,6 +178,7 @@ static void udc_ameba_handle_reset_interrupt(usbd_pcd_t *pcd)
 
 	udc_submit_event(priv->dev, UDC_EVT_RESET, 0);
 }
+
 #if 0
 void udc_ameba_con_cb(usbd_pcd_t *pcd)
 {
@@ -316,7 +318,7 @@ void usbd_pcd_handle_data_in_ep_stage(usbd_pcd_t *pcd, u8 epnum, u8 *pbuf, u8 st
 
 	buf = udc_buf_peek(dev, ep);
 	if (unlikely(buf == NULL)) {
-		return ;
+		return;
 	}
 
 	if (ep == USB_CONTROL_EP_IN && buf->len) {
@@ -334,8 +336,7 @@ void usbd_pcd_handle_data_in_ep_stage(usbd_pcd_t *pcd, u8 epnum, u8 *pbuf, u8 st
 	udc_buf_get(dev, ep);
 
 	if (ep == USB_CONTROL_EP_IN) {
-		if (udc_ctrl_stage_is_status_in(dev) ||
-			udc_ctrl_stage_is_no_data(dev)) {
+		if (udc_ctrl_stage_is_status_in(dev) || udc_ctrl_stage_is_no_data(dev)) {
 			/* Status stage finished, notify upper layer */
 			udc_ctrl_submit_status(dev, buf);
 		}
@@ -370,7 +371,7 @@ static void udc_ameba_handle_interrupt(usbd_pcd_t *pcd)
 
 		usb_os_lock(pcd->lock);
 
-		u32  gintsts =  usb_hal_read_interrupts();
+		u32 gintsts = usb_hal_read_interrupts();
 
 		/* avoid spurious interrupt */
 		if (gintsts == 0U) {
@@ -466,7 +467,7 @@ static void udc_ameba_handle_interrupt(usbd_pcd_t *pcd)
 
 static void udc_ameba_irq(const struct device *dev)
 {
-	const struct udc_ameba_data *priv =  udc_get_private(dev);
+	const struct udc_ameba_data *priv = udc_get_private(dev);
 	usbd_pcd_t *pcd = priv->pcd;
 
 	irq_disable(priv->irq);
@@ -476,8 +477,8 @@ static void udc_ameba_irq(const struct device *dev)
 
 static void udc_ameba_isr_task(void *arg1, void *arg2, void *arg3)
 {
-	const struct device *dev = (struct device *) arg1;
-	const struct udc_ameba_data *priv =  udc_get_private(dev);
+	const struct device *dev = (struct device *)arg1;
+	const struct udc_ameba_data *priv = udc_get_private(dev);
 	usbd_pcd_t *pcd = priv->pcd;
 	u32 gintsts;
 
@@ -494,13 +495,17 @@ static void udc_ameba_isr_task(void *arg1, void *arg2, void *arg3)
 
 			if ((gintsts != 0U) && (usb_hal_get_otg_mode() == USB_OTG_MODE_DEVICE)) {
 				if ((gintsts & USB_OTG_GINTSTS_USBSUSP) != 0) {
-					if (pcd->dev->dev_attach_status == USBD_ATTACH_STATUS_ATTACHED) {
-						pcd->dev->dev_attach_status = USBD_ATTACH_STATUS_DETACHED;
+					if (pcd->dev->dev_attach_status ==
+					    USBD_ATTACH_STATUS_ATTACHED) {
+						pcd->dev->dev_attach_status =
+							USBD_ATTACH_STATUS_DETACHED;
 					}
 				} else {
-					if ((pcd->dev->dev_attach_status != USBD_ATTACH_STATUS_ATTACHED) &&
-						((gintsts & USB_OTG_GINTSTS_ESUSP) == 0)) {
-						pcd->dev->dev_attach_status = USBD_ATTACH_STATUS_ATTACHED;
+					if ((pcd->dev->dev_attach_status !=
+					     USBD_ATTACH_STATUS_ATTACHED) &&
+					    ((gintsts & USB_OTG_GINTSTS_ESUSP) == 0)) {
+						pcd->dev->dev_attach_status =
+							USBD_ATTACH_STATUS_ATTACHED;
 					}
 				}
 			}
@@ -508,8 +513,7 @@ static void udc_ameba_isr_task(void *arg1, void *arg2, void *arg3)
 	}
 }
 
-static int udc_ameba_ep_flush(const struct device *dev,
-							  struct udc_ep_config *cfg)
+static int udc_ameba_ep_flush(const struct device *dev, struct udc_ep_config *cfg)
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(cfg);
@@ -535,7 +539,7 @@ static int udc_ameba_init(const struct device *dev)
 	int status;
 
 	usb_dev->driver = NULL;
-	usb_dev->dev_state  = USBD_STATE_DEFAULT;
+	usb_dev->dev_state = USBD_STATE_DEFAULT;
 	usb_dev->ctrl_buf = (u8 *)usb_os_malloc(USB_OTG_HS_MAX_PACKET_SIZE);
 	if (usb_dev->ctrl_buf == NULL) {
 		return -ENOMEM;
@@ -558,7 +562,7 @@ static int udc_ameba_shutdown(const struct device *dev)
 	usb_dev_t *usb_dev = &(priv->usb_dev);
 	int status;
 
-	usb_dev->dev_state  = USBD_STATE_DEFAULT;
+	usb_dev->dev_state = USBD_STATE_DEFAULT;
 	usb_hal_disable_global_interrupt();
 
 	if ((usb_dev->driver != NULL) && (usb_dev->driver->clear_config != NULL)) {
@@ -628,8 +632,7 @@ static int udc_ameba_host_wakeup(const struct device *dev)
 	return 0;
 }
 
-static int udc_ameba_ep_enable(const struct device *dev,
-							   struct udc_ep_config *ep)
+static int udc_ameba_ep_enable(const struct device *dev, struct udc_ep_config *ep)
 {
 	enum usb_dc_ep_transfer_type type = ep->attributes & USB_EP_TRANSFER_TYPE_MASK;
 	struct udc_ameba_data *priv = udc_get_private(dev);
@@ -644,8 +647,7 @@ static int udc_ameba_ep_enable(const struct device *dev,
 	return 0;
 }
 
-static int udc_ameba_ep_disable(const struct device *dev,
-								struct udc_ep_config *ep)
+static int udc_ameba_ep_disable(const struct device *dev, struct udc_ep_config *ep)
 {
 	struct udc_ameba_data *priv = udc_get_private(dev);
 	int status;
@@ -659,8 +661,7 @@ static int udc_ameba_ep_disable(const struct device *dev,
 	return 0;
 }
 
-static int udc_ameba_ep_set_halt(const struct device *dev,
-								 struct udc_ep_config *cfg)
+static int udc_ameba_ep_set_halt(const struct device *dev, struct udc_ep_config *cfg)
 {
 	struct udc_ameba_data *priv = udc_get_private(dev);
 	int status = 0;
@@ -674,8 +675,7 @@ static int udc_ameba_ep_set_halt(const struct device *dev,
 	return 0;
 }
 
-static int udc_ameba_ep_clear_halt(const struct device *dev,
-								   struct udc_ep_config *cfg)
+static int udc_ameba_ep_clear_halt(const struct device *dev, struct udc_ep_config *cfg)
 {
 	struct udc_ameba_data *priv = udc_get_private(dev);
 	int status = 0;
@@ -689,9 +689,8 @@ static int udc_ameba_ep_clear_halt(const struct device *dev,
 	return 0;
 }
 
-static int udc_ameba_ep_enqueue(const struct device *dev,
-								struct udc_ep_config *epcfg,
-								struct net_buf *buf)
+static int udc_ameba_ep_enqueue(const struct device *dev, struct udc_ep_config *epcfg,
+				struct net_buf *buf)
 {
 	unsigned int lock_key;
 	int ret;
@@ -711,8 +710,7 @@ static int udc_ameba_ep_enqueue(const struct device *dev,
 	return ret;
 }
 
-static int udc_ameba_ep_dequeue(const struct device *dev,
-								struct udc_ep_config *epcfg)
+static int udc_ameba_ep_dequeue(const struct device *dev, struct udc_ep_config *epcfg)
 {
 	struct net_buf *buf;
 
@@ -732,6 +730,7 @@ static enum udc_bus_speed udc_ameba_get_device_speed(const struct device *dev)
 {
 	/* AmebadPlus just support FS */
 	const struct udc_ameba_config *cfg = dev->config;
+
 	return cfg->max_speed;
 }
 
@@ -813,9 +812,12 @@ static int udc_ameba_driver_init(const struct device *dev)
 			if (ep_in_idx < ARRAY_SIZE(ep_cfg_in)) {
 				p_ep_cfg_handle = &(ep_cfg_in[ep_in_idx]);
 				p_ep_cfg_handle->caps.in = 1;
-				p_ep_cfg_handle->caps.bulk = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_BULK);
-				p_ep_cfg_handle->caps.interrupt = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_INTR);
-				p_ep_cfg_handle->caps.iso = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_ISOC);
+				p_ep_cfg_handle->caps.bulk =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_BULK);
+				p_ep_cfg_handle->caps.interrupt =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_INTR);
+				p_ep_cfg_handle->caps.iso =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_ISOC);
 				p_ep_cfg_handle->caps.mps = ep_mps;
 				p_ep_cfg_handle->addr = USB_EP_DIR_IN | ep_num;
 
@@ -831,9 +833,12 @@ static int udc_ameba_driver_init(const struct device *dev)
 			if (ep_out_idx < ARRAY_SIZE(ep_cfg_out)) {
 				p_ep_cfg_handle = &(ep_cfg_out[ep_out_idx]);
 				p_ep_cfg_handle->caps.out = 1;
-				p_ep_cfg_handle->caps.bulk = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_BULK);
-				p_ep_cfg_handle->caps.interrupt = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_INTR);
-				p_ep_cfg_handle->caps.iso = AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_ISOC);
+				p_ep_cfg_handle->caps.bulk =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_BULK);
+				p_ep_cfg_handle->caps.interrupt =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_INTR);
+				p_ep_cfg_handle->caps.iso =
+					AMEBA_USB_EP_TYPE_CHECK(ep_type, AMEBA_USB_EP_TYPE_ISOC);
 				p_ep_cfg_handle->caps.mps = ep_mps;
 				p_ep_cfg_handle->addr = USB_EP_DIR_OUT | ep_num;
 
@@ -860,38 +865,27 @@ static int udc_ameba_driver_init(const struct device *dev)
 	priv->pcd->isr_initialized = 1;
 
 	/* create the task to handle the usb isr message */
-	k_thread_create(&udc_isr_thread,
-					udc_isr_thread_stack,
-					USBD_ISR_THREAD_STACK_SIZE,
-					udc_ameba_isr_task,
-					(void *)dev, NULL, NULL,
-					-1,
-					K_USER, K_MSEC(0));
+	k_thread_create(&udc_isr_thread, udc_isr_thread_stack, USBD_ISR_THREAD_STACK_SIZE,
+			udc_ameba_isr_task, (void *)dev, NULL, NULL, -1, K_USER, K_MSEC(0));
 
 	k_thread_name_set(&udc_isr_thread, "udc_isr_thread");
 
 	priv->irq = DT_INST_IRQN(0);
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), udc_ameba_irq,
-				DEVICE_DT_INST_GET(0), 0);
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), udc_ameba_irq, DEVICE_DT_INST_GET(0),
+		    0);
 
 	return 0;
 }
 
 static struct udc_data udc0_data = {
 	.mutex = Z_MUTEX_INITIALIZER(udc0_data.mutex),
-	.priv  = &udc0_priv,
+	.priv = &udc0_priv,
 };
 
-static const struct udc_ameba_config udc0_cfg  = {
-	.ep0_mps   = EP0_MPS,
+static const struct udc_ameba_config udc0_cfg = {
+	.ep0_mps = EP0_MPS,
 	.max_speed = DT_INST_PROP(0, udc_max_speed),
 };
 
-DEVICE_DT_INST_DEFINE(0,
-					  udc_ameba_driver_init,
-					  NULL,
-					  &udc0_data,
-					  &udc0_cfg,
-					  POST_KERNEL,
-					  CONFIG_KERNEL_INIT_PRIORITY_DEVICE,
-					  &udc_ameba_api);
+DEVICE_DT_INST_DEFINE(0, udc_ameba_driver_init, NULL, &udc0_data, &udc0_cfg, POST_KERNEL,
+		      CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &udc_ameba_api);

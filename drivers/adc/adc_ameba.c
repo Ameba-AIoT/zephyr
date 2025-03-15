@@ -174,4 +174,4 @@ static struct adc_ameba_data adc_data = {
 };
 
 DEVICE_DT_INST_DEFINE(0, &adc_ameba_init, NULL, &adc_data, &adc_config, POST_KERNEL,
-					  CONFIG_ADC_INIT_PRIORITY, &api_ameba_driver_api);
+		      CONFIG_ADC_INIT_PRIORITY, &api_ameba_driver_api);

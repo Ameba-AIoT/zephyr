@@ -40,7 +40,7 @@ static int entropy_ameba_get_entropy(const struct device *dev, uint8_t *buf, uin
 }
 
 static int entropy_ameba_get_entropy_isr(const struct device *dev, uint8_t *buf, uint16_t len,
-		uint32_t flags)
+					 uint32_t flags)
 {
 	ARG_UNUSED(flags);
 
@@ -85,4 +85,4 @@ static const struct entropy_ameba_config entropy_config = {
 };
 
 DEVICE_DT_INST_DEFINE(0, entropy_ameba_init, NULL, NULL, &entropy_config, PRE_KERNEL_1,
-					  CONFIG_ENTROPY_INIT_PRIORITY, &entropy_ameba_api_funcs);
+		      CONFIG_ENTROPY_INIT_PRIORITY, &entropy_ameba_api_funcs);

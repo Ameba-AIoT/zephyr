@@ -490,7 +490,7 @@ static int ameba_clock_off(const struct device *dev, clock_control_subsys_t sub_
  * @return Status, if the clock is enabled, return on(2), else off(1).
  */
 static enum clock_control_status ameba_clock_get_status(const struct device *dev,
-		clock_control_subsys_t sub_system)
+							clock_control_subsys_t sub_system)
 {
 	uint32_t clk_idx = (uint32_t)sub_system;
 	const struct ameba_clk_ctrl_reg *phandle = NULL;
@@ -526,7 +526,7 @@ static enum clock_control_status ameba_clock_get_status(const struct device *dev
  * @retval -errno Other negative errno on failure.
  */
 static int ameba_clock_configure(const struct device *dev, clock_control_subsys_t sub_system,
-								 void *data)
+				 void *data)
 {
 	struct ameba_clock_config *cfg = (struct ameba_clock_config *)data;
 	uint32_t clk_idx = (uint32_t)sub_system;
@@ -596,4 +596,4 @@ static const struct clock_control_driver_api ameba_clock_driver_api = {
 };
 
 DEVICE_DT_INST_DEFINE(0, &ameba_clock_init, NULL, NULL, NULL, PRE_KERNEL_1,
-					  CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &ameba_clock_driver_api);
+		      CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &ameba_clock_driver_api);

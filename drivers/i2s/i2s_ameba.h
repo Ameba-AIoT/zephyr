@@ -53,7 +53,7 @@ struct stream {
 	struct k_msgq out_queue;
 };
 
-#define BUFFER_REORDER_8_24 BIT(2) /* pay attention to the paddings */
+#define BUFFER_REORDER_8_24  BIT(2) /* pay attention to the paddings */
 #define BUFFER_REORDER_CH(n) n
 
 /* For <IS_REORDER_CH = 1 mode>, block size should be 384, 512, 1024 or above. */

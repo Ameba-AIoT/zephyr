@@ -15,8 +15,7 @@ void z_arm_reset(void);
 
 IMAGE2_ENTRY_SECTION
 RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
-									(uint32_t)NewVectorTable
-								   };
+				    (uint32_t)NewVectorTable};
 
 static void app_vdd1833_detect(void)
 {
@@ -70,7 +69,7 @@ void soc_early_init_hook(void)
 		OSC4M_Init();
 		OSC4M_Calibration(30000);
 		if ((((BOOT_Reason()) & AON_BIT_RSTF_DSLP) == FALSE) &&
-			(RTCIO_IsEnabled() == FALSE)) {
+		    (RTCIO_IsEnabled() == FALSE)) {
 			OSC131K_Calibration(30000); /* PPM=30000=3% */ /* 7.5ms */
 		}
 	}

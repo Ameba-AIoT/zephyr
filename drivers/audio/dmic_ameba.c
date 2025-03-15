@@ -231,7 +231,7 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 }
 
 int dmic_ameba_read(const struct device *dev, uint8_t stream, void **buffer, size_t *size,
-					int32_t timeout)
+		    int32_t timeout)
 {
 	int ret;
 	const struct dmic_ameba_config *config = dev->config;

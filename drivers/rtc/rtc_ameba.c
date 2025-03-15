@@ -319,7 +319,7 @@ static void rtc_ameba_alarm_isr(struct device *dev)
 }
 
 static int rtc_ameba_alarm_get_supported_fields(const struct device *dev, uint16_t id,
-		uint16_t *mask)
+						uint16_t *mask)
 {
 	ARG_UNUSED(dev);
 
@@ -328,7 +328,7 @@ static int rtc_ameba_alarm_get_supported_fields(const struct device *dev, uint16
 	}
 
 	(*mask) = (RTC_ALARM_TIME_MASK_SECOND | RTC_ALARM_TIME_MASK_MINUTE |
-			   RTC_ALARM_TIME_MASK_HOUR | RTC_ALARM_TIME_MASK_YEARDAY);
+		   RTC_ALARM_TIME_MASK_HOUR | RTC_ALARM_TIME_MASK_YEARDAY);
 
 	return 0;
 }
@@ -341,22 +341,22 @@ static uint8_t rtc_ameba_validate_alarm_time(const struct rtc_time *timeptr, uin
 
 	if (sprt_mask & mask) {
 		if ((mask & RTC_ALARM_TIME_MASK_SECOND) &&
-			(timeptr->tm_sec < 0 || timeptr->tm_sec > 59)) {
+		    (timeptr->tm_sec < 0 || timeptr->tm_sec > 59)) {
 			return false;
 		}
 
 		if ((mask & RTC_ALARM_TIME_MASK_MINUTE) &&
-			(timeptr->tm_min < 0 || timeptr->tm_min > 59)) {
+		    (timeptr->tm_min < 0 || timeptr->tm_min > 59)) {
 			return false;
 		}
 
 		if ((mask & RTC_ALARM_TIME_MASK_HOUR) &&
-			(timeptr->tm_hour < 0 || timeptr->tm_hour > 23)) {
+		    (timeptr->tm_hour < 0 || timeptr->tm_hour > 23)) {
 			return false;
 		}
 
 		if ((mask & RTC_ALARM_TIME_MASK_YEARDAY) &&
-			(timeptr->tm_yday < 0 || timeptr->tm_yday > 0x1FF)) {
+		    (timeptr->tm_yday < 0 || timeptr->tm_yday > 0x1FF)) {
 			return false;
 		}
 	} else {
@@ -396,7 +396,7 @@ static uint8_t rtc_ameba_validate_alarm_time(const struct rtc_time *timeptr, uin
 }
 
 static int rtc_ameba_alarm_set_time(const struct device *dev, uint16_t id, uint16_t mask,
-									const struct rtc_time *timeptr)
+				    const struct rtc_time *timeptr)
 {
 	const struct rtc_ameba_config *cfg = dev->config;
 	struct rtc_ameba_data *data = dev->data;
@@ -481,7 +481,7 @@ static int rtc_ameba_alarm_set_time(const struct device *dev, uint16_t id, uint1
 }
 
 static int rtc_ameba_alarm_get_time(const struct device *dev, uint16_t id, uint16_t *mask,
-									struct rtc_time *timeptr)
+				    struct rtc_time *timeptr)
 {
 	struct rtc_ameba_data *data = dev->data;
 	int ret = 0;
@@ -558,7 +558,7 @@ static int rtc_ameba_alarm_is_pending(const struct device *dev, uint16_t id)
 }
 
 static int rtc_ameba_alarm_set_callback(const struct device *dev, uint16_t id,
-										rtc_alarm_callback callback, void *user_data)
+					rtc_alarm_callback callback, void *user_data)
 {
 	struct rtc_ameba_data *data = dev->data;
 
@@ -614,7 +614,7 @@ static void rtc_ameba_irq_configure(void)
 {
 
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), rtc_ameba_alarm_isr,
-				DEVICE_DT_INST_GET(0), 0);
+		    DEVICE_DT_INST_GET(0), 0);
 
 	irq_enable(DT_INST_IRQN(0));
 }
@@ -634,4 +634,4 @@ static const struct rtc_ameba_config rtc_config = {
 static struct rtc_ameba_data rtc_data;
 
 DEVICE_DT_INST_DEFINE(0, &rtc_ameba_init, NULL, &rtc_data, &rtc_config, PRE_KERNEL_1,
-					  CONFIG_RTC_INIT_PRIORITY, &rtc_ameba_driver_api);
+		      CONFIG_RTC_INIT_PRIORITY, &rtc_ameba_driver_api);

@@ -7,6 +7,7 @@ menuconfig SPI_AMEBA
 	bool "AMEBA SPI driver"
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_SPI_ENABLED
+	select PINCTRL
 	help
 		Enables support for AMEBA SPI driver.
 

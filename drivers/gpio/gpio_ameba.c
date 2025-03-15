@@ -140,7 +140,7 @@ static int gpio_ameba_configure(const struct device *dev, gpio_pin_t pin, gpio_f
 }
 
 static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin_t pin,
-		enum gpio_int_mode mode, enum gpio_int_trig trig)
+					      enum gpio_int_mode mode, enum gpio_int_trig trig)
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 	u32 gpio_pin;
@@ -214,7 +214,7 @@ static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin
 }
 
 static int gpio_ameba_manage_callback(const struct device *dev, struct gpio_callback *callback,
-									  bool set)
+				      bool set)
 {
 	struct gpio_ameba_data *data = dev->data;
 

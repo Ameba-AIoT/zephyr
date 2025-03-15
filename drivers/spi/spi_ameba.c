@@ -389,7 +389,7 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	}
 
 	if (IS_ENABLED(CONFIG_SPI_EXTENDED_MODES) &&
-		(spi_cfg->operation & SPI_LINES_MASK) != SPI_LINES_SINGLE) {
+	    (spi_cfg->operation & SPI_LINES_MASK) != SPI_LINES_SINGLE) {
 		LOG_ERR("Only single line mode is supported");
 		return -EINVAL;
 	}
@@ -426,9 +426,9 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 
 	/* set format */
 	SSI_SetSclkPhase(spi, (((spi_cfg->operation) & SPI_MODE_CPHA) ? SCPH_TOGGLES_AT_START
-						   : SCPH_TOGGLES_IN_MIDDLE));
+								      : SCPH_TOGGLES_IN_MIDDLE));
 	SSI_SetSclkPolarity(spi, (((spi_cfg->operation) & SPI_MODE_CPOL) ? SCPOL_INACTIVE_IS_HIGH
-							  : SCPOL_INACTIVE_IS_LOW));
+									 : SCPOL_INACTIVE_IS_LOW));
 	SSI_SetDataFrameSize(spi, (SPI_WORD_SIZE_GET(spi_cfg->operation) - 1)); /* DataFrameSize */
 
 	/* set frequency */
@@ -448,9 +448,9 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 }
 
 static int spi_ameba_transceive_impl(const struct device *dev, const struct spi_config *spi_cfg,
-									 const struct spi_buf_set *tx_bufs,
-									 const struct spi_buf_set *rx_bufs, bool asynchronous,
-									 spi_callback_t cb, void *userdata)
+				     const struct spi_buf_set *tx_bufs,
+				     const struct spi_buf_set *rx_bufs, bool asynchronous,
+				     spi_callback_t cb, void *userdata)
 {
 	struct spi_ameba_data *data = dev->data;
 	const struct spi_ameba_config *config = dev->config;
@@ -568,17 +568,17 @@ static int spi_ameba_init(const struct device *dev)
 }
 
 static int spi_ameba_transceive(const struct device *dev, const struct spi_config *spi_cfg,
-								const struct spi_buf_set *tx_bufs,
-								const struct spi_buf_set *rx_bufs)
+				const struct spi_buf_set *tx_bufs,
+				const struct spi_buf_set *rx_bufs)
 {
 	return spi_ameba_transceive_impl(dev, spi_cfg, tx_bufs, rx_bufs, false, NULL, NULL);
 }
 
 #ifdef CONFIG_SPI_ASYNC
 static int spi_ameba_transceive_async(const struct device *dev, const struct spi_config *spi_cfg,
-									  const struct spi_buf_set *tx_bufs,
-									  const struct spi_buf_set *rx_bufs, spi_callback_t cb,
-									  void *userdata)
+				      const struct spi_buf_set *tx_bufs,
+				      const struct spi_buf_set *rx_bufs, spi_callback_t cb,
+				      void *userdata)
 {
 	return transceive(dev, spi_cfg, tx_bufs, rx_bufs, true, cb, userdata);
 }
@@ -586,10 +586,9 @@ static int spi_ameba_transceive_async(const struct device *dev, const struct spi
 
 static const struct spi_driver_api ameba_spi_api = {.transceive = spi_ameba_transceive,
 #ifdef CONFIG_SPI_ASYNC
-		   .transceive_async = spi_ameba_transceive_async,
+						    .transceive_async = spi_ameba_transceive_async,
 #endif
-		   .release = spi_ameba_release
-};
+						    .release = spi_ameba_release};
 
 #define AMEBA_SPI_IRQ_CONFIGURE(n)                                                                 \
 	static void spi_ameba_irq_configure_##n(void)                                              \
@@ -604,7 +603,8 @@ static const struct spi_driver_api ameba_spi_api = {.transceive = spi_ameba_tran
 #define AMEBA_SPI_INIT(n)                                                                          \
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
                                                                                                    \
-	IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, (AMEBA_SPI_IRQ_CONFIGURE(n)));                      \
+	IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, \
+				(AMEBA_SPI_IRQ_CONFIGURE(n)));                       \
                                                                                                    \
 	static struct spi_ameba_data spi_ameba_data_##n = {                                        \
 		SPI_CONTEXT_INIT_LOCK(spi_ameba_data_##n, ctx),                                    \
@@ -618,8 +618,8 @@ static const struct spi_driver_api ameba_spi_api = {.transceive = spi_ameba_tran
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
-		IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT,                                             \
-			   (.irq_configure = spi_ameba_irq_configure_##n))};                       \
+		IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, \
+			(.irq_configure = spi_ameba_irq_configure_##n)) };                        \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(n, &spi_ameba_init, NULL, &spi_ameba_data_##n,                       \
 			      &spi_ameba_config_##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,        \

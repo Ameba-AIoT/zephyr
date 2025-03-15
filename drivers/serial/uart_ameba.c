@@ -370,7 +370,7 @@ static int uart_ameba_irq_rx_ready(const struct device *dev)
 	UART_TypeDef *uart = config->uart;
 
 	return (UART_LineStatusGet(uart) & (RUART_BIT_RXFIFO_INT | RUART_BIT_TIMEOUT_INT)) &&
-		   data->rx_int_en;
+	       data->rx_int_en;
 }
 
 static void uart_ameba_irq_err_enable(const struct device *dev)
@@ -396,8 +396,8 @@ static int uart_ameba_irq_is_pending(const struct device *dev)
 	UART_TypeDef *uart = config->uart;
 
 	return ((UART_LineStatusGet(uart) & RUART_BIT_TX_EMPTY) && data->tx_int_en) ||
-		   ((UART_LineStatusGet(uart) & (RUART_BIT_RXFIFO_INT | RUART_BIT_TIMEOUT_INT)) &&
-			data->rx_int_en);
+	       ((UART_LineStatusGet(uart) & (RUART_BIT_RXFIFO_INT | RUART_BIT_TIMEOUT_INT)) &&
+		data->rx_int_en);
 }
 
 static int uart_ameba_irq_update(const struct device *dev)
@@ -406,7 +406,7 @@ static int uart_ameba_irq_update(const struct device *dev)
 }
 
 static void uart_ameba_irq_callback_set(const struct device *dev, uart_irq_callback_user_data_t cb,
-										void *cb_data)
+					void *cb_data)
 {
 	struct uart_ameba_data *data = dev->data;
 

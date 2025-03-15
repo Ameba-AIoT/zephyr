@@ -83,7 +83,7 @@ static void ameba_ledc_isr_handle(const struct device *dev)
 			pdata->tx_len += LEDC_SendData(LEDC_DEV, start_addr, ledc_fifothr);
 		} else {
 			pdata->tx_len += LEDC_SendData(LEDC_DEV, start_addr,
-										   pdata->tx_total_len - pdata->tx_len);
+						       pdata->tx_total_len - pdata->tx_len);
 		}
 
 		LEDC_INTConfig(LEDC_DEV, LEDC_BIT_GLOBAL_INT_EN, ENABLE);
@@ -116,7 +116,7 @@ static void ameba_ledc_isr_handle(const struct device *dev)
 }
 
 static int ameba_ledc_update_rgb(const struct device *dev, struct led_rgb *pixels,
-								 size_t num_pixels)
+				 size_t num_pixels)
 {
 	const struct ameba_ledc_cfg_struct *cfg = dev->config;
 	struct ameba_ledc_data_struct *pdata = dev->data;
@@ -138,7 +138,7 @@ static int ameba_ledc_update_rgb(const struct device *dev, struct led_rgb *pixel
 	LEDC_SetTotalLength(LEDC_DEV, pdata->ledc_init_struct.data_length);
 
 	LOG_DBG("Write %d data/0x%08x cnt %d", pdata->ledc_init_struct.data_length,
-			pdata->tx_data[0], cfg->num_colors);
+		pdata->tx_data[0], cfg->num_colors);
 
 	/* Convert from RGB to on-wire format (e.g. GRB, GRBW, RGB, etc) */
 	for (i = 0; i < num_pixels; i++) {
@@ -188,7 +188,7 @@ static int ameba_ledc_update_rgb(const struct device *dev, struct led_rgb *pixel
 }
 
 static int ameba_ledc_update_channels(const struct device *dev, uint8_t *channels,
-									  size_t num_channels)
+				      size_t num_channels)
 {
 	ARG_UNUSED(dev);
 	ARG_UNUSED(channels);
@@ -235,7 +235,7 @@ static int ameba_ledc_init(const struct device *dev)
 	 */
 	if (!IS_LEDC_LED_NUM(cfg->led_num_cfg)) {
 		LOG_ERR("Illegal parameter: LED cnt %d, force to Max %d\n", cfg->led_num_cfg,
-				LEDC_MAX_LED_NUM);
+			LEDC_MAX_LED_NUM);
 		led_num = LEDC_MAX_LED_NUM;
 	} else {
 		led_num = cfg->led_num_cfg;
@@ -272,7 +272,7 @@ static int ameba_ledc_init(const struct device *dev)
 	 */
 
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), ameba_ledc_isr_handle,
-				DEVICE_DT_INST_GET(0), 0);
+		    DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
 
 	LOG_DBG("Ledc init finish");
@@ -302,4 +302,4 @@ static const struct ameba_ledc_cfg_struct ameba_ledc_cfg = {
 };
 
 DEVICE_DT_INST_DEFINE(0, &ameba_ledc_init, NULL, &ameba_ledc_data, &ameba_ledc_cfg, POST_KERNEL,
-					  CONFIG_LED_STRIP_INIT_PRIORITY, &ameba_ledc_api);
+		      CONFIG_LED_STRIP_INIT_PRIORITY, &ameba_ledc_api);

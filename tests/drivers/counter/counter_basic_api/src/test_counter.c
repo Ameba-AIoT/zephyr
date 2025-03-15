@@ -120,11 +120,11 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_RTC_MAX32
 	DEVS_FOR_DT_COMPAT(adi_max32_rtc_counter)
 #endif
-#ifdef CONFIG_COUNTER_TMR_AMEBA
-	DEVS_FOR_DT_COMPAT(realtek_ameba_counter)
-#endif
 #ifdef CONFIG_COUNTER_AMBIQ
 	DEVS_FOR_DT_COMPAT(ambiq_counter)
+#endif
+#ifdef CONFIG_COUNTER_TMR_AMEBA
+	DEVS_FOR_DT_COMPAT(realtek_ameba_counter)
 #endif
 #ifdef CONFIG_COUNTER_MCUX_LPTMR
 	DEVS_FOR_DT_COMPAT(nxp_lptmr)

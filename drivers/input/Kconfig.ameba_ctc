@@ -5,5 +5,6 @@ config INPUT_CTC_AMEBA
 	bool "Ameba multi-channel capacitive touch driver"
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_CAPTOUCH_ENABLED
+	select PINCTRL
 	help
 	  Enable driver for Ameba multi-channel capacitive touch.
