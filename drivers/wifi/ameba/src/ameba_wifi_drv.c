@@ -112,8 +112,6 @@ void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event, str
 static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
 			       struct net_if *iface)
 {
-	// const struct wifi_status *status = (const struct wifi_status *)cb->info;
-
 	/* zephyr wifi todo, temp */
 	switch (mgmt_event) {
 	case NET_EVENT_IPV4_DHCP_BOUND:
@@ -129,10 +127,11 @@ int ameba_event_send_internal(int32_t event_id, void *event_data, size_t event_d
 			      uint32_t ticks_to_wait)
 {
 	struct ameba_system_event evt;
+
 	evt.event_id = event_id;
 
 	if (event_data_size > sizeof(evt.event_info)) {
-		LOG_ERR("MSG %d wont find %d > %d", event_id, event_data_size,
+		LOG_ERR("MSG %d not find %d > %d", event_id, event_data_size,
 			sizeof(evt.event_info));
 		return -EIO;
 	}
@@ -273,7 +272,6 @@ static int ameba_scan_done_cb(unsigned int scanned_AP_num, void *user_data)
 			}
 
 			print_scan_result(scanned_AP_info);
-			// ameba_data.scan_cb(ameba_wifi_iface[STA_WLAN_INDEX], 0, &res);
 			/* ensure notifications get delivered */
 			k_yield();
 		}
@@ -292,9 +290,9 @@ out:
 
 static void ameba_wifi_handle_connect_event(void)
 {
-	if (1) { // IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
+	/* TODOD check IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4) */
+	if (1) {
 		net_dhcpv4_start(ameba_wifi_iface[STA_WLAN_INDEX]);
-
 	} else {
 		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], 0);
 	}
@@ -313,8 +311,8 @@ static void ameba_wifi_handle_disconnect_event(void)
 		wifi_mgmt_raise_disconnect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], -1);
 	}
 
-	/* zephyr wifi todo, Note: reconnect is no need for rtk, auto reconnect set in driver,
-	 * remove note after reconnect test pass */
+	/* zephyr wifi todo, Note: reconnect is no need for rtk, auto reconnect set in driver */
+	/* remove note after reconnect test pass */
 }
 
 static void ameba_wifi_event_task(void)
@@ -375,6 +373,7 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	int ret;
+
 	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
 
 	if (data->state == RTK_STA_CONNECTING) {
@@ -420,7 +419,7 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 		return -EAGAIN;
 	} else {
 		ameba_wifi_handle_connect_event();
-		LOG_INF("assoc successed \r\n");
+		LOG_INF("assoc success \r\n");
 	}
 
 	return 0;
@@ -482,7 +481,8 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	/* Start Wi-Fi in AP mode */
 	wifi_stop_ap();
 
-	if ((ret = wifi_start_ap(&ap)) < 0) {
+	ret = wifi_start_ap(&ap);
+	if (ret < 0) {
 		LOG_ERR("Failed to enable Wi-Fi AP mode");
 		return -EAGAIN;
 	}
@@ -541,9 +541,9 @@ static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status 
 	}
 
 	/* zephyr wifi todo, get iface */
-	// strncpy(status->ssid , data->status.ssid, WIFI_SSID_MAX_LEN);
 	status->ssid_len = strnlen(data->status.ssid, WIFI_SSID_MAX_LEN);
-	status->band = WIFI_FREQ_BAND_2_4_GHZ; // todo
+	/* todo */
+	status->band = WIFI_FREQ_BAND_2_4_GHZ;
 	status->link_mode = WIFI_LINK_MODE_UNKNOWN;
 	status->mfp = WIFI_MFP_DISABLE;
 
@@ -619,7 +619,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	/* Start interface when we are actually connected with Wi-Fi network */
 	wifi_get_mac_address(if_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_idx], 1);
 
-	// TBD, link addr with net_dev, only one dev
+	/* TBD, link addr with net_dev, only one dev */
 	if (if_idx == STA_WLAN_INDEX) {
 		/* Assign link local address. */
 		net_if_set_link_addr(iface, dev_data->mac_addr[if_idx], 6, NET_LINK_ETHERNET);
@@ -628,7 +628,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
 
-	/* seperate ap and sta */
+	/* separate ap and sta */
 	net_if_set_name(iface, iface_name[if_idx]);
 
 	if_idx++;

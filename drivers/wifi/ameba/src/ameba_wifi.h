@@ -25,7 +25,6 @@
 struct rtk_wifi_status {
 	char ssid[WIFI_SSID_MAX_LEN + 1];
 	char pass[WIFI_PSK_MAX_LEN + 1];
-	// wifi_auth_mode_t security;
 	bool connected;
 	uint8_t channel;
 	int rssi;
@@ -65,7 +64,6 @@ typedef struct {
 	uint8_t ssid[32]; /*!< SSID of the connected AP */
 	uint8_t ssid_len; /*!< Length of the SSID */
 	uint8_t channel;  /*!< Channel of the connected AP */
-	// wifi_auth_mode_t authmode;  /*!< Authentication mode of the connected AP */
 } wifi_event_sta_connected_t;
 
 typedef union {
