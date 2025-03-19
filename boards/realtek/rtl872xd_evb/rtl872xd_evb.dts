@@ -7,7 +7,7 @@
 /dts-v1/;
 
 #include <realtek/amebad/amebad.dtsi>
-//#include "rtl872xd_evb-pinctrl.dtsi"
+#include "rtl872xd_evb-pinctrl.dtsi"
 
 / {
 	model = "RealTek AmebaD RTL872XD EVB";
