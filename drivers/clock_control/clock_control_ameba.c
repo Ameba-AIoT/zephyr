@@ -26,7 +26,7 @@
 #define AMEBA_RCC_CKD_GRP_INVALID 2
 
 typedef void (*clk_src_func)(uint32_t src);
-
+#if defined(CONFIG_SOC_SERIES_AMEBADPLUS)
 static void ameba_rcc_lsys_cksl_uart0(u32 src);
 static void ameba_rcc_lsys_cksl_uart1(u32 src);
 static void ameba_rcc_lsys_cksl_uart2(u32 src);
@@ -594,6 +594,29 @@ static const struct clock_control_driver_api ameba_clock_driver_api = {
 	 */
 	.configure = ameba_clock_configure,
 };
+#endif
+
+#if defined(CONFIG_SOC_SERIES_AMEBAD)
+static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_system)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(sub_system);
+
+	RTK_LOGE(NOTAG, "%d not support.\n", (uint32_t)sub_system);
+
+	return 0;
+}
+
+static int ameba_clock_init(const struct device *dev)
+{
+	ARG_UNUSED(dev);
+	return 0;
+}
+
+static const struct clock_control_driver_api ameba_clock_driver_api = {
+	.on = ameba_clock_on,
+};
+#endif
 
 DEVICE_DT_INST_DEFINE(0, &ameba_clock_init, NULL, NULL, NULL, PRE_KERNEL_1,
 		      CONFIG_CLOCK_CONTROL_INIT_PRIORITY, &ameba_clock_driver_api);

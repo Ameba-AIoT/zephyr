@@ -13,6 +13,8 @@ extern "C" {
 
 #if defined(CONFIG_SOC_SERIES_AMEBADPLUS)
 #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
+#elif defined(CONFIG_SOC_SERIES_AMEBAD)
+#include <zephyr/dt-bindings/clock/amebad_clock.h>
 #else
 #error : please choose the right chip type.
 #endif

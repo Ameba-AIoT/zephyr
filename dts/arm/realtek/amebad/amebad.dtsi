@@ -9,7 +9,7 @@
 #include <arm/armv8-m.dtsi>
 
 #define AMEBA_LOGUART_CLK 13 /* loguart clk idx */
-// #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
+#include <zephyr/dt-bindings/clock/amebad_clock.h>
 // #include <zephyr/dt-bindings/dma/ameba_dma.h>
 // #include <zephyr/dt-bindings/led/led.h>
 // #include <zephyr/dt-bindings/adc/adc.h>
