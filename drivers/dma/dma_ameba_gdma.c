@@ -235,7 +235,6 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 	dma_init_struct.GDMA_Index = config->instane_id;
 	dma_init_struct.GDMA_ChNum = channel;
 	dma_init_struct.GDMA_DIR = config_dma->channel_direction;
-	dma_init_struct.GDMA_ChPrior = config_dma->channel_priority;
 	/*2.1 configuration about direction  */
 	if (config_dma->channel_direction == MEMORY_TO_PERIPHERAL) {
 		/* Data transfer depends on destination peripheral request */
@@ -383,7 +382,7 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 
 	/* 3. Initialization. */
 	GDMA_Init(config->instane_id, channel, &dma_init_struct);
-
+	GDMA_SetChnlPriority(config->instane_id, channel, config_dma->channel_priority);
 	if (data->channel_status[channel].link_node != NULL) {
 		GDMA_SetLLP(config->instane_id, channel, config_dma->block_count,
 			    data->channel_status[channel].link_node, config_dma->cyclic);

@@ -10,7 +10,7 @@
 
 #define AMEBA_LOGUART_CLK 13 /* loguart clk idx */
 #include <zephyr/dt-bindings/clock/amebad_clock.h>
-// #include <zephyr/dt-bindings/dma/ameba_dma.h>
+#include <zephyr/dt-bindings/dma/ameba_dma.h>
 // #include <zephyr/dt-bindings/led/led.h>
 // #include <zephyr/dt-bindings/adc/adc.h>
 // #include <zephyr/dt-bindings/i2c/i2c.h>
@@ -90,6 +90,18 @@
 				write-block-size = <4>;
 				/* Flash size is specified in board dts */
 			};
+		};
+
+		dma: dma@4002a000 {
+			compatible = "realtek,ameba-gdma";
+			reg = <0x4002A000 0x3C0>;
+			clocks = <&rcc AMEBA_DMAC_BCLK>;
+			interrupts = <41 0>, <42 0>, <43 0>, <44 0>, <45 0>, <46 0>;
+			interrupt-names = "CH0", "CH1", "CH2", "CH3", "CH4", "CH5";
+			#dma-cells = <3>;
+			dma-channels = <6>;
+			dma-buf-addr-alignment = <32>;
+			dma-buf-size-alignment = <32>;
 		};
 
 		prng: prng@48002000 {
