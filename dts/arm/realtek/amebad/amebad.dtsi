@@ -87,6 +87,12 @@
 			};
 		};
 
+		prng: prng@48002000 {
+			compatible = "realtek,ameba-trng";
+			reg = <0x48002000 0x100>;
+			clocks = <&rcc AMEBA_HTIM0_CLK>;
+		};
+
 		wifi: wifi@40000000 {
 			compatible = "realtek,ameba-wifi";
 			reg = <0x40000000 0x80000>;
