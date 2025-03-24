@@ -183,6 +183,7 @@ static void pwm_ameba_isr(const struct device *dev)
 	if (data->capture[channel_idx].skip_irq < SKIP_IRQ_NUM) {
 		data->capture[channel_idx].value[data->capture[channel_idx].skip_irq] =
 			RTIM_CCRxGet(config->pwm_timer, channel_idx);
+		/*Invert polarity*/
 		if (data->CC_polarity) {
 			RTIM_CCxPolarityConfig(config->pwm_timer, TIM_CCPolarity_High, channel_idx);
 		} else {
@@ -228,13 +229,11 @@ int pwm_ameba_init(const struct device *dev)
 		LOG_ERR("Could not initialize clock (%d)", ret);
 		return ret;
 	}
-
 	ret = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		LOG_ERR("PWM pinctrl setup failed (%d)", ret);
 		return ret;
 	}
-
 	RTIM_TimeBaseStructInit(&TIM_InitStruct);
 	TIM_InitStruct.TIM_Prescaler = data->prescale;
 	RTIM_TimeBaseInit(config->pwm_timer, &TIM_InitStruct, config->irq_source, NULL,
@@ -243,7 +242,6 @@ int pwm_ameba_init(const struct device *dev)
 	config->irq_config_func(dev);
 #endif /* CONFIG_PWM_CAPTURE */
 	RTIM_Cmd(config->pwm_timer, ENABLE);
-
 	return 0;
 }
 

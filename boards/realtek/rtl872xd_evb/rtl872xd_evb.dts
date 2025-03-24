@@ -22,14 +22,14 @@
 		zephyr,flash-controller = &spic;
 	};
 
-	//aliases {
-	//	i2c-0 = &i2c0;
-	//	led-strip =&ledc;
-	//	rtc = &rtc;
-	//	sw0 = &button0;
-	//	watchdog0 = &swdg;
-	//	pwm-0 = &pwm0;
-	//};
+	aliases {
+		// i2c-0 = &i2c0;
+		// led-strip =&ledc;
+		// rtc = &rtc;
+		// sw0 = &button0;
+		// watchdog0 = &swdg;
+		pwm-0 = &pwm0;
+	};
 
 	//buttons {
 	//	compatible = "gpio-keys";
