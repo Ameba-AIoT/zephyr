@@ -1,0 +1,14 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+ #include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	pwm_loopback_0 {
+		compatible = "test-pwm-loopback";
+		pwms = <&pwm0 0 0 PWM_POLARITY_NORMAL>,
+		<&pwm0 1 0 PWM_POLARITY_NORMAL>;
+	};
+};
