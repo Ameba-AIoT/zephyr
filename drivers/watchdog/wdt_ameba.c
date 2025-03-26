@@ -34,9 +34,9 @@ static void wdt_ameba_isr(const struct device *dev);
 
 static int wdt_ameba_disable(const struct device *dev)
 {
-	ARG_UNUSED(dev);
+	const struct wdt_ameba_config *config = dev->config;
 
-	LOG_ERR("WDG can't disabled by software\n");
+	WDG_Cmd(config->WDG, DISABLE);
 
 	return 0;
 }
@@ -53,20 +53,20 @@ static int wdt_ameba_feed(const struct device *dev, int channel_id)
 
 static int wdt_ameba_setup(const struct device *dev, uint8_t options)
 {
-	ARG_UNUSED(options);
 	const struct wdt_ameba_config *config = dev->config;
 	struct wdt_ameba_data *data = dev->data;
 	WDG_InitTypeDef WDG_initstruct;
 
-	WDG_StructInit(&WDG_initstruct);
-	/* the default value of Window is 0x0000FFFF,
-	 * if not update, the window option is disabled;
-	 * if updated, feed WDT in 0 ~ Window is valid.
-	 */
-	WDG_initstruct.Window = data->window;
-	WDG_initstruct.Timeout = data->timeout;
-	WDG_initstruct.EIMOD = ENABLE;
-	WDG_initstruct.EICNT = config->eicnt;
+	if (options == WDT_OPT_PAUSE_HALTED_BY_DBG) {
+		LOG_ERR("pausing watchdog by debugger is not supported\n");
+		return -ENOTSUP;
+	}
+	if (data->timeout == 0) {
+		LOG_ERR("timeout illegal!\n");
+		return -ENOTSUP;
+	}
+
+	WDG_StructMemValueSet(&WDG_initstruct, data->window, data->timeout, config->eicnt);
 	WDG_Init(config->WDG, &WDG_initstruct);
 	WDG_Enable(config->WDG);
 
@@ -77,8 +77,11 @@ static int wdt_ameba_install_timeout(const struct device *dev, const struct wdt_
 {
 	struct wdt_ameba_data *data = dev->data;
 
-	if (cfg->window.max == 0U) {
+	if (cfg->window.min != 0U || cfg->window.max == 0U) {
 		return -EINVAL;
+	}
+	if (cfg->flags == WDT_FLAG_RESET_NONE) {
+		return -ENOTSUP;
 	}
 
 	data->timeout = cfg->window.max;
