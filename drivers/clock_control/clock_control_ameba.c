@@ -602,6 +602,12 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 	ARG_UNUSED(dev);
 	ARG_UNUSED(sub_system);
 
+	if ((uint32_t)sub_system == AMEBA_I2C0_BCLK) {
+		RCC_PeriphClockCmd(APBPeriph_I2C0, APBPeriph_I2C0_CLOCK, ENABLE);
+	} else {
+		RTK_LOGE(NOTAG, "%d not support.\n", (uint32_t)sub_system);
+	}
+
 	RTK_LOGE(NOTAG, "%d not support.\n", (uint32_t)sub_system);
 
 	return 0;
