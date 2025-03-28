@@ -610,6 +610,8 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 
 	RTK_LOGE(NOTAG, "%d not support.\n", (uint32_t)sub_system);
 
+	RCC_PeriphClockCmd(APBPeriph_UART3, APBPeriph_UART3_CLOCK, ENABLE);
+
 	return 0;
 }
 

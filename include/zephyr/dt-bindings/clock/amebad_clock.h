@@ -36,8 +36,8 @@ extern "C" {
 
 #define AMEBA_UART0_RCLK  10 /* uart0 rclk idx */
 #define AMEBA_UART1_RCLK  11 /* uart1 rclk idx */
-#define AMEBA_UART2_RCLK  12 /* uart2 rclk idx */
-#define AMEBA_LOGUART_CLK 13 /* loguart clk idx */
+#define AMEBA_LOGUART_CLK 12 /* loguart clk idx */
+#define AMEBA_UART3_RCLK  13 /* uart3 rclk idx */
 #define AMEBA_DTIM_CLK    14 /* dtim clk idx */
 #define AMEBA_ADC_CLK     15 /* adc clk idx */
 #define AMEBA_GPIO_CLK    16 /* gpio clk idx */
