@@ -209,14 +209,14 @@
 //	status = "okay";
 //};
 
-//&swdg {
-//	status = "okay";
-//};
+&wdg {
+	status = "okay";
+};
 
 //&cryp {
 //	status = "okay";
 //};
 
-//&timer0 {
-//	status = "okay";
-//};
+&timer0 {
+	status = "okay";
+};

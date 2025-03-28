@@ -217,7 +217,7 @@
 	status = "okay";
 };
 
-&swdg {
+&wdg {
 	status = "okay";
 };
 

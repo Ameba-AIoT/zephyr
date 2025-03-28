@@ -27,7 +27,7 @@
 		led-strip =&ledc;
 		rtc = &rtc;
 		sw0 = &button0;
-		watchdog0 = &swdg;
+		watchdog0 = &wdg;
 		pwm-0 = &pwm0;
 	};
 

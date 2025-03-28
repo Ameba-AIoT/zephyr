@@ -379,7 +379,7 @@
 		};
 
 		/* wdg2 - km4_ns */
-		swdg: watchdog@41008d80 {
+		wdg: watchdog@41008d80 {
 			compatible = "realtek,ameba-watchdog";
 			reg = <0x41008d80 0x20>;
 			interrupts = <65 0>;
