@@ -104,22 +104,22 @@ static uint8_t days_in_month(uint8_t month, uint8_t year)
 }
 
 /**
- * @brief  Calculate day of the year according to year, month, and day of the month.
- * @param  year: Actual year - 1900.
- * @param  mon: Month (0~11), where 0 represents January.
- * @param  mday: Day of the month (1~31).
- * @retval The day of the year (1~365 or 1~366 for leap years).
+ * @brief Calculate day of the year according to year, month, and day of the month.
+ * @param year Actual year - 1900.
+ * @param mon Month (0~11), where 0 represents January.
+ * @param mday Day of the month (1~31).
+ * @return The day of the year (0~364 or 0~365 for leap years).
  */
 static int rtc_calculate_yday(int year, int mon, int mday)
 {
 	int yday = 0;
-	int i;
 
-	for (i = 0; i < mon; i++) {
+	for (int i = 0; i < mon; i++) {
 		yday += days_in_month(i, year);
 	}
 
-	yday += mday;
+	yday += mday - 1;
+
 	return yday;
 }
 
@@ -134,7 +134,7 @@ static int rtc_calculate_yday(int year, int mon, int mday)
  */
 static void rtc_calculate_mday(int year, int yday, int *mon, int *mday)
 {
-	int t_mon = -1, t_yday = yday;
+	int t_mon = -1, t_yday = yday + 1;
 
 	while (t_yday > 0) {
 		t_mon++;
@@ -253,7 +253,7 @@ static int rtc_ameba_set_time(const struct device *dev, const struct rtc_time *t
 		LOG_ERR("%s lock fail !!!\r\n", __func__);
 		return err;
 	}
-  
+
 	rtc_timestruct.RTC_Days =
 		rtc_calculate_yday(timeptr->tm_year, timeptr->tm_mon, timeptr->tm_mday);
 	rtc_timestruct.RTC_H12_PMAM = RTC_H12_AM; /* cautious in zsdk */
