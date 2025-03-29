@@ -104,6 +104,16 @@
 			dma-buf-size-alignment = <32>;
 		};
 
+		adc: adc@4801c800 {
+			compatible = "realtek,ameba-adc";
+			reg = <0x4801c800 0xB8>;
+			clocks = <&rcc AMEBA_ADC_CLK>;
+			interrupts = <15 0>;
+			channel-count = <7>;
+			#io-channel-cells = <1>;
+			status = "disabled";
+		};
+
 		i2c0: i2c0@4800c000 {
 			compatible = "realtek,ameba-i2c";
 			reg = <0x4800c000 0x100>;
