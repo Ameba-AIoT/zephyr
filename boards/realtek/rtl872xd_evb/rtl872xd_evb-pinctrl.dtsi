@@ -9,30 +9,30 @@
 &pinctrl {
 	compatible = "realtek,ameba-pinctrl";
 
-//	/*PA30 is SWD_CLK, PA31 is SWD_DAT(both pull-up internally)*/
-//	loguart_default: loguart_default {
-//		group1 {
-//			pinmux = <AMEBA_PINMUX('B', 4, AMEBA_LOG_UART)>,        /* RXD */
-//					 <AMEBA_PINMUX('B', 5, AMEBA_LOG_UART)>;        /* TXD */
-//			bias-pull-up;
-//		};
-//	};
+	/*PA30 is SWD_CLK, PA31 is SWD_DAT(both pull-up internally)*/
+	loguart_default: loguart_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 8, AMEBA_LOGUART)>,        /* RXD */
+					 <AMEBA_PINMUX('A', 7, AMEBA_LOGUART)>;        /* TXD */
+			bias-pull-up;
+		};
+	};
 
-//	uart0_default: uart0_default {
-//		group1 {
-//			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_UART0_TXD)>,
-//					 <AMEBA_PINMUX('A', 27, AMEBA_UART0_RXD)>;
-//			bias-pull-up;
-//		};
-//	};
+	uart0_default: uart0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 19, AMEBA_UART)>,
+					 <AMEBA_PINMUX('A', 18, AMEBA_UART)>;
+			bias-pull-up;
+		};
+	};
 
-//	uart1_default: uart1_default {
-//		group1 {
-//			pinmux = <AMEBA_PINMUX('A', 28, AMEBA_UART1_TXD)>,
-//					 <AMEBA_PINMUX('A', 29, AMEBA_UART1_RXD)>;
-//			bias-pull-up;
-//		};
-//	};
+	uart3_default: uart3_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 25, AMEBA_UART)>,
+					 <AMEBA_PINMUX('A', 26, AMEBA_UART)>;
+			bias-pull-up;
+		};
+	};
 
 //	spi1_default: spi1_default {
 //		group1 {
@@ -142,16 +142,17 @@
 	};
 };
 
-//&uart0 {
-//	pinctrl-0 = <&uart0_default>;
-//	pinctrl-names = "default";
-//	status = "okay";
-//};
+&uart0 {
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
 
-//&uart1 {
-//	pinctrl-0 = <&uart1_default>;
-//	pinctrl-names = "default";
-//};
+&uart3 {
+	pinctrl-0 = <&uart3_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
 
 //&spi1 {
 //	pinctrl-0 = <&spi1_default>;
