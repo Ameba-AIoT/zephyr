@@ -130,11 +130,6 @@
 			status = "disabled";
 		};
 
-		eth: eth {
-			compatible = "realtek,ameba-eth";
-			status = "disabled";
-		};
-
 		timer0: counter@40002000 {
 			compatible = "realtek,ameba-counter";
 			reg = <0x40002000 0x20>;
