@@ -12,8 +12,9 @@
 #include <zephyr/dt-bindings/dma/ameba_dma.h>
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
-// #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
 	cpus {
@@ -136,8 +137,24 @@
 			#size-cells = <0>;
 			status = "disabled";
 			dmas = <&dma 3 22 0>,
-				   <&dma 2 21 0>;
+				<&dma 2 21 0>;
 			dma-names = "rx", "tx";
+		};
+
+		gpioa: gpio@48014000 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x48014000 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <4 0>;
+		};
+
+		gpiob: gpio@48014400 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x48014400 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <8 0>;
 		};
 
 		prng: prng@48002000 {
