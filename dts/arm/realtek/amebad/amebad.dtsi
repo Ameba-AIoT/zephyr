@@ -157,6 +157,26 @@
 			interrupts = <8 0>;
 		};
 
+		spi0: spi@40078000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x40078000 0x100>;
+			interrupts = <36 0>;
+			clocks = <&rcc AMEBA_SPI0_BCLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi1: spi@4000e000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x4000e000 0x100>;
+			interrupts = <37 0>;
+			clocks = <&rcc AMEBA_SPI1_BCLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		prng: prng@48002000 {
 			compatible = "realtek,ameba-trng";
 			reg = <0x48002000 0x100>;

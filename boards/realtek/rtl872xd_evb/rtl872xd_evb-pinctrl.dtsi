@@ -34,18 +34,19 @@
 		};
 	};
 
-//	spi1_default: spi1_default {
-//		group1 {
-//			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_SPI1_CLK)>,
-//					 <AMEBA_PINMUX('B', 19, AMEBA_SPI1_MOSI)>,
-//					 <AMEBA_PINMUX('B', 20, AMEBA_SPI1_MISO)>;
-//			bias-pull-up;
-//		};
-//		group2 {
-//			pinmux = <AMEBA_PINMUX('B', 21, AMEBA_SPI1_CS)>;
-//			bias-pull-up;
-//		};
-//	};
+	/* amebad spi1 only be master */
+	spi1_default: spi1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 6, AMEBA_SPIM)>,/* AMEBA_SPI1_CLK */
+					 <AMEBA_PINMUX('B', 4, AMEBA_SPIM)>,/* AMEBA_SPI1_MOSI */
+					 <AMEBA_PINMUX('B', 5, AMEBA_SPIM)>;/* AMEBA_SPI1_MISO */
+			bias-pull-up;
+		};
+		group2 {
+			pinmux = <AMEBA_PINMUX('B', 7, AMEBA_SPIM)>;/* AMEBA_SPI1_CS */
+			bias-pull-up;
+		};
+	};
 
 	i2c0_default: i2c0_default {
 		group1 {
@@ -113,12 +114,13 @@
 	status = "okay";
 };
 
-//&spi1 {
-//	pinctrl-0 = <&spi1_default>;
-//	pinctrl-names = "default";
-//	rtk,spi-default-cs = <0>;
-//	status = "okay";
-//};
+/* amebad spi1 only be master */
+&spi1 {
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	rtk,spi-default-cs = <0>;
+	status = "okay";
+};
 
 &i2c0 {
 	pinctrl-0 = <&i2c0_default>;
