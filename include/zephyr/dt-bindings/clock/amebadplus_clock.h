@@ -21,84 +21,143 @@ extern "C" {
  */
 
 /* AON Domain clocks */
-#define AMEBA_IWDG_CLK 0 /* iwdg clk idx */
-#define AMEBA_ATIM_CLK 1 /* atim clk idx */
-#define AMEBA_SDM_CLK  2 /* aon clk idx */
-#define AMEBA_RTC_CLK  3 /* sdm clk idx */
-#define AMEBA_OTPC_CLK 4 /* optc clk idx */
+#define AMEBA_ATIM_CLK 1
+#define AMEBA_RTC_CLK  2
 
 /* SYSON Domain clocks */
-#define AMEBA_PWM0_CLK  5 /* pwm0 clk idx */
-#define AMEBA_PWM1_CLK  6 /* pwm1 clk idx */
-#define AMEBA_HTIM0_CLK 7 /* htim0 clk idx */
-#define AMEBA_HTIM1_CLK 8 /* htim1 clk idx */
-#define AMEBA_LEDC_CLK  9 /* ledc clk idx */
-
-#define AMEBA_UART0_RCLK  10 /* uart0 rclk idx */
-#define AMEBA_UART1_RCLK  11 /* uart1 rclk idx */
-#define AMEBA_UART2_RCLK  12 /* uart2 rclk idx */
-#define AMEBA_LOGUART_CLK 13 /* loguart clk idx */
-#define AMEBA_DTIM_CLK    14 /* dtim clk idx */
-#define AMEBA_ADC_CLK     15 /* adc clk idx */
-#define AMEBA_GPIO_CLK    16 /* gpio clk idx */
-#define AMEBA_LTIM0_CLK   17 /* ltim0 clk idx */
-#define AMEBA_LTIM1_CLK   18 /* ltim1 clk idx */
-#define AMEBA_LTIM2_CLK   19 /* ltim2 clk idx */
-#define AMEBA_LTIM3_CLK   20 /* ltim3 clk idx */
-#define AMEBA_LTIM4_CLK   21 /* ltim4 clk idx */
-#define AMEBA_LTIM5_CLK   22 /* ltim5 clk idx */
-#define AMEBA_LTIM6_CLK   23 /* ltim6 clk idx */
-#define AMEBA_LTIM7_CLK   24 /* ltim7 clk idx */
-#define AMEBA_PTIM0_CLK   25 /* ptim0 clk idx */
-#define AMEBA_PTIM1_CLK   26 /* ptim1 clk idx */
-
-#define AMEBA_WL_SCLK   27 /* wl clk idx */
-#define AMEBA_LPON_CLK  28 /* lpon clk idx */
-#define AMEBA_AIPC_CLK  29 /* aipc clk idx */
-#define AMEBA_KSCAN_CLK 30 /* kscan clk idx */
-#define AMEBA_SIC_CLK   31 /* sic clk idx */
+#define AMEBA_PWM0_CLK    3
+#define AMEBA_PWM1_CLK    4
+#define AMEBA_HTIM0_CLK   5
+#define AMEBA_HTIM1_CLK   6
+#define AMEBA_LEDC_CLK    7
+#define AMEBA_UART0_CLK   8
+#define AMEBA_UART1_CLK   9
+#define AMEBA_UART2_CLK   10
+#define AMEBA_LOGUART_CLK 11
+#define AMEBA_DTIM_CLK    12
+#define AMEBA_ADC_CLK     13
+#define AMEBA_GPIO_CLK    14
+#define AMEBA_LTIM0_CLK   15
+#define AMEBA_LTIM1_CLK   16
+#define AMEBA_LTIM2_CLK   17
+#define AMEBA_LTIM3_CLK   18
+#define AMEBA_LTIM4_CLK   19
+#define AMEBA_LTIM5_CLK   20
+#define AMEBA_LTIM6_CLK   21
+#define AMEBA_LTIM7_CLK   22
+#define AMEBA_PTIM0_CLK   23
+#define AMEBA_PTIM1_CLK   24
+#define AMEBA_KSCAN_CLK   25
 
 /* SOC Domain clocks */
-#define AMEBA_HP_CLK    32 /* hp clk idx */
-#define AMEBA_SRAM_CLK  33 /* sram clk idx */
-#define AMEBA_PERI_HCLK 34 /* peri clk idx */
-#define AMEBA_DMAC_BCLK 35 /* dmac clk idx */
-#define AMEBA_LX_BCLK   36 /* lx clk idx */
-#define AMEBA_SDIO_BCLK 37 /* sdio clk idx */
-#define AMEBA_SPI0_BCLK 38 /* spi0 bclk idx */
-#define AMEBA_SPI1_BCLK 39 /* spi1 bclk idx */
-#define AMEBA_WMAC_BCLK 40 /* wmac clk idx */
-#define AMEBA_USB_BCLK  41 /* usb bclk idx */
-
-#define AMEBA_SPIC_CLK   42 /* spic clk idx */
-#define AMEBA_PSRAM_CLK  43 /* psram clk idx */
-#define AMEBA_SPORT0_CLK 44 /* sport0 clk idx */
-#define AMEBA_SPORT1_CLK 45 /* sport1 clk idx */
-#define AMEBA_AC_CLK     46 /* ac clk idx */
-#define AMEBA_QSPI_CLK   47 /* qspi clk idx */
-#define AMEBA_UTMIFS_CLK 48 /* utmifs clk idx */
-#define AMEBA_IRDA_CLK   49 /* irda clk idx */
-
-#define AMEBA_LP_CLK    50 /* lp clk idx */
-#define AMEBA_PERI_LCLK 51 /* peri lclk idx */
-#define AMEBA_I2C0_BCLK 52 /* i2c0 bclk idx */
-#define AMEBA_I2C1_BCLK 53 /* i2c1 bclk idx */
-#define AMEBA_TRNG_BCLK 54 /* trng bclk idx */
-#define AMEBA_IPC_BCLK  55 /* ipc bclk idx */
-
-/* BT Domain clocks */
+#define AMEBA_DMAC_CLK   26
+#define AMEBA_SDIO_CLK   27
+#define AMEBA_SPI0_CLK   28
+#define AMEBA_SPI1_CLK   29
+#define AMEBA_USB_CLK    30
+#define AMEBA_FLASH_CLK  31
+#define AMEBA_PSRAM_CLK  32
+#define AMEBA_SPORT0_CLK 33
+#define AMEBA_SPORT1_CLK 34
+#define AMEBA_AC_CLK     35
+#define AMEBA_IRDA_CLK   36
+#define AMEBA_I2C0_CLK   37
+#define AMEBA_I2C1_CLK   38
+#define AMEBA_TRNG_CLK   39
 
 /* misc clocks */
-#define AMEBA_CLK_BTON 56 /* bton clk idx */
-#define AMEBA_CLK_WDG  57 /* wdg clk idx */
-#define AMEBA_CLK_CTC  58 /* ctc clk idx */
-#define AMEBA_CLK_KM0  59 /* km0 clk idx */
-#define AMEBA_CLK_KM4  60 /* km4 clk idx */
-#define AMEBA_CLK_AES  61 /* aes clk idx */
-#define AMEBA_CLK_SHA  62 /* sha clk idx */
-#define AMEBA_CLK_BOR  63 /* bor clk idx */
+#define AMEBA_BTON_CLK 40
+#define AMEBA_CTC_CLK  41
+#define AMEBA_AES_CLK  42
 
-#define AMEBA_CLK_MAX 64 /* clk idx max */
+#define AMEBA_CLK_MAX 43 /* clk idx max */
+
+#define AMEBA_NUMERICAL_PERIPH(name, n)                                                            \
+	[AMEBA_##name##n##_CLK] = {.cke = APBPeriph_##name##n##_CLOCK, .fen = APBPeriph_##name##n},
+
+#define AMEBA_SINGLE_PERIPH(name)                                                                  \
+	[AMEBA_##name##_CLK] = {.cke = APBPeriph_##name##_CLOCK, .fen = APBPeriph_##name},
+
+#define AMEBA_LTIM_PERIPHS                                                                         \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 0) /* AMEBA_LTIM0_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 1) /* AMEBA_LTIM1_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 2) /* AMEBA_LTIM2_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 3) /* AMEBA_LTIM3_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 4) /* AMEBA_LTIM4_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 5) /* AMEBA_LTIM5_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 6) /* AMEBA_LTIM6_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(LTIM, 7) /* AMEBA_LTIM7_CLK */
+
+#define AMEBA_PTIM_PERIPHS                                                                         \
+	AMEBA_NUMERICAL_PERIPH(PTIM, 0) /* AMEBA_PTIM0_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(PTIM, 1) /* AMEBA_PTIM1_CLK */
+
+#define AMEBA_SPI_PERIPHS                                                                          \
+	AMEBA_NUMERICAL_PERIPH(SPI, 0) /* AMEBA_SPI0_CLK */                                        \
+	AMEBA_NUMERICAL_PERIPH(SPI, 1) /* AMEBA_SPI1_CLK */
+
+#define AMEBA_SPORT_PERIPHS                                                                        \
+	AMEBA_NUMERICAL_PERIPH(SPORT, 0) /* AMEBA_SPORT0_CLK */                                    \
+	AMEBA_NUMERICAL_PERIPH(SPORT, 1) /* AMEBA_SPORT1_CLK */
+
+#define AMEBA_I2C_PERIPHS                                                                          \
+	AMEBA_NUMERICAL_PERIPH(I2C, 0) /* AMEBA_I2C0_CLK */                                        \
+	AMEBA_NUMERICAL_PERIPH(I2C, 1) /* AMEBA_I2C1_CLK */
+
+#define AMEBA_PWM_PERIPHS                                                                          \
+	AMEBA_NUMERICAL_PERIPH(PWM, 0) /* AMEBA_PWM0_CLK */                                        \
+	AMEBA_NUMERICAL_PERIPH(PWM, 1) /* AMEBA_PWM1_CLK */
+
+#define AMEBA_HTIM_PERIPHS                                                                         \
+	AMEBA_NUMERICAL_PERIPH(HTIM, 0) /* AMEBA_HTIM0_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(HTIM, 1) /* AMEBA_HTIM1_CLK */
+
+#define AMEBA_UART_PERIPHS                                                                         \
+	AMEBA_NUMERICAL_PERIPH(UART, 0) /* AMEBA_UART0_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(UART, 1) /* AMEBA_UART1_CLK */                                      \
+	AMEBA_NUMERICAL_PERIPH(UART, 2) /* AMEBA_UART2_CLK */
+
+#define AMEBA_LOGUART_PERIPHS AMEBA_SINGLE_PERIPH(LOGUART) /* AMEBA_LOGUART_CLK */
+#define AMEBA_KSCAN_PERIPHS   AMEBA_SINGLE_PERIPH(KSCAN)   /* AMEBA_KSCAN_CLK */
+#define AMEBA_DMAC_PERIPHS    AMEBA_SINGLE_PERIPH(DMAC)    /* AMEBA_DMAC_CLK */
+#define AMEBA_SDIO_PERIPHS    AMEBA_SINGLE_PERIPH(SDIO)    /* AMEBA_SDIO_CLK */
+#define AMEBA_USB_PERIPHS     AMEBA_SINGLE_PERIPH(USB)     /* AMEBA_USB_CLK */
+#define AMEBA_FLASH_PERIPHS   AMEBA_SINGLE_PERIPH(FLASH)   /* AMEBA_FLASH_CLK */
+#define AMEBA_PSRAM_PERIPHS   AMEBA_SINGLE_PERIPH(PSRAM)   /* AMEBA_PSRAM_CLK */
+#define AMEBA_AC_PERIPHS      AMEBA_SINGLE_PERIPH(AC)      /* AMEBA_AC_CLK */
+#define AMEBA_IRDA_PERIPHS    AMEBA_SINGLE_PERIPH(IRDA)    /* AMEBA_IRDA_CLK */
+#define AMEBA_TRNG_PERIPHS    AMEBA_SINGLE_PERIPH(TRNG)    /* AMEBA_TRNG_CLK */
+#define AMEBA_RTC_PERIPHS     AMEBA_SINGLE_PERIPH(RTC)     /* AMEBA_RTC_CLK */
+#define AMEBA_LEDC_PERIPHS    AMEBA_SINGLE_PERIPH(LEDC)    /* AMEBA_LEDC_CLK */
+#define AMEBA_ADC_PERIPHS     AMEBA_SINGLE_PERIPH(ADC)     /* AMEBA_ADC_CLK */
+#define AMEBA_GPIO_PERIPHS    AMEBA_SINGLE_PERIPH(GPIO)    /* AMEBA_GPIO_CLK */
+#define AMEBA_BTON_PERIPHS    AMEBA_SINGLE_PERIPH(BTON)    /* AMEBA_BTON_CLK */
+#define AMEBA_CTC_PERIPHS     AMEBA_SINGLE_PERIPH(CTC)     /* AMEBA_CTC_CLK */
+
+#define APBPeriph_CTC APBPeriph_NULL
+
+#define AMEBA_CORE_PERIPHS                                                                         \
+	AMEBA_RTC_PERIPHS                                                                          \
+	AMEBA_PWM_PERIPHS                                                                          \
+	AMEBA_HTIM_PERIPHS                                                                         \
+	AMEBA_LEDC_PERIPHS                                                                         \
+	AMEBA_UART_PERIPHS                                                                         \
+	AMEBA_LOGUART_PERIPHS                                                                      \
+	AMEBA_ADC_PERIPHS                                                                          \
+	AMEBA_GPIO_PERIPHS                                                                         \
+	AMEBA_LTIM_PERIPHS                                                                         \
+	AMEBA_PTIM_PERIPHS                                                                         \
+	AMEBA_KSCAN_PERIPHS                                                                        \
+	AMEBA_DMAC_PERIPHS                                                                         \
+	AMEBA_SDIO_PERIPHS                                                                         \
+	AMEBA_SPI_PERIPHS                                                                          \
+	AMEBA_USB_PERIPHS                                                                          \
+	AMEBA_FLASH_PERIPHS                                                                        \
+	AMEBA_SPORT_PERIPHS                                                                        \
+	AMEBA_AC_PERIPHS                                                                           \
+	AMEBA_I2C_PERIPHS                                                                          \
+	AMEBA_TRNG_PERIPHS                                                                         \
+	AMEBA_BTON_PERIPHS
 
 #ifdef __cplusplus
 }

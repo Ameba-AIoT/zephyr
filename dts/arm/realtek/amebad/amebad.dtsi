@@ -76,7 +76,7 @@
 		uart0: serial@40004000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x40004000 0x60>;
-			clocks = <&rcc AMEBA_UART0_RCLK>;
+			clocks = <&rcc AMEBA_UART0_CLK>;
 			interrupts = <34 0>;
 			current-speed = <115200>;
 		};
@@ -84,7 +84,7 @@
 		uart3: serial@4800e000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x4800e000 0x60>;
-			clocks = <&rcc AMEBA_UART3_RCLK>;
+			clocks = <&rcc AMEBA_UART3_CLK>;
 			interrupts = <9 0>;
 			current-speed = <115200>;
 		};
@@ -108,7 +108,7 @@
 		dma: dma@4002a000 {
 			compatible = "realtek,ameba-gdma";
 			reg = <0x4002A000 0x3C0>;
-			clocks = <&rcc AMEBA_DMAC_BCLK>;
+			clocks = <&rcc AMEBA_GDMA0_CLK>;
 			interrupts = <41 0>, <42 0>, <43 0>, <44 0>, <45 0>, <46 0>;
 			interrupt-names = "CH0", "CH1", "CH2", "CH3", "CH4", "CH5";
 			#dma-cells = <3>;
@@ -131,7 +131,7 @@
 			compatible = "realtek,ameba-i2c";
 			reg = <0x4800c000 0x100>;
 			interrupts = <6 0>;
-			clocks = <&rcc AMEBA_I2C0_BCLK>;
+			clocks = <&rcc AMEBA_I2C0_CLK>;
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -161,7 +161,7 @@
 			compatible = "realtek,ameba-spi";
 			reg = <0x40078000 0x100>;
 			interrupts = <36 0>;
-			clocks = <&rcc AMEBA_SPI0_BCLK>;
+			clocks = <&rcc AMEBA_SPI0_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -171,7 +171,7 @@
 			compatible = "realtek,ameba-spi";
 			reg = <0x4000e000 0x100>;
 			interrupts = <37 0>;
-			clocks = <&rcc AMEBA_SPI1_BCLK>;
+			clocks = <&rcc AMEBA_SPI1_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -180,7 +180,7 @@
 		prng: prng@48002000 {
 			compatible = "realtek,ameba-trng";
 			reg = <0x48002000 0x100>;
-			clocks = <&rcc AMEBA_HTIM0_CLK>;
+			clocks = <&rcc AMEBA_PRNG_CLK>;
 		};
 
 		wifi: wifi@40000000 {

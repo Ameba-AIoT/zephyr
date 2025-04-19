@@ -78,7 +78,7 @@
 		uart0: serial@4100c000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x4100c000 0x60>;
-			clocks = <&rcc AMEBA_UART0_RCLK>;
+			clocks = <&rcc AMEBA_UART0_CLK>;
 			interrupts = <24 0>;
 			current-speed = <115200>;
 			status = "disabled";
@@ -87,7 +87,7 @@
 		uart1: serial@4100d000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x4100d000 0x60>;
-			clocks = <&rcc AMEBA_UART1_RCLK>;
+			clocks = <&rcc AMEBA_UART1_CLK>;
 			interrupts = <25 0>;
 			current-speed = <115200>;
 			status = "disabled";
@@ -96,7 +96,7 @@
 		uart2: serial@4100e000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x4100e000 0x60>;
-			clocks = <&rcc AMEBA_UART2_RCLK>;
+			clocks = <&rcc AMEBA_UART2_CLK>;
 			interrupts = <26 0>;
 			current-speed = <115200>;
 			status = "disabled";
@@ -106,7 +106,7 @@
 			compatible = "realtek,ameba-spi";
 			reg = <0x40124000 0x100>;
 			interrupts = <42 0>;
-			clocks = <&rcc AMEBA_SPI0_BCLK>;
+			clocks = <&rcc AMEBA_SPI0_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -116,7 +116,7 @@
 			compatible = "realtek,ameba-spi";
 			reg = <0x40125000 0x100>;
 			interrupts = <43 0>;
-			clocks = <&rcc AMEBA_SPI1_BCLK>;
+			clocks = <&rcc AMEBA_SPI1_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -126,7 +126,7 @@
 			compatible = "realtek,ameba-i2c";
 			reg = <0x41108000 0x100>;
 			interrupts = <30 0>;
-			clocks = <&rcc AMEBA_I2C0_BCLK>;
+			clocks = <&rcc AMEBA_I2C0_CLK>;
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -140,7 +140,7 @@
 			compatible = "realtek,ameba-i2c";
 			reg = <0x4110a000 0x100>;
 			interrupts = <31 0>;
-			clocks = <&rcc AMEBA_I2C1_BCLK>;
+			clocks = <&rcc AMEBA_I2C1_CLK>;
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -344,7 +344,7 @@
 		trng: trng@41008200 {
 			compatible = "realtek,ameba-trng";
 			reg = <0x41008200 0x100>;
-			clocks = <&rcc AMEBA_TRNG_BCLK>;
+			clocks = <&rcc AMEBA_TRNG_CLK>;
 		};
 
 		usb: usb@40140000 {
@@ -374,7 +374,7 @@
 		cryp: cryp@40100000 {
 			compatible = "realtek,ameba-crypto";
 			reg = <0x40100000 0x1020>;
-			clocks = <&rcc AMEBA_CLK_AES>;
+			clocks = <&rcc AMEBA_AES_CLK>;
 			status = "disabled";
 		};
 
@@ -406,7 +406,7 @@
 		dma: dma@40110000 {
 			compatible = "realtek,ameba-gdma";
 			reg = <0x40110000 0x3C0>;
-			clocks = <&rcc AMEBA_DMAC_BCLK>;
+			clocks = <&rcc AMEBA_DMAC_CLK>;
 			interrupts = <33 0>, <34 0>, <35 0>, <36 0>, <37 0>, <38 0>, <39 0>, <40 0>;
 			interrupt-names = "CH0", "CH1", "CH2", "CH3", "CH4", "CH5", "CH6", "CH7";
 			#dma-cells = <3>;
