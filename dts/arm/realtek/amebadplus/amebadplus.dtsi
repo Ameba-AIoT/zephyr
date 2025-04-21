@@ -428,6 +428,7 @@
 		ctc: ctc@41012000 {
 			compatible = "realtek,ameba-captouch";
 			reg = <0x41012000 0x210>;
+			/* CTC and ADC share same clock control index */
 			clocks = <&rcc AMEBA_ADC_CLK>;
 			interrupts = <32 0>;
 			channel-count = <4>;

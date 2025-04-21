@@ -67,16 +67,23 @@ extern "C" {
 
 /* misc clocks */
 #define AMEBA_BTON_CLK 40
-#define AMEBA_CTC_CLK  41
 #define AMEBA_AES_CLK  42
 
 #define AMEBA_CLK_MAX 43 /* clk idx max */
 
 #define AMEBA_NUMERICAL_PERIPH(name, n)                                                            \
-	[AMEBA_##name##n##_CLK] = {.cke = APBPeriph_##name##n##_CLOCK, .fen = APBPeriph_##name##n},
+	[AMEBA_##name##n##_CLK] = {                                                                \
+		.parent = AMEBA_RCC_NO_PARENT,                                                     \
+		.cke = APBPeriph_##name##n##_CLOCK,                                                \
+		.fen = APBPeriph_##name##n,                                                        \
+	},
 
 #define AMEBA_SINGLE_PERIPH(name)                                                                  \
-	[AMEBA_##name##_CLK] = {.cke = APBPeriph_##name##_CLOCK, .fen = APBPeriph_##name},
+	[AMEBA_##name##_CLK] = {                                                                   \
+		.parent = AMEBA_RCC_NO_PARENT,                                                     \
+		.cke = APBPeriph_##name##_CLOCK,                                                   \
+		.fen = APBPeriph_##name,                                                           \
+	},
 
 #define AMEBA_LTIM_PERIPHS                                                                         \
 	AMEBA_NUMERICAL_PERIPH(LTIM, 0) /* AMEBA_LTIM0_CLK */                                      \
@@ -132,9 +139,6 @@ extern "C" {
 #define AMEBA_ADC_PERIPHS     AMEBA_SINGLE_PERIPH(ADC)     /* AMEBA_ADC_CLK */
 #define AMEBA_GPIO_PERIPHS    AMEBA_SINGLE_PERIPH(GPIO)    /* AMEBA_GPIO_CLK */
 #define AMEBA_BTON_PERIPHS    AMEBA_SINGLE_PERIPH(BTON)    /* AMEBA_BTON_CLK */
-#define AMEBA_CTC_PERIPHS     AMEBA_SINGLE_PERIPH(CTC)     /* AMEBA_CTC_CLK */
-
-#define APBPeriph_CTC APBPeriph_NULL
 
 #define AMEBA_CORE_PERIPHS                                                                         \
 	AMEBA_RTC_PERIPHS                                                                          \

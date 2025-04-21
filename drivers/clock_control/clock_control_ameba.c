@@ -35,7 +35,6 @@ static uint32_t clk_div_group[] = {
 */
 
 struct ameba_clk_ctrl_reg {
-	uint8_t clk_idx;
 	uint8_t parent;
 	uint8_t div_reg: 2;   /* div group idx */
 	uint8_t div_shift: 5; /* div bit offset in group */
