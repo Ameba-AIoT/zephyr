@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 identifier: rtl872xd_evb
-name: rtl872xd_evb
+name: Realtek rtl872xd evaluation board
 vendor: realtek
 type: mcu
 arch: arm
 toolchain:
+  - zephyr
   - gnuarmemb
 ram: 512
+flash: 4096
 supported:
-testing:
-  default: true
+  - pinctrl
+  - serial

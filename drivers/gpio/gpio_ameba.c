@@ -25,7 +25,7 @@ struct gpio_ameba_config {
 	/* port base address */
 	uint32_t base;
 	/* IO port */
-	int port_num;
+	int port;
 };
 
 struct gpio_ameba_data {
@@ -39,7 +39,7 @@ static int gpio_ameba_port_get_raw(const struct device *dev, uint32_t *value)
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	*value = GPIO_PortRead(cfg->port_num, cfg->common.port_pin_mask);
+	*value = GPIO_PortRead(cfg->port, cfg->common.port_pin_mask);
 
 	return 0;
 }
@@ -48,8 +48,8 @@ static int gpio_ameba_port_set_masked_raw(const struct device *dev, uint32_t mas
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	GPIO_PortDirection(cfg->port_num, mask, GPIO_Mode_OUT);
-	GPIO_PortWrite(cfg->port_num, mask, value);
+	GPIO_PortDirection(cfg->port, mask, GPIO_Mode_OUT);
+	GPIO_PortWrite(cfg->port, mask, value);
 
 	return 0;
 }
@@ -58,7 +58,7 @@ static int gpio_ameba_port_set_bits_raw(const struct device *dev, uint32_t mask)
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	GPIO_PortWrite(cfg->port_num, mask, cfg->common.port_pin_mask);
+	GPIO_PortWrite(cfg->port, mask, cfg->common.port_pin_mask);
 
 	return 0;
 }
@@ -67,7 +67,7 @@ static int gpio_ameba_port_clear_bits_raw(const struct device *dev, uint32_t mas
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	GPIO_PortWrite(cfg->port_num, mask, 0);
+	GPIO_PortWrite(cfg->port, mask, 0);
 
 	return 0;
 }
@@ -81,7 +81,7 @@ static int gpio_ameba_port_toggle_bits(const struct device *dev, uint32_t mask)
 
 	for (i = 0; i < 32; i++) {
 		if (mask & 0x1) {
-			gpio_pin = GPIO_PINNAME(cfg->port_num, i);
+			gpio_pin = GPIO_PINNAME(cfg->port, i);
 			value = GPIO_ReadDataBit(gpio_pin);
 			GPIO_WriteBit(gpio_pin, (~value) & 0x1);
 		}
@@ -109,7 +109,7 @@ static int gpio_ameba_configure(const struct device *dev, gpio_pin_t pin, gpio_f
 		return -ENOTSUP;
 	}
 
-	gpio_pin = GPIO_PINNAME(cfg->port_num, pin);
+	gpio_pin = GPIO_PINNAME(cfg->port, pin);
 	gpio_initstruct.GPIO_Pin = gpio_pin;
 
 	if (flags & GPIO_INPUT) {
@@ -145,14 +145,14 @@ static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin
 	const struct gpio_ameba_config *cfg = dev->config;
 	u32 gpio_pin;
 
-	gpio_pin = GPIO_PINNAME(cfg->port_num, pin);
+	gpio_pin = GPIO_PINNAME(cfg->port, pin);
 	GPIO_InitTypeDef gpio_initstruct;
 
 	gpio_initstruct.GPIO_Pin = gpio_pin;
 
 	GPIO_INTConfig(gpio_pin, DISABLE);
 
-	LOG_DBG("Config GPIO int:%d-%d, mode:%x, flag:0x%x\n", cfg->port_num, pin, mode, trig);
+	LOG_DBG("Config GPIO int:%d-%d, mode:%x, flag:0x%x\n", cfg->port, pin, mode, trig);
 	gpio_initstruct.GPIO_Pin = gpio_pin;
 	gpio_initstruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	gpio_initstruct.GPIO_Mode = GPIO_Mode_INT;
@@ -195,7 +195,7 @@ static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin
 
 #if defined(CONFIG_GPIO_DEBOUNCE_EN)
 		gpio_initstruct.GPIO_ITDebounce = GPIO_INT_DEBOUNCE_ENABLE;
-		/* GPIO_DebounceClock(cfg->port_num, DEBOUNCE_DIV_CNT); */
+		/* GPIO_DebounceClock(cfg->port, DEBOUNCE_DIV_CNT); */
 		GPIO_Init(&gpio_initstruct);
 		DelayUs(64);
 		GPIO_INTConfig(gpio_pin, ENABLE);
@@ -225,7 +225,7 @@ static uint32_t gpio_ameba_get_pending_int(const struct device *dev)
 {
 	uint32_t irq_status;
 	const struct gpio_ameba_config *cfg = dev->config;
-	uint32_t port = cfg->port_num;
+	uint32_t port = cfg->port;
 
 	irq_status = GPIO_INTStatusGet(port);
 
@@ -237,7 +237,7 @@ static void gpio_ameba_isr(const struct device *dev)
 	uint32_t int_status;
 	struct gpio_ameba_data *data = dev->data;
 	const struct gpio_ameba_config *cfg = dev->config;
-	uint32_t port = cfg->port_num;
+	uint32_t port = cfg->port;
 
 	/* Get the int status  */
 	int_status = GPIO_INTStatusGet(port);
@@ -265,7 +265,7 @@ static const struct gpio_driver_api gpio_ameba_driver_api = {
 	static int gpio_ameba_port##n##_init(const struct device *dev)                             \
 	{                                                                                          \
 		const struct gpio_ameba_config *cfg = dev->config;                                 \
-		LOG_INF("GPIO%d INIT, IRQ %d\n", cfg->port_num, DT_INST_IRQN(n));                  \
+		LOG_INF("GPIO%d INIT, IRQ %d\n", cfg->port, DT_INST_IRQN(n));                      \
                                                                                                    \
 		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), gpio_ameba_isr,             \
 			    DEVICE_DT_INST_GET(n), 0);                                             \
@@ -281,7 +281,7 @@ static const struct gpio_driver_api gpio_ameba_driver_api = {
 				.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(n),               \
 			},                                                                         \
 		.base = DT_INST_REG_ADDR(n),                                                       \
-		.port_num = n,                                                                     \
+		.port = n,                                                                         \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(n, gpio_ameba_port##n##_init, NULL, &gpio_ameba_port##n##_data,      \

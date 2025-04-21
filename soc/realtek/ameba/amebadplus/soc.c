@@ -60,9 +60,6 @@ void soc_early_init_hook(void)
 	sys_cache_instr_enable();
 	sys_cache_data_enable();
 
-	/* do xtal/osc clk init */
-	SystemCoreClockUpdate();
-
 	XTAL_INIT();
 
 	if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) { /* Only Asic need OSC Calibration */

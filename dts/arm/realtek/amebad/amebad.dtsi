@@ -79,6 +79,7 @@
 			clocks = <&rcc AMEBA_UART0_CLK>;
 			interrupts = <34 0>;
 			current-speed = <115200>;
+			status = "disabled";
 		};
 
 		uart3: serial@4800e000 {
@@ -87,6 +88,7 @@
 			clocks = <&rcc AMEBA_UART3_CLK>;
 			interrupts = <9 0>;
 			current-speed = <115200>;
+			status = "disabled";
 		};
 
 		spic: flash-controller@48080000 {
@@ -135,10 +137,10 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "disabled";
 			dmas = <&dma 3 22 0>,
 				<&dma 2 21 0>;
 			dma-names = "rx", "tx";
+			status = "disabled";
 		};
 
 		gpioa: gpio@48014000 {
@@ -147,6 +149,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <4 0>;
+			status = "disabled";
 		};
 
 		gpiob: gpio@48014400 {
@@ -155,6 +158,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <8 0>;
+			status = "disabled";
 		};
 
 		spi0: spi@40078000 {
@@ -181,6 +185,7 @@
 			compatible = "realtek,ameba-trng";
 			reg = <0x48002000 0x100>;
 			clocks = <&rcc AMEBA_PRNG_CLK>;
+			status = "disabled";
 		};
 
 		wifi: wifi@40000000 {
@@ -249,6 +254,7 @@
 			clocks = <&rcc AMEBA_RTC_CLK>;
 			interrupts = <5 0>;
 			alarms-count = <1>;
+			status = "disabled";
 		};
 	};
 };

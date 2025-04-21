@@ -130,10 +130,10 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "disabled";
 			dmas = <&dma 4 22 0>,
 				   <&dma 5 21 0>;
 			dma-names = "rx", "tx";
+			status = "disabled";
 		};
 
 		i2c1: i2c1@4110a000 {
@@ -144,10 +144,10 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "disabled";
 			dmas = <&dma 4 24 0>,
 				   <&dma 5 23 0>;
 			dma-names = "rx", "tx";
+			status = "disabled";
 		};
 
 		gpioa: gpio@41010000 {
@@ -156,6 +156,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <28 0>;
+			status = "disabled";
 		};
 
 		gpiob: gpio@41010400 {
@@ -164,6 +165,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <29 0>;
+			status = "disabled";
 		};
 
 		timer0: counter@41017000 {
@@ -339,12 +341,14 @@
 			clocks = <&rcc AMEBA_RTC_CLK>;
 			interrupts = <46 0>;
 			alarms-count = <1>;
+			status = "disabled";
 		};
 
 		trng: trng@41008200 {
 			compatible = "realtek,ameba-trng";
 			reg = <0x41008200 0x100>;
 			clocks = <&rcc AMEBA_TRNG_CLK>;
+			status = "disabled";
 		};
 
 		usb: usb@40140000 {
@@ -390,7 +394,6 @@
 		spic: flash-controller@40128000 {
 			compatible = "realtek,ameba-flash-controller";
 			reg = <0x40128000 0x200>;
-			/* interrupts = <51 0>; */
 
 			#address-cells = <1>;
 			#size-cells = <1>;
