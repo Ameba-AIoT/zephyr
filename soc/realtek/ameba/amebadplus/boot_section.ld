@@ -19,7 +19,7 @@
 		 __ipc_table_start__ = .;
 		 KEEP(*(*.ipc.table.data*))
 		 __ipc_table_end__ = .;
-
+		KEEP(*(*.sramdram.only.text))
 		/*-----------------*/
 		__image2_backtrace_end__ = .;
 

@@ -37,6 +37,23 @@ char ip_addr_str[MAX_IP_ADDR_LEN];
 
 u32 DiagPrintf(const char *fmt, ...);
 
+#ifndef CONFIG_SINGLE_CORE_WIFI
+extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
+extern void (*tx_read_pkt_ptr)(void *pkt_addr, void *data, size_t length);
+
+void skb_read_pkt(void *pkt_addr, void *data, size_t length)
+{
+	net_pkt_read((struct net_pkt *)pkt_addr, data, length);
+
+}
+
+static void ameba_wifi_internal_reg_rxcb(uint32_t idx, void *cb)
+{
+	rx_callback_ptr = cb;
+	tx_read_pkt_ptr = skb_read_pkt;
+}
+#endif
+
 static void print_scan_result(struct rtw_scan_result *record)
 {
 	DiagPrintf("" MAC_FMT ",", MAC_ARG(record->BSSID.octet));
@@ -155,7 +172,7 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 	}
 
 #if defined(CONFIG_AS_INIC_AP)
-	ret = inic_host_send(idx, pkt, pkt_len);
+	ret = whc_host_send_zephyr(idx, pkt, pkt_len);
 #else
 	ret = rltk_wlan_send(idx, pkt, pkt_len);
 #endif
@@ -611,7 +628,11 @@ static void ameba_wifi_init(struct net_if *iface)
 	dev_data->state = RTK_STA_STOPPED;
 
 	if (if_idx == STA_WLAN_INDEX) {
+#ifdef CONFIG_SINGLE_CORE_WIFI
 		wlan_initialize();
+#else
+		wifi_init();
+#endif
 	}
 
 	if (if_idx == SOFTAP_WLAN_INDEX) {
@@ -629,6 +650,10 @@ static void ameba_wifi_init(struct net_if *iface)
 
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
+
+#ifndef CONFIG_SINGLE_CORE_WIFI
+	ameba_wifi_internal_reg_rxcb(0, eth_rtk_rx);
+#endif
 
 	/* separate ap and sta */
 	net_if_set_name(iface, iface_name[if_idx]);
