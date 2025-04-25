@@ -4,7 +4,6 @@
 menuconfig WIFI_AMEBA
 	bool "AMEBA SoC WiFi support"
 	default y
-	select THREAD_CUSTOM_DATA
 	select WIFI_USE_NATIVE_NETWORKING
 	select ZEPHYR_WIFI
 	#select NET_L2_WIFI_MGMT

@@ -14,12 +14,12 @@
 	SECTION_PROLOGUE(.psram_image2.text.data,,SUBALIGN(32))
 	{
 		 __image2_backtrace_start__ = .;
+		 *(*.sramdram.only.text)
 
 		 . = ALIGN (4);
 		 __ipc_table_start__ = .;
 		 KEEP(*(*.ipc.table.data*))
 		 __ipc_table_end__ = .;
-		KEEP(*(*.sramdram.only.text))
 		/*-----------------*/
 		__image2_backtrace_end__ = .;
 
