@@ -5,11 +5,10 @@
  */
 
 #include "os_wrapper_semaphore.h"
-#include "rtw_wifi_common.h"
 #include "rtw_wifi_defs.h"
 #include "wifi_intf_drv_to_app_basic.h"
-#include "wifi_ind.h"
 #include "os_wrapper_memory.h"
+#include "wifi_api_event.h"
 
 #define DT_DRV_COMPAT         realtek_ameba_wifi
 #define WIFI_EVENT_STACK_SIZE 4096
