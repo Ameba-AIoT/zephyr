@@ -3,7 +3,7 @@
 
 config SOC_SERIES_AMEBAD
 	bool
-	select SOC_FAMILY_AMEBA
+	select SOC_FAMILY_REALTEK_AMEBA
 
 config SOC_SERIES
 	default "amebad" if SOC_SERIES_AMEBAD

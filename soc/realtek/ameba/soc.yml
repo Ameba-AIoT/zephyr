@@ -1,5 +1,5 @@
 family:
-- name: ameba
+- name: realtek_ameba
   series:
   - name: amebadplus
     socs:

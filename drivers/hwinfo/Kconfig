@@ -231,7 +231,7 @@ config HWINFO_ANDES
 config HWINFO_AMEBA
 	bool "AMEBA hwinfo"
 	default y
-	depends on SOC_FAMILY_AMEBA
+	depends on SOC_FAMILY_REALTEK_AMEBA
 	help
 	  Enable Ameba hwinfo driver.
 
