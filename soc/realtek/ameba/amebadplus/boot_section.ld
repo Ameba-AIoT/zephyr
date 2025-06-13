@@ -11,7 +11,7 @@
 		. = ALIGN(32);
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 
-	SECTION_PROLOGUE(.psram_image2.text.data,,SUBALIGN(32))
+	SECTION_PROLOGUE(.psram_image2.text.data,,)
 	{
 		 __image2_backtrace_start__ = .;
 		 *(*.sramdram.only.text)
