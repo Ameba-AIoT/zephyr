@@ -6,7 +6,9 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
-
+#if defined(CONFIG_BT_COEXIST)
+#include "rtw_coex_ipc.h"
+#endif
 #include <zephyr/kernel.h>
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/net_pkt.h>
@@ -44,7 +46,6 @@ extern void (*tx_read_pkt_ptr)(void *pkt_addr, void *data, size_t length);
 void skb_read_pkt(void *pkt_addr, void *data, size_t length)
 {
 	net_pkt_read((struct net_pkt *)pkt_addr, data, length);
-
 }
 
 static void ameba_wifi_internal_reg_rxcb(uint32_t idx, void *cb)
@@ -60,47 +61,47 @@ static void print_scan_result(struct rtw_scan_result *record)
 	DiagPrintf(" %d\t ", record->signal_strength);
 	DiagPrintf(" %d\t  ", record->channel);
 	DiagPrintf("%s\t\t ",
-			   (record->security == RTW_SECURITY_OPEN)                 ? "Open"
-			   : (record->security == RTW_SECURITY_WEP_PSK)            ? "WEP"
-			   : (record->security == RTW_SECURITY_WPA_TKIP_PSK)       ? "WPA TKIP"
-			   : (record->security == RTW_SECURITY_WPA_AES_PSK)        ? "WPA AES"
-			   : (record->security == RTW_SECURITY_WPA_MIXED_PSK)      ? "WPA Mixed"
-			   : (record->security == RTW_SECURITY_WPA2_AES_PSK)       ? "WPA2 AES"
-			   : (record->security == RTW_SECURITY_WPA2_TKIP_PSK)      ? "WPA2 TKIP"
-			   : (record->security == RTW_SECURITY_WPA2_MIXED_PSK)     ? "WPA2 Mixed"
-			   : (record->security == RTW_SECURITY_WPA_WPA2_TKIP_PSK)  ? "WPA/WPA2 TKIP"
-			   : (record->security == RTW_SECURITY_WPA_WPA2_AES_PSK)   ? "WPA/WPA2 AES"
-			   : (record->security == RTW_SECURITY_WPA_WPA2_MIXED_PSK) ? "WPA/WPA2 Mixed"
-			   : (record->security == (RTW_SECURITY_WPA_TKIP_PSK | ENTERPRISE_ENABLED))
+		   (record->security == RTW_SECURITY_OPEN)                 ? "Open"
+		   : (record->security == RTW_SECURITY_WEP_PSK)            ? "WEP"
+		   : (record->security == RTW_SECURITY_WPA_TKIP_PSK)       ? "WPA TKIP"
+		   : (record->security == RTW_SECURITY_WPA_AES_PSK)        ? "WPA AES"
+		   : (record->security == RTW_SECURITY_WPA_MIXED_PSK)      ? "WPA Mixed"
+		   : (record->security == RTW_SECURITY_WPA2_AES_PSK)       ? "WPA2 AES"
+		   : (record->security == RTW_SECURITY_WPA2_TKIP_PSK)      ? "WPA2 TKIP"
+		   : (record->security == RTW_SECURITY_WPA2_MIXED_PSK)     ? "WPA2 Mixed"
+		   : (record->security == RTW_SECURITY_WPA_WPA2_TKIP_PSK)  ? "WPA/WPA2 TKIP"
+		   : (record->security == RTW_SECURITY_WPA_WPA2_AES_PSK)   ? "WPA/WPA2 AES"
+		   : (record->security == RTW_SECURITY_WPA_WPA2_MIXED_PSK) ? "WPA/WPA2 Mixed"
+		   : (record->security == (RTW_SECURITY_WPA_TKIP_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA TKIP Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA_AES_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA_AES_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA AES Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA_MIXED_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA_MIXED_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA Mixed Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA2_TKIP_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA2_TKIP_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA2 TKIP Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA2_AES_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA2_AES_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA2 AES Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA2_MIXED_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA2_MIXED_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA2 Mixed Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA_WPA2_TKIP_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA_WPA2_TKIP_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA/WPA2 TKIP Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA_WPA2_AES_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA_WPA2_AES_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA/WPA2 AES Enterprise"
-			   : (record->security == (RTW_SECURITY_WPA_WPA2_MIXED_PSK | ENTERPRISE_ENABLED))
+		   : (record->security == (RTW_SECURITY_WPA_WPA2_MIXED_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA/WPA2 Mixed Enterprise"
-			   :
+		   :
 #ifdef CONFIG_SAE_SUPPORT
-			   (record->security == RTW_SECURITY_WPA3_AES_PSK)      ? "WPA3-SAE AES"
-			   : (record->security == RTW_SECURITY_WPA2_WPA3_MIXED) ? "WPA2/WPA3-SAE AES"
-			   : (record->security == (WPA3_SECURITY | ENTERPRISE_ENABLED)) ? "WPA3 Enterprise"
-			   :
+		   (record->security == RTW_SECURITY_WPA3_AES_PSK)      ? "WPA3-SAE AES"
+		   : (record->security == RTW_SECURITY_WPA2_WPA3_MIXED) ? "WPA2/WPA3-SAE AES"
+		   : (record->security == (WPA3_SECURITY | ENTERPRISE_ENABLED)) ? "WPA3 Enterprise"
+		   :
 #endif
 #ifdef CONFIG_OWE_SUPPORT
-			   (record->security == RTW_SECURITY_WPA3_OWE) ? "WPA3-OWE"
-			   :
+		   (record->security == RTW_SECURITY_WPA3_OWE) ? "WPA3-OWE"
+							       :
 #endif
-			   "Unknown			  ");
+							       "Unknown			  ");
 
 	DiagPrintf(" %s ", record->SSID.val);
 	if (record->bss_type == RTW_BSS_TYPE_WTN_HELPER) {
@@ -118,7 +119,7 @@ void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event, str
 		if_addr = net_if_ipv4_addr_add(net_if_get_default(), &ip_addr, NET_ADDR_DHCP, 0);
 		if (if_addr) {
 			if (net_addr_ntop(AF_INET, &if_addr->address.in_addr, ip_addr_str,
-							  sizeof(ip_addr_str))) {
+					  sizeof(ip_addr_str))) {
 				LOG_INF("DHCPv4 IP address: %s\n", ip_addr_str);
 			}
 		}
@@ -127,7 +128,7 @@ void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event, str
 
 /* called in mgmt_thread in net_mgmt */
 static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event,
-							   struct net_if *iface)
+			       struct net_if *iface)
 {
 	/* zephyr wifi todo, temp */
 	switch (mgmt_event) {
@@ -141,7 +142,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt
 
 /* for sema give to rtk_wifi_event_task */
 int ameba_event_send_internal(int32_t event_id, void *event_data, size_t event_data_size,
-							  uint32_t ticks_to_wait)
+			      uint32_t ticks_to_wait)
 {
 	struct ameba_system_event evt;
 
@@ -149,7 +150,7 @@ int ameba_event_send_internal(int32_t event_id, void *event_data, size_t event_d
 
 	if (event_data_size > sizeof(evt.event_info)) {
 		LOG_ERR("MSG %d not find %d > %d", event_id, event_data_size,
-				sizeof(evt.event_info));
+			sizeof(evt.event_info));
 		return -EIO;
 	}
 
@@ -274,7 +275,7 @@ static int ameba_scan_done_cb(unsigned int scanned_AP_num, void *user_data)
 		for (i = 0; i < scanned_AP_num; i++) {
 			scanned_AP_info =
 				(struct rtw_scan_result *)(scan_buf +
-										   i * (sizeof(struct rtw_scan_result)));
+							   i * (sizeof(struct rtw_scan_result)));
 			scanned_AP_info->SSID.val[scanned_AP_info->SSID.len] =
 				0; /* Ensure the SSID is null terminated */
 
@@ -445,7 +446,7 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 }
 
 static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
-						   scan_result_cb_t cb)
+			   scan_result_cb_t cb)
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	struct _rtw_scan_param_t scan_param = {RTW_SCAN_NOUSE, 0, 0, 0, {0}, 0, 0, 0, 0};
@@ -665,8 +666,8 @@ static int ameba_wifi_dev_init(const struct device *dev)
 {
 	k_tid_t tid =
 		k_thread_create(&ameba_wifi_event_thread, ameba_wifi_event_stack,
-						WIFI_EVENT_STACK_SIZE, (k_thread_entry_t)ameba_wifi_event_task,
-						NULL, NULL, NULL, 14, K_INHERIT_PERMS, K_NO_WAIT);
+				WIFI_EVENT_STACK_SIZE, (k_thread_entry_t)ameba_wifi_event_task,
+				NULL, NULL, NULL, 14, K_INHERIT_PERMS, K_NO_WAIT);
 
 	k_thread_name_set(tid, "rtk_event");
 
@@ -675,6 +676,10 @@ static int ameba_wifi_dev_init(const struct device *dev)
 		net_mgmt_init_event_callback(&ameba_dhcp_cb, wifi_event_handler, DHCPV4_MASK);
 		net_mgmt_add_event_callback(&ameba_dhcp_cb);
 	}
+
+#if defined(CONFIG_BT_COEXIST)
+	coex_ipc_entry();
+#endif
 
 	return 0;
 }
@@ -699,5 +704,5 @@ static const struct net_wifi_mgmt_offload rtk_api = {
 
 /* inst replace by DT_DRV_COMPAT(inst) */
 NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
-						  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
-						  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
+			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
+			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
