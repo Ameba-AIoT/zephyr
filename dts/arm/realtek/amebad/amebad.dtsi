@@ -71,6 +71,7 @@
 			clocks = <&rcc AMEBA_LOGUART_CLK>;
 			interrupts = <3 0>;
 			current-speed = <1500000>;
+			status = "disabled";
 		};
 
 		uart0: serial@40004000 {
@@ -98,6 +99,7 @@
 
 			#address-cells = <1>;
 			#size-cells = <1>;
+			status = "disabled";
 
 			flash0: flash@E000020 {
 				compatible = "soc-nv-flash";
@@ -117,6 +119,7 @@
 			dma-channels = <6>;
 			dma-buf-addr-alignment = <32>;
 			dma-buf-size-alignment = <32>;
+			status = "disabled";
 		};
 
 		adc: adc@4801c800 {

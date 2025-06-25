@@ -126,3 +126,15 @@
 &timer0 {
 	status = "okay";
 };
+
+&loguart {
+	status = "okay";
+};
+
+&spic {
+	status = "okay";
+};
+
+&dma {
+	status = "okay";
+};

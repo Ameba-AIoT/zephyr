@@ -8,7 +8,3 @@ zephyr_sources(soc.c)
 
 zephyr_linker_sources(SECTIONS boot_section.ld)
 set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
-
-zephyr_link_libraries(
-    -T${CMAKE_CURRENT_SOURCE_DIR}/ameba_rom_symbol_acut.ld
-  )

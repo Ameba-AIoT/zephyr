@@ -7,7 +7,3 @@ config SOC_AMEBAD
 
 config SOC
 	default "amebad" if SOC_AMEBAD
-
-config ARM_CORE_CM4
-	bool
-	default y if SOC_AMEBAD
