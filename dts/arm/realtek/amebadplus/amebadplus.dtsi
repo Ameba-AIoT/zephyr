@@ -394,7 +394,7 @@
 
 		spic: flash-controller@40128000 {
 			compatible = "realtek,ameba-flash-controller";
-			reg = <0x40128000 0x200>;
+			reg = <0x40128000 0x400>;
 
 			#address-cells = <1>;
 			#size-cells = <1>;
