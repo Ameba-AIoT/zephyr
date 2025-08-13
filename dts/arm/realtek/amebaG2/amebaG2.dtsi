@@ -8,7 +8,7 @@
 #include <freq.h>
 #include <arm/armv8.1-m.dtsi>
 
-#include <zephyr/dt-bindings/clock/amebadplus_clock.h>
+#include <zephyr/dt-bindings/clock/amebaG2_clock.h>
 #include <zephyr/dt-bindings/dma/ameba_dma.h>
 #include <zephyr/dt-bindings/led/led.h>
 #include <zephyr/dt-bindings/adc/adc.h>
@@ -345,12 +345,12 @@
 		//	status = "disabled";
 		//};
 
-		//trng: trng@41008200 {
-		//	compatible = "realtek,ameba-trng";
-		//	reg = <0x41008200 0x100>;
-		//	clocks = <&rcc AMEBA_TRNG_CLK>;
-		//	status = "disabled";
-		//};
+		trng: trng@41001000 {
+			compatible = "realtek,ameba-trng";
+			reg = <0x41001000 0x200>;
+			clocks = <&rcc AMEBA_TRNG_CLK>;
+			status = "disabled";
+		};
 
 		//usb: usb@40140000 {
 		//	compatible = "realtek,ameba-usb";

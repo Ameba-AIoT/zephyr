@@ -18,7 +18,7 @@
 		zephyr,shell-uart = &loguart;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
-		//zephyr,entropy = &trng;
+		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
 	};
 
@@ -142,9 +142,9 @@
 //	status = "okay";
 //};
 
-//&trng {
-//	status = "okay";
-//};
+&trng {
+	status = "okay";
+};
 
 //&timer0 {
 //	status = "okay";
@@ -154,9 +154,9 @@
 //	status = "okay";
 //};
 
-//&loguart {
-//	status = "okay";
-//};
+&loguart {
+	status = "okay";
+};
 
 //&spic {
 //	status = "okay";

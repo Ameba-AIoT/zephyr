@@ -15,6 +15,8 @@ extern "C" {
 #include <zephyr/dt-bindings/clock/amebadplus_clock.h>
 #elif defined(CONFIG_SOC_AMEBAD)
 #include <zephyr/dt-bindings/clock/amebad_clock.h>
+#elif defined(CONFIG_SOC_AMEBAG2)
+#include <zephyr/dt-bindings/clock/amebaG2_clock.h>
 #else
 #error : please choose the right chip type.
 #endif
