@@ -17,6 +17,52 @@ IMAGE2_ENTRY_SECTION
 RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
 				    (uint32_t)RomVectorTable};
 
+void app_rtc_init(void)
+{
+	RTC_InitTypeDef RTC_InitStruct;
+	RTC_TimeTypeDef RTC_TimeStruct;
+
+	RTC_TimeStructInit(&RTC_TimeStruct);
+	RTC_TimeStruct.RTC_Year = 2021;
+	RTC_TimeStruct.RTC_Hours = 10;
+	RTC_TimeStruct.RTC_Minutes = 20;
+	RTC_TimeStruct.RTC_Seconds = 30;
+
+	RTC_StructInit(&RTC_InitStruct);
+	/*enable RTC*/
+	RTC_Enable(ENABLE);
+	RTC_Init(&RTC_InitStruct);
+	RTC_SetTime(RTC_Format_BIN, &RTC_TimeStruct);
+}
+
+u32 rtc_irq_init(void *Data)
+{
+	/* To avoid gcc warnings */
+	(void)Data;
+	u32 temp;
+
+	RTC_ClearDetINT();
+	SDM32K_Enable(); /* SDK32 shall enable after RTC_DET_IRQ irq, which means osc131 is ready */
+	SYSTIMER_Init(); /* 0.2ms */
+	RCC_PeriphClockCmd(APBPeriph_NULL, APBPeriph_RTC_CLOCK, ENABLE);
+
+	if ((Get_OSC131_STATE() & RTC_BIT_FIRST_PON) == 0) {
+		app_rtc_init();
+		/* set first_pon to 1, this indicate RTC first pon state */
+		temp = Get_OSC131_STATE() | RTC_BIT_FIRST_PON;
+		Set_OSC131_STATE(temp);
+
+		/*before 131k calibratopn, cke_rtc should be enabled*/
+		if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) {
+			OSC131K_Calibration(30000); /* PPM=30000=3% */ /* 7.5ms */
+		}
+	}
+
+	RTC_ClkSource_Select(SDM32K);
+
+	return 0;
+}
+
 void soc_early_init_hook(void)
 {
 	/*
@@ -37,6 +83,10 @@ void soc_early_init_hook(void)
 			OSC4M_Calibration(30000);
 		}
 	}
+
+	/* Register RTC_DET_IRQ callback function */
+	IRQ_CONNECT(RTC_DET_IRQ, IRQ_PRIO_LOWEST, rtc_irq_init, (uint32_t)NULL, 0);
+	irq_enable(RTC_DET_IRQ);
 
 	/* IPC table initialization */
 	ipc_table_init(IPCAP_DEV);
