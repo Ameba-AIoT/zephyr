@@ -88,7 +88,7 @@ static int udc_ameba_ctrl_feed_dout(const struct device *dev, const size_t lengt
 		return -ENOMEM;
 	}
 
-	net_buf_put(&cfg->fifo, buf);
+	k_fifo_put(&cfg->fifo, buf);
 
 	usbd_pcd_ep_receive(priv->pcd, cfg->addr, buf->data, buf->size);
 
@@ -522,14 +522,14 @@ static int udc_ameba_ep_flush(const struct device *dev, struct udc_ep_config *cf
 }
 
 /* struct udc_api */
-static int udc_ameba_lock(const struct device *dev)
+static void udc_ameba_lock(const struct device *dev)
 {
-	return udc_lock_internal(dev, K_FOREVER);
+	udc_lock_internal(dev, K_FOREVER);
 }
 
-static int udc_ameba_unlock(const struct device *dev)
+static void udc_ameba_unlock(const struct device *dev)
 {
-	return udc_unlock_internal(dev);
+	udc_unlock_internal(dev);
 }
 
 static int udc_ameba_init(const struct device *dev)
@@ -597,6 +597,17 @@ static int udc_ameba_enable(const struct device *dev)
 		return -EIO;
 	}
 
+	if (udc_ep_enable_internal(dev, USB_CONTROL_EP_OUT,
+				   USB_EP_TYPE_CONTROL, 64, 0)) {
+		LOG_ERR("Failed to enable control endpoint");
+		return -EIO;
+	}
+
+	if (udc_ep_enable_internal(dev, USB_CONTROL_EP_IN,
+				   USB_EP_TYPE_CONTROL, 64, 0)) {
+		LOG_ERR("Failed to enable control endpoint");
+		return -EIO;
+	}
 	irq_enable(priv->irq);
 
 	return 0;

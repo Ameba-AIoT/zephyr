@@ -18,6 +18,14 @@
 		};
 	};
 
+	usb_default: usb_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 4, AMEBA_USB)>,        /* DM */
+					 <AMEBA_PINMUX('A', 5, AMEBA_USB)>;        /* DP */
+			bias-disable;
+			input-schmitt-disable;
+		};
+	};
 	//uart0_default: uart0_default {
 	//	group1 {
 	//		pinmux = <AMEBA_PINMUX('A', 26, AMEBA_UART0_TXD)>,

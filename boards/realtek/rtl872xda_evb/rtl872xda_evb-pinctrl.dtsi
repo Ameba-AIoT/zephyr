@@ -34,6 +34,14 @@
 		};
 	};
 
+	usb_default: usb_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 28, AMEBA_USB)>,    /* DM */
+					 <AMEBA_PINMUX('A', 29, AMEBA_USB)>;    /* DP */
+			bias-disable;
+		};
+	};
+
 	spi1_default: spi1_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_SPI1_CLK)>,
