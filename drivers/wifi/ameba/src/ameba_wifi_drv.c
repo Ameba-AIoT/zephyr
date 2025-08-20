@@ -172,7 +172,7 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 		idx = SOFTAP_WLAN_INDEX;
 	}
 
-#if defined(CONFIG_AS_INIC_AP)
+#if defined(CONFIG_WHC_HOST)
 	ret = whc_host_send_zephyr(idx, pkt, pkt_len);
 #else
 	ret = rltk_wlan_send(idx, pkt, pkt_len);

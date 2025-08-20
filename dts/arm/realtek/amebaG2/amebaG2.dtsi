@@ -447,11 +447,11 @@
 	//	status = "disabled";
 	//};
 
-	//wifi: wifi@40000000 {
-	//	compatible = "realtek,ameba-wifi";
-	//	reg = <0x40000000 0x80000>;
-	//	status = "disabled";
-	//};
+		wifi: wifi@40000000 {
+			compatible = "realtek,ameba-wifi";
+			reg = <0x40000000 0x80000>;
+			status = "disabled";
+		};
 	};
 };
 
