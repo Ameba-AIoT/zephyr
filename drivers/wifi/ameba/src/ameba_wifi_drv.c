@@ -388,6 +388,95 @@ static int ameba_wifi_disconnect(const struct device *dev)
 	return ret;
 }
 
+#ifdef CONFIG_SOC_AMEBAG2
+/* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
+int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
+{
+	struct ameba_wifi_runtime *data = dev->data;
+	int ret;
+
+	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
+
+	if (data->state == RTK_STA_CONNECTING) {
+		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], -1);
+		return -EALREADY;
+	}
+
+	data->state = RTK_STA_CONNECTING;
+
+	memcpy(data->status.ssid, params->ssid, params->ssid_length);
+	data->status.ssid[params->ssid_length] = '\0';
+
+	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
+	wifi.ssid.val[params->ssid_length] = '\0';
+	wifi.ssid.len = params->ssid_length;
+
+	if (params->security == WIFI_SECURITY_TYPE_PSK) {
+		memcpy(password, params->psk, params->psk_length);
+		password[params->psk_length] = '\0';
+		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
+		wifi.password = password;
+		wifi.password_len = params->psk_length;
+	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
+		wifi.security_type = RTW_SECURITY_OPEN;
+		wifi.password = NULL;
+	} else {
+		LOG_ERR("Authentication method not supported");
+		data->state = RTK_STA_STARTED;
+		return -EIO;
+	}
+
+	if (params->channel != WIFI_CHANNEL_ANY) {
+		wifi.channel = params->channel;
+	} else {
+		wifi.channel = 0;
+	}
+
+	ret = wifi_connect(&wifi, 1);
+
+	if (ret != RTW_SUCCESS) {
+		LOG_ERR("Failed to connect to Wi-Fi access point");
+		data->state = RTK_STA_STARTED;
+		return -EAGAIN;
+	}
+
+	ameba_wifi_handle_connect_event();
+	LOG_INF("assoc success \r\n");
+
+	return 0;
+}
+
+static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
+			   scan_result_cb_t cb)
+{
+	struct ameba_wifi_runtime *data = dev->data;
+	u8 join_status;
+	int ret = 0;
+
+	if (data->scan_cb != NULL) {
+		LOG_INF("Scan callback in progress");
+		return -EINPROGRESS;
+	}
+
+	wifi_get_join_status((u8 *)&join_status);
+
+	if ((join_status > RTW_JOINSTATUS_UNKNOWN) && (join_status < RTW_JOINSTATUS_SUCCESS)) {
+		return -EINPROGRESS;
+	}
+	p_wifi_join_info_free = NULL;
+
+	data->scan_cb = cb;
+
+	ret = wifi_scan_networks_zephyr((u32)ameba_scan_done_cb);
+
+	if (ret) {
+		LOG_ERR("Failed to start Wi-Fi scanning");
+		return -EAGAIN;
+	}
+	return ret;
+}
+
+#else
 /* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
 int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
 {
@@ -474,6 +563,7 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 
 	return 0;
 }
+#endif
 
 /* zephyr wifi todo, remove to driver later */
 static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_params *params)
