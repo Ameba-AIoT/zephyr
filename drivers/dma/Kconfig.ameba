@@ -10,6 +10,13 @@ config DMA_AMEBA
 
 if DMA_AMEBA
 
+config DMA_AMEBA_SCATTER_GATHER
+	bool "Ameba DMA scatter/gather support"
+	depends on SOC_AMEBAG2
+	default y
+	help
+		Enable DMA scatter/gather support on Ameba SoC
+
 config DMA_AMEBA_LLI
 	bool "AMEBA Linked List Mode"
 	default n
