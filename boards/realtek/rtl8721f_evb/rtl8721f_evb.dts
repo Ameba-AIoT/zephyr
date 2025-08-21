@@ -173,6 +173,6 @@
 //	status = "okay";
 //};
 
-//&dma {
-//	status = "okay";
-//};
+&dma {
+	status = "okay";
+};
