@@ -24,7 +24,7 @@ static struct net_if *ameba_wifi_iface[2];
 static struct ameba_wifi_runtime ameba_data;
 
 /* global para for wifi connect and ap info now */
-#ifndef CONFIG_SOC_AMEBAG2
+#ifdef CONFIG_SOC_AMEBAD
 _Alignas(4) static struct _rtw_network_info_t wifi = {0};
 #endif
 _Alignas(4) static struct _rtw_softap_info_t ap = {0};
@@ -389,7 +389,7 @@ static int ameba_wifi_disconnect(const struct device *dev)
 	return ret;
 }
 
-#ifdef CONFIG_SOC_AMEBAG2
+#ifndef CONFIG_SOC_AMEBAD
 /* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
 int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
 {
