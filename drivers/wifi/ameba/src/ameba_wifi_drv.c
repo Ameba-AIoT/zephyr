@@ -449,7 +449,7 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 			   scan_result_cb_t cb)
 {
 	struct ameba_wifi_runtime *data = dev->data;
-	struct _rtw_scan_param_t scan_param = {RTW_SCAN_NOUSE, 0, 0, 0, {0}, 0, 0, 0, 0};
+	struct _rtw_scan_param_t scan_param = {0};
 	int join_status;
 
 	if (data->scan_cb != NULL) {
