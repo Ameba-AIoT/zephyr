@@ -24,9 +24,12 @@ static struct net_if *ameba_wifi_iface[2];
 static struct ameba_wifi_runtime ameba_data;
 
 /* global para for wifi connect and ap info now */
+#ifndef CONFIG_SOC_AMEBAG2
 _Alignas(4) static struct _rtw_network_info_t wifi = {0};
+#endif
 _Alignas(4) static struct _rtw_softap_info_t ap = {0};
 static unsigned char password[129] = {0};
+
 extern void (*p_wifi_join_info_free)(u8 iface_type);
 
 K_MSGQ_DEFINE(ameba_wifi_msgq, sizeof(struct ameba_system_event), 10, 4);
@@ -90,13 +93,11 @@ static void print_scan_result(struct rtw_scan_result *record)
 			   ? "WPA/WPA2 AES Enterprise"
 		   : (record->security == (RTW_SECURITY_WPA_WPA2_MIXED_PSK | ENTERPRISE_ENABLED))
 			   ? "WPA/WPA2 Mixed Enterprise"
-		   :
-#ifdef CONFIG_SAE_SUPPORT
-		   (record->security == RTW_SECURITY_WPA3_AES_PSK)      ? "WPA3-SAE AES"
+		   : (record->security == RTW_SECURITY_WPA3_AES_PSK)    ? "WPA3-SAE AES"
 		   : (record->security == RTW_SECURITY_WPA2_WPA3_MIXED) ? "WPA2/WPA3-SAE AES"
 		   : (record->security == (WPA3_SECURITY | ENTERPRISE_ENABLED)) ? "WPA3 Enterprise"
 		   :
-#endif
+
 #ifdef CONFIG_OWE_SUPPORT
 		   (record->security == RTW_SECURITY_WPA3_OWE) ? "WPA3-OWE"
 							       :
@@ -394,6 +395,8 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	int ret;
+	u8 channel, psk_len;
+	u8 *psk = NULL;
 
 	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
 
@@ -407,34 +410,26 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
 	data->status.ssid[params->ssid_length] = '\0';
 
-	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
-	wifi.ssid.val[params->ssid_length] = '\0';
-	wifi.ssid.len = params->ssid_length;
+	if (params->channel != WIFI_CHANNEL_ANY) {
+		channel = params->channel;
+	} else {
+		channel = 0;
+	}
 
 	if (params->security == WIFI_SECURITY_TYPE_PSK) {
-		memcpy(password, params->psk, params->psk_length);
-		password[params->psk_length] = '\0';
-		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
-		wifi.password = password;
-		wifi.password_len = params->psk_length;
+		psk = (u8 *)params->psk;
+		psk_len = params->psk_length;
 	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
-		wifi.security_type = RTW_SECURITY_OPEN;
-		wifi.password = NULL;
+		psk_len = 0;
 	} else {
 		LOG_ERR("Authentication method not supported");
 		data->state = RTK_STA_STARTED;
 		return -EIO;
 	}
 
-	if (params->channel != WIFI_CHANNEL_ANY) {
-		wifi.channel = params->channel;
-	} else {
-		wifi.channel = 0;
-	}
+	ret = wifi_connect_zephyr((u8 *)params->ssid, params->ssid_length, psk, psk_len, channel);
 
-	ret = wifi_connect(&wifi, 1);
-
-	if (ret != RTW_SUCCESS) {
+	if (ret) {
 		LOG_ERR("Failed to connect to Wi-Fi access point");
 		data->state = RTK_STA_STARTED;
 		return -EAGAIN;
