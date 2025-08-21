@@ -148,11 +148,21 @@ static int flash_ameba_init(const struct device *dev)
 	return 0;
 }
 
-static const struct flash_driver_api flash_ameba_driver_api = {
+static int flash_ameba_get_size(const struct device *dev, uint64_t *size)
+{
+	ARG_UNUSED(dev);
+
+	*size = (uint64_t)DT_REG_SIZE(SOC_NV_FLASH_NODE);
+
+	return 0;
+}
+
+static DEVICE_API(flash, flash_ameba_driver_api) = {
 	.read = flash_ameba_read,
 	.write = flash_ameba_write,
 	.erase = flash_ameba_erase,
 	.get_parameters = flash_ameba_get_parameters,
+	.get_size = flash_ameba_get_size,
 #ifdef CONFIG_FLASH_PAGE_LAYOUT
 	.page_layout = flash_ameba_page_layout,
 #endif
