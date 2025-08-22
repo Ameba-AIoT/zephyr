@@ -93,4 +93,4 @@ int wifi_get_mac_address(int idx, struct _rtw_mac_t *mac, u8 efuse);
 int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len);
 int rltk_wlan_send(int idx, void *pkt_addr, uint32_t len);
 int whc_host_send_zephyr(int idx, void *pkt_addr, uint32_t len);
-
+void wlan_int_enable(void);
