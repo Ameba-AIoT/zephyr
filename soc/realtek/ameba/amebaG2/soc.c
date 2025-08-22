@@ -27,6 +27,7 @@ u32 SOC_OSC131_Enable(void)
 
 	SDM32K_Enable(); /* SDK32 shall enable after RTC_DET_IRQ irq, which means osc131 is ready */
 	SYSTIMER_Init(); /* 0.2ms */
+	RCC_PeriphClockCmd(APBPeriph_NULL, APBPeriph_RTC_CLOCK, ENABLE);
 
 	temp = Get_OSC131_STATE();
 	if ((temp & RTC_BIT_FIRST_PON) == 0) {
