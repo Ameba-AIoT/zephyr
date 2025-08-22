@@ -311,6 +311,131 @@ DT_INST_FOREACH_STATUS_OKAY(QUIRK_NRF_USBHS_DEFINE)
 
 #endif /*DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_usbhs) */
 
+#if DT_HAS_COMPAT_STATUS_OKAY(realtek_ameba_udc)
+
+#include <zephyr/sys/sys_io.h>
+#include <usb_dwc2_hw.h>
+#include <zephyr/drivers/clock_control.h>
+
+#define DT_DRV_COMPAT snps_dwc2
+
+#define USB_ADDON_REG_CTRL_OFFSET				0x04
+#define USB_ADDON_REG_CTRL_BIT_DIS_SUSPEND		BIT(1)
+#define USB_ADDON_REG_CTRL_BIT_UPLL_CKRDY		BIT(5)
+#define USB_ADDON_REG_CTRL_BIT_USB_OTG_RST		BIT(8)
+
+#define PLL_UPLL_CTRL0_OFFSET					0x50
+#define PLL_BIT_USB2_DIGOTGPADEN     BIT(28)
+#define PLL_BIT_USB2_DIGPADEN        BIT(26)
+#define PLL_BIT_USB_DPHY_EN          BIT(20)
+#define PLL_BIT_PWC_UAHV_ALIVE       BIT(18)
+
+#define UDC_DWC2_DT_INST_CORE_REG_ADDR(n)						\
+	COND_CODE_1(DT_NUM_REGS(DT_DRV_INST(n)), (DT_INST_REG_ADDR(n)),		\
+		    (DT_INST_REG_ADDR_BY_NAME(n, core)))
+
+#define UDC_DWC2_DT_INST_USB_ADDON_REG_ADDR(n)						\
+	COND_CODE_1(DT_NUM_REGS(DT_DRV_INST(n)), (DT_INST_REG_ADDR(n)),		\
+		    (DT_INST_REG_ADDR_BY_NAME(n, usb_addon)))
+
+#define UDC_DWC2_DT_INST_PLL_REG_ADDR(n)						\
+	COND_CODE_1(DT_NUM_REGS(DT_DRV_INST(n)), (DT_INST_REG_ADDR(n)),		\
+		    (DT_INST_REG_ADDR_BY_NAME(n, pll)))
+
+struct realtek_usb_clk {
+	const struct device *const dev;
+	const clock_control_subsys_t clock_subsys;
+};
+
+static inline int usb_hw_init(const struct realtek_usb_clk *const clk)
+{
+	mem_addr_t usb_addon = (mem_addr_t)UDC_DWC2_DT_INST_USB_ADDON_REG_ADDR(0);
+	mem_addr_t pll = (mem_addr_t)UDC_DWC2_DT_INST_PLL_REG_ADDR(0);
+	uint32_t reg;
+
+	if (!device_is_ready(clk->dev)) {
+		return -ENODEV;
+	}
+
+	clock_control_on(clk->dev, (clock_control_subsys_t)clk->clock_subsys);
+
+	reg = sys_read32((mem_addr_t)pll + PLL_UPLL_CTRL0_OFFSET);
+	reg &= ~(PLL_BIT_USB2_DIGPADEN | PLL_BIT_USB2_DIGOTGPADEN);
+	reg |= PLL_BIT_PWC_UAHV_ALIVE | PLL_BIT_USB_DPHY_EN;
+	sys_write32(reg, (mem_addr_t)pll + PLL_UPLL_CTRL0_OFFSET);
+	k_busy_wait(34);
+
+	reg = sys_read32((mem_addr_t)usb_addon + USB_ADDON_REG_CTRL_OFFSET);
+	reg |= USB_ADDON_REG_CTRL_BIT_USB_OTG_RST;
+	sys_write32(reg, (mem_addr_t)usb_addon + USB_ADDON_REG_CTRL_OFFSET);
+
+	return 0;
+}
+
+static inline int usb_hw_deinit(const struct realtek_usb_clk *const clk)
+{
+	mem_addr_t usb_addon = (mem_addr_t)UDC_DWC2_DT_INST_USB_ADDON_REG_ADDR(0);
+	mem_addr_t pll = (mem_addr_t)UDC_DWC2_DT_INST_PLL_REG_ADDR(0);
+	uint32_t reg;
+
+	if (!device_is_ready(clk->dev)) {
+		return -ENODEV;
+	}
+
+	reg = sys_read32((mem_addr_t)usb_addon + USB_ADDON_REG_CTRL_OFFSET);
+	reg &= ~USB_ADDON_REG_CTRL_BIT_USB_OTG_RST;
+	sys_write32(reg, (mem_addr_t)usb_addon + USB_ADDON_REG_CTRL_OFFSET);
+
+	reg = sys_read32((mem_addr_t)pll + PLL_UPLL_CTRL0_OFFSET);
+	reg &=  ~(PLL_BIT_PWC_UAHV_ALIVE | PLL_BIT_USB_DPHY_EN);
+	reg |= PLL_BIT_USB2_DIGPADEN | PLL_BIT_USB2_DIGOTGPADEN;
+	sys_write32(reg, (mem_addr_t)pll + PLL_UPLL_CTRL0_OFFSET);
+
+	clock_control_off(clk->dev, (clock_control_subsys_t)clk->clock_subsys);
+
+	return 0;
+}
+
+static inline int usbd_init_caps(const struct device *dev)
+{
+	struct udc_data *data = dev->data;
+
+	data->caps.hs = true;
+	data->caps.rwup = true;
+	data->caps.out_ack = false;
+	data->caps.mps0 = UDC_MPS0_64;
+
+	return 0;
+}
+
+#define QUIRK_REALTEK_USB_OTG_DEFINE(n)						\
+	static const struct realtek_usb_clk realtek_usb_clk_##n = {		\
+		.dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)), \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),   \
+	};									\
+										\
+	static int usbd_pre_enable(const struct device *dev)	\
+	{									\
+		return usb_hw_init(&realtek_usb_clk_##n);		\
+	}									\
+	static int usbd_disable(const struct device *dev)	\
+	{									\
+		return usb_hw_deinit(&realtek_usb_clk_##n);		\
+	}									\
+							\
+	struct dwc2_vendor_quirks dwc2_vendor_quirks_##n = {	\
+		.pre_enable = usbd_pre_enable,		\
+		.disable = usbd_disable,			\
+		.irq_clear = NULL,					\
+		.caps = usbd_init_caps,				\
+	};
+
+DT_INST_FOREACH_STATUS_OKAY(QUIRK_REALTEK_USB_OTG_DEFINE)
+
+#undef DT_DRV_COMPAT
+
+#endif /*DT_HAS_COMPAT_STATUS_OKAY(amebad_otg) */
+
 /* Add next vendor quirks definition above this line */
 
 #endif /* ZEPHYR_DRIVERS_USB_UDC_DWC2_VENDOR_QUIRKS_H */

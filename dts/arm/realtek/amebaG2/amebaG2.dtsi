@@ -76,6 +76,21 @@
 			status = "disabled";
 		};
 
+		zephyr_udc0: usbd@40080000 {
+			compatible = "realtek,ameba-udc", "snps,dwc2";
+			reg = <0x40080000 0x20000>, <0x400B0000 0x100>, <0x4080A500 0x100>;
+			reg-names = "core", "usb_addon", "pll";
+			clocks = <&rcc AMEBA_USB_CLK>;
+			interrupts = <59 0>;
+			num-in-eps = <6>;
+			num-out-eps = <6>;
+			ghwcfg1 = <0x00008904>;
+			ghwcfg2 = <0x228edc50>;
+			ghwcfg4 = <0x16006a20>;
+
+			status = "disabled";
+		};
+
 		//uart0: serial@4100c000 {
 		//	compatible = "realtek,ameba-uart";
 		//	reg = <0x4100c000 0x60>;

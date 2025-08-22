@@ -71,6 +71,12 @@
 	};
 };
 
+&zephyr_udc0 {
+	pinctrl-0 = <&usb_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 //&uart0 {
 //	pinctrl-0 = <&uart0_default>;
 //	pinctrl-names = "default";
