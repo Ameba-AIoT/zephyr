@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 #include <zephyr/device.h>
 #include <soc.h>
 #include "ameba_wifi.h"
+#include "diag.h"
 
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
@@ -24,9 +25,6 @@ static struct net_if *ameba_wifi_iface[2];
 static struct ameba_wifi_runtime ameba_data;
 
 /* global para for wifi connect and ap info now */
-#ifdef CONFIG_SOC_AMEBAD
-_Alignas(4) static struct _rtw_network_info_t wifi = {0};
-#endif
 _Alignas(4) static struct _rtw_softap_info_t ap = {0};
 static unsigned char password[129] = {0};
 
@@ -39,8 +37,6 @@ static struct k_thread ameba_wifi_event_thread;
 /* for add dhcp callback in mgmt_thread in net_mgmt */
 static struct net_mgmt_event_callback ameba_dhcp_cb = {0};
 char ip_addr_str[MAX_IP_ADDR_LEN];
-
-u32 DiagPrintf(const char *fmt, ...);
 
 #ifndef CONFIG_SINGLE_CORE_WIFI
 extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
@@ -389,7 +385,6 @@ static int ameba_wifi_disconnect(const struct device *dev)
 	return ret;
 }
 
-#ifndef CONFIG_SOC_AMEBAD
 /* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
 int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
 {
@@ -470,95 +465,6 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 	}
 	return ret;
 }
-
-#else
-/* zephyr wifi todo, wep todo, no key idx in wifi_connect_req_params?? */
-int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
-{
-	struct ameba_wifi_runtime *data = dev->data;
-	int ret;
-
-	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
-
-	if (data->state == RTK_STA_CONNECTING) {
-		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], -1);
-		return -EALREADY;
-	}
-
-	data->state = RTK_STA_CONNECTING;
-
-	memcpy(data->status.ssid, params->ssid, params->ssid_length);
-	data->status.ssid[params->ssid_length] = '\0';
-
-	memcpy(wifi.ssid.val, params->ssid, params->ssid_length);
-	wifi.ssid.val[params->ssid_length] = '\0';
-	wifi.ssid.len = params->ssid_length;
-
-	if (params->security == WIFI_SECURITY_TYPE_PSK) {
-		memcpy(password, params->psk, params->psk_length);
-		password[params->psk_length] = '\0';
-		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
-		wifi.password = password;
-		wifi.password_len = params->psk_length;
-	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
-		wifi.security_type = RTW_SECURITY_OPEN;
-		wifi.password = NULL;
-	} else {
-		LOG_ERR("Authentication method not supported");
-		data->state = RTK_STA_STARTED;
-		return -EIO;
-	}
-
-	if (params->channel != WIFI_CHANNEL_ANY) {
-		wifi.channel = params->channel;
-	} else {
-		wifi.channel = 0;
-	}
-
-	ret = wifi_connect(&wifi, 1);
-
-	if (ret != RTW_SUCCESS) {
-		LOG_ERR("Failed to connect to Wi-Fi access point");
-		data->state = RTK_STA_STARTED;
-		return -EAGAIN;
-	} else {
-		ameba_wifi_handle_connect_event();
-		LOG_INF("assoc success \r\n");
-	}
-
-	return 0;
-}
-
-static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
-			   scan_result_cb_t cb)
-{
-	struct ameba_wifi_runtime *data = dev->data;
-	struct _rtw_scan_param_t scan_param = {0};
-	int join_status;
-
-	if (data->scan_cb != NULL) {
-		LOG_INF("Scan callback in progress");
-		return -EINPROGRESS;
-	}
-
-	join_status = wifi_get_join_status();
-	if ((join_status > RTW_JOINSTATUS_UNKNOWN) && (join_status < RTW_JOINSTATUS_SUCCESS)) {
-		return -EINPROGRESS;
-	}
-
-	p_wifi_join_info_free = NULL;
-
-	data->scan_cb = cb;
-	scan_param.scan_user_callback = ameba_scan_done_cb;
-
-	if (wifi_scan_networks(&scan_param, 0) != RTW_SUCCESS) {
-		LOG_ERR("Failed to start Wi-Fi scanning");
-		return -EAGAIN;
-	}
-
-	return 0;
-}
-#endif
 
 /* zephyr wifi todo, remove to driver later */
 static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_params *params)
@@ -714,11 +620,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	dev_data->state = RTK_STA_STOPPED;
 
 	if (if_idx == STA_WLAN_INDEX) {
-#ifdef CONFIG_SINGLE_CORE_WIFI
-		wlan_initialize();
-#else
 		wifi_init();
-#endif
 	}
 
 	if (if_idx == SOFTAP_WLAN_INDEX) {
