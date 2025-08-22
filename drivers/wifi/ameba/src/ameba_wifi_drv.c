@@ -620,6 +620,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	dev_data->state = RTK_STA_STOPPED;
 
 	if (if_idx == STA_WLAN_INDEX) {
+		wlan_int_enable();
 		wifi_init();
 	}
 
