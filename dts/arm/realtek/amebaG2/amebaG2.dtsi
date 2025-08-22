@@ -91,32 +91,41 @@
 			status = "disabled";
 		};
 
-		//uart0: serial@4100c000 {
-		//	compatible = "realtek,ameba-uart";
-		//	reg = <0x4100c000 0x60>;
-		//	clocks = <&rcc AMEBA_UART0_CLK>;
-		//	interrupts = <24 0>;
-		//	current-speed = <115200>;
-		//	status = "disabled";
-		//};
+		uart0: serial@4080c000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4080c000 0x60>;
+			clocks = <&rcc AMEBA_UART0_CLK>;
+			interrupts = <20 0>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
 
-		//uart1: serial@4100d000 {
-		//	compatible = "realtek,ameba-uart";
-		//	reg = <0x4100d000 0x60>;
-		//	clocks = <&rcc AMEBA_UART1_CLK>;
-		//	interrupts = <25 0>;
-		//	current-speed = <115200>;
-		//	status = "disabled";
-		//};
+		uart1: serial@4080d000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4080d000 0x60>;
+			clocks = <&rcc AMEBA_UART1_CLK>;
+			interrupts = <21 0>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
 
-		//uart2: serial@4100e000 {
-		//	compatible = "realtek,ameba-uart";
-		//	reg = <0x4100e000 0x60>;
-		//	clocks = <&rcc AMEBA_UART2_CLK>;
-		//	interrupts = <26 0>;
-		//	current-speed = <115200>;
-		//	status = "disabled";
-		//};
+		uart2: serial@4080e000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4080e000 0x60>;
+			clocks = <&rcc AMEBA_UART2_CLK>;
+			interrupts = <22 0>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		uart3: serial@4080f000 {
+			compatible = "realtek,ameba-uart";
+			reg = <0x4080f000 0x60>;
+			clocks = <&rcc AMEBA_UART3_CLK>;
+			interrupts = <23 0>;
+			current-speed = <115200>;
+			status = "disabled";
+		};
 
 		//spi0: spi@40124000 {
 		//	compatible = "realtek,ameba-spi";

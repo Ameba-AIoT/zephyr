@@ -11,8 +11,8 @@ CONFIG_HW_STACK_PROTECTION=y
 # enable rcc
 CONFIG_CLOCK_CONTROL=y
 
-# # enable uart
-# CONFIG_SERIAL=y
+# enable uart
+CONFIG_SERIAL=y
 
 # console
 CONFIG_CONSOLE=y
