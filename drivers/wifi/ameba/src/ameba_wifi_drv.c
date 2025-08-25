@@ -440,7 +440,6 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 			   scan_result_cb_t cb)
 {
 	struct ameba_wifi_runtime *data = dev->data;
-	u8 join_status;
 	int ret = 0;
 
 	if (data->scan_cb != NULL) {
@@ -448,13 +447,7 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 		return -EINPROGRESS;
 	}
 
-	wifi_get_join_status((u8 *)&join_status);
-
-	if ((join_status > RTW_JOINSTATUS_UNKNOWN) && (join_status < RTW_JOINSTATUS_SUCCESS)) {
-		return -EINPROGRESS;
-	}
 	p_wifi_join_info_free = NULL;
-
 	data->scan_cb = cb;
 
 	ret = wifi_scan_networks_zephyr((u32)ameba_scan_done_cb);

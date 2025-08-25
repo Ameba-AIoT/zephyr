@@ -8,7 +8,6 @@
 #include "rtw_wifi_defs.h"
 #include "wifi_intf_drv_to_app_basic.h"
 #include "os_wrapper_memory.h"
-#include "wifi_api_event.h"
 
 #define DT_DRV_COMPAT         realtek_ameba_wifi
 #define WIFI_EVENT_STACK_SIZE 4096
@@ -84,11 +83,9 @@ enum rtk_state_flag {
 	RTK_AP_STOPPED,
 };
 
-void wlan_initialize(void);
 void wifi_init(void);
 int wifi_get_setting(unsigned char wlan_idx, struct _rtw_wifi_setting_t *psetting);
 int wifi_get_scan_records(unsigned int *AP_num, char *scan_buf);
-int inic_host_send(int idx, void *pkt_addr, uint32_t len);
 int wifi_get_mac_address(int idx, struct _rtw_mac_t *mac, u8 efuse);
 int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len);
 int rltk_wlan_send(int idx, void *pkt_addr, uint32_t len);
