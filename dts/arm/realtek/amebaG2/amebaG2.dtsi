@@ -93,7 +93,7 @@
 
 		uart0: serial@4080c000 {
 			compatible = "realtek,ameba-uart";
-			reg = <0x4080c000 0x60>;
+			reg = <0x4080c000 0x64>;
 			clocks = <&rcc AMEBA_UART0_CLK>;
 			interrupts = <20 0>;
 			current-speed = <115200>;
@@ -102,7 +102,7 @@
 
 		uart1: serial@4080d000 {
 			compatible = "realtek,ameba-uart";
-			reg = <0x4080d000 0x60>;
+			reg = <0x4080d000 0x64>;
 			clocks = <&rcc AMEBA_UART1_CLK>;
 			interrupts = <21 0>;
 			current-speed = <115200>;
@@ -111,7 +111,7 @@
 
 		uart2: serial@4080e000 {
 			compatible = "realtek,ameba-uart";
-			reg = <0x4080e000 0x60>;
+			reg = <0x4080e000 0x64>;
 			clocks = <&rcc AMEBA_UART2_CLK>;
 			interrupts = <22 0>;
 			current-speed = <115200>;
@@ -120,7 +120,7 @@
 
 		uart3: serial@4080f000 {
 			compatible = "realtek,ameba-uart";
-			reg = <0x4080f000 0x60>;
+			reg = <0x4080f000 0x64>;
 			clocks = <&rcc AMEBA_UART3_CLK>;
 			interrupts = <23 0>;
 			current-speed = <115200>;
@@ -454,15 +454,15 @@
 			status = "disabled";
 		};
 
-	//adc: adc@41011000 {
-	//	compatible = "realtek,ameba-adc";
-	//	reg = <0x41011000 0xB8>;
-	//	clocks = <&rcc AMEBA_ADC_CLK>;
-	//	interrupts = <47 0>;
-	//	channel-count = <7>;
-	//	#io-channel-cells = <1>;
-	//	status = "disabled";
-	//};
+	adc: adc@40812000 {
+		compatible = "realtek,ameba-adc";
+		reg = <0x40812000 0x100>;
+		clocks = <&rcc AMEBA_ADC_CLK>;
+		interrupts = <42 0>;
+		channel-count = <8>;
+		#io-channel-cells = <1>;
+		status = "disabled";
+	};
 
 	//ctc: ctc@41012000 {
 	//	compatible = "realtek,ameba-captouch";
