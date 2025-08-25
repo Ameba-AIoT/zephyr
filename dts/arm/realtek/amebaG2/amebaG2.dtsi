@@ -369,14 +369,14 @@
 		//	status = "disabled";
 		//};
 
-		//rtc: rtc@41008a00 {
-		//	compatible = "realtek,ameba-rtc";
-		//	reg = <0x41008a00 0x30>;
-		//	clocks = <&rcc AMEBA_RTC_CLK>;
-		//	interrupts = <46 0>;
-		//	alarms-count = <1>;
-		//	status = "disabled";
-		//};
+		rtc: rtc@4080aa00 {
+			compatible = "realtek,ameba-rtc";
+			reg = <0x4080aa00 0x30>;
+			clocks = <&rcc AMEBA_RTC_CLK>;
+			interrupts = <41 0>;
+			alarms-count = <1>;
+			status = "disabled";
+		};
 
 		trng: trng@41001000 {
 			compatible = "realtek,ameba-trng";

@@ -155,6 +155,10 @@
 	status = "okay";
 };
 
+&rtc {
+	status = "okay";
+};
+
 &gpioa {
 	status = "okay";
 };

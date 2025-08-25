@@ -25,7 +25,7 @@
 	aliases {
 		// i2c-0 = &i2c0;
 		// led-strip =&ledc;
-		// rtc = &rtc;
+		rtc = &rtc;
 		sw0 = &button0;
 		// watchdog0 = &wdg;
 		// pwm-0 = &pwm0;
@@ -165,6 +165,10 @@
 //};
 
 &trng {
+	status = "okay";
+};
+
+&rtc {
 	status = "okay";
 };
 

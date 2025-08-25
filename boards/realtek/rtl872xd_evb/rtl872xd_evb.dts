@@ -123,6 +123,10 @@
 	status = "okay";
 };
 
+&rtc {
+	status = "okay";
+};
+
 &timer0 {
 	status = "okay";
 };

@@ -217,6 +217,8 @@ static int rtc_ameba_init(const struct device *dev)
 		return -EIO;
 	}
 
+	RTC_Enable(ENABLE);
+
 	k_mutex_init(&data->lock);
 
 	err = rtc_ameba_configure(dev);
@@ -377,7 +379,7 @@ static uint8_t rtc_ameba_validate_alarm_time(const struct rtc_time *timeptr, uin
 		}
 
 		if ((mask & RTC_ALARM_TIME_MASK_YEARDAY) &&
-		    (timeptr->tm_yday < 0 || timeptr->tm_yday > 0x1FF)) {
+		    (timeptr->tm_yday < 0 || timeptr->tm_yday > 365)) {
 			return false;
 		}
 	} else {
