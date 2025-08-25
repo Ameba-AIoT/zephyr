@@ -175,10 +175,6 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 	ret = rltk_wlan_send(idx, pkt, pkt_len);
 #endif
 
-	if (ret != 0) {
-		LOG_ERR("send  error %d\r\n", ret);
-	}
-
 	return ret;
 }
 
