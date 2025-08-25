@@ -175,21 +175,30 @@
 		//	status = "disabled";
 		//};
 
-		//gpioa: gpio@41010000 {
-		//	compatible = "realtek,ameba-gpio";
-		//	reg = <0x41010000 0x400>;
-		//	gpio-controller;
-		//	#gpio-cells = <2>;
-		//	interrupts = <28 0>;
-		//	status = "disabled";
-		//};
+		gpioa: gpio@40811000 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x40811000 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <25 0>;
+			status = "disabled";
+		};
 
-		//gpiob: gpio@41010400 {
+		gpiob: gpio@40811400 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x40811400 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <26 0>;
+			status = "disabled";
+		};
+
+		//	gpioc: gpio@40811800 {
 		//	compatible = "realtek,ameba-gpio";
-		//	reg = <0x41010400 0x400>;
+		//	reg = <0x40811800 0x400>;
 		//	gpio-controller;
 		//	#gpio-cells = <2>;
-		//	interrupts = <29 0>;
+		//	interrupts = <27 0>;
 		//	status = "disabled";
 		//};
 
