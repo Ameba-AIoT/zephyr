@@ -84,10 +84,12 @@ enum rtk_state_flag {
 };
 
 void wifi_init(void);
-int wifi_get_setting(unsigned char wlan_idx, struct _rtw_wifi_setting_t *psetting);
 int wifi_get_scan_records(unsigned int *AP_num, char *scan_buf);
 int wifi_get_mac_address(int idx, struct _rtw_mac_t *mac, u8 efuse);
 int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len);
 int rltk_wlan_send(int idx, void *pkt_addr, uint32_t len);
 int whc_host_send_zephyr(int idx, void *pkt_addr, uint32_t len);
 void wlan_int_enable(void);
+int wifi_get_setting_zephyr(u8 idx, char *ssid, u8 *ssid_len, char *bssid, int *channel,
+				 u8 *security);
+int wifi_start_ap_zephyr(u8 *ssid, u8 ssid_len, u8 *psk, u8 psk_len, u8 channel, u8 wpa3_en);

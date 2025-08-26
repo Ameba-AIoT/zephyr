@@ -24,10 +24,6 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 static struct net_if *ameba_wifi_iface[2];
 static struct ameba_wifi_runtime ameba_data;
 
-/* global para for wifi connect and ap info now */
-_Alignas(4) static struct _rtw_softap_info_t ap = {0};
-static unsigned char password[129] = {0};
-
 extern void (*p_wifi_join_info_free)(u8 iface_type);
 
 K_MSGQ_DEFINE(ameba_wifi_msgq, sizeof(struct ameba_system_event), 10, 4);
@@ -36,7 +32,6 @@ K_THREAD_STACK_DEFINE(ameba_wifi_event_stack, WIFI_EVENT_STACK_SIZE);
 static struct k_thread ameba_wifi_event_thread;
 /* for add dhcp callback in mgmt_thread in net_mgmt */
 static struct net_mgmt_event_callback ameba_dhcp_cb = {0};
-char ip_addr_str[MAX_IP_ADDR_LEN];
 
 #ifndef CONFIG_SINGLE_CORE_WIFI
 extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
@@ -111,6 +106,7 @@ void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event, str
 {
 	struct net_if_addr *if_addr;
 	struct in_addr ip_addr;
+	char ip_addr_str[MAX_IP_ADDR_LEN];
 
 	if (mgmt_event == NET_EVENT_IPV4_ADDR_ADD) {
 		if_addr = net_if_ipv4_addr_add(net_if_get_default(), &ip_addr, NET_ADDR_DHCP, 0);
@@ -464,25 +460,18 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	/* Build Wi-Fi configuration for AP mode */
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
 	data->status.ssid[params->ssid_length] = '\0';
-	strncpy((char *)ap.ssid.val, params->ssid, params->ssid_length);
-	ap.ssid.len = params->ssid_length;
-	ap.channel = params->channel;
 
-	if (params->psk_length == 0) {
-		ap.password_len = 0;
-		ap.security_type = RTW_SECURITY_OPEN;
+	if (params->sae_password_length) {
+		ret = wifi_start_ap_zephyr((u8 *)params->ssid, params->ssid_length,
+					   (u8 *)params->sae_password, params->sae_password_length,
+					   params->channel, 1);
 	} else {
-		strncpy((char *)password, params->psk, params->psk_length);
-		ap.password = password;
-		ap.password_len = params->psk_length;
-		ap.security_type = RTW_SECURITY_WPA2_AES_PSK;
+		ret = wifi_start_ap_zephyr((u8 *)params->ssid, params->ssid_length,
+					   (u8 *)params->psk, params->psk_length, params->channel,
+					   0);
 	}
 
-	/* Start Wi-Fi in AP mode */
-	wifi_stop_ap();
-
-	ret = wifi_start_ap(&ap);
-	if (ret < 0) {
+	if (ret) {
 		LOG_ERR("Failed to enable Wi-Fi AP mode");
 		return -EAGAIN;
 	}
@@ -505,69 +494,20 @@ int ameba_wifi_ap_disable(const struct device *dev)
 
 static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status *status)
 {
-	struct ameba_wifi_runtime *data = dev->data;
-	struct _rtw_wifi_setting_t *p_wifi_setting = NULL;
+	int idx = 0;
 
-	p_wifi_setting =
-		(struct _rtw_wifi_setting_t *)rtos_mem_zmalloc(sizeof(struct _rtw_wifi_setting_t));
-	if (!p_wifi_setting) {
-		return -ENOSR;
-	}
+	wifi_get_setting_zephyr(idx, status->ssid, (u8 *)&status->ssid_len, status->bssid,
+				&status->channel, NULL);
 
-	wifi_get_setting(0, p_wifi_setting);
-
-	strncpy(status->ssid, p_wifi_setting->ssid, WIFI_SSID_MAX_LEN);
-	memcpy(status->bssid, p_wifi_setting->bssid, WIFI_MAC_ADDR_LEN);
-	status->channel = p_wifi_setting->channel;
-
-	switch (data->state) {
-	case RTK_STA_STOPPED:
-	case RTK_AP_STOPPED:
-		status->state = WIFI_STATE_INACTIVE;
-		break;
-	case RTK_STA_STARTED:
-	case RTK_AP_DISCONNECTED:
-		status->state = WIFI_STATE_DISCONNECTED;
-		break;
-	case RTK_STA_CONNECTING:
-		status->state = WIFI_STATE_SCANNING;
-		break;
-	case RTK_STA_CONNECTED:
-	case RTK_AP_CONNECTED:
-		status->state = WIFI_STATE_COMPLETED;
-		break;
-	default:
-		break;
+	if (status->channel > 11) {
+		status->band = WIFI_FREQ_BAND_2_4_GHZ;
+	} else {
+		status->band = WIFI_FREQ_BAND_5_GHZ;
 	}
 
 	/* zephyr wifi todo, get iface */
-	status->ssid_len = strnlen(data->status.ssid, WIFI_SSID_MAX_LEN);
-	/* todo */
-	status->band = WIFI_FREQ_BAND_2_4_GHZ;
 	status->link_mode = WIFI_LINK_MODE_UNKNOWN;
 	status->mfp = WIFI_MFP_DISABLE;
-
-	switch (p_wifi_setting->security_type) {
-	case RTW_SECURITY_OPEN:
-		status->security = WIFI_SECURITY_TYPE_NONE;
-		break;
-	case RTW_SECURITY_WPA2_AES_PSK:
-	case RTW_SECURITY_WPA2_MIXED_PSK:
-	case RTW_SECURITY_WPA_WPA2_AES_PSK:
-	case RTW_SECURITY_WPA_AES_PSK:
-	case RTW_SECURITY_WPA_MIXED_PSK:
-	case RTW_SECURITY_WPA_WPA2_MIXED_PSK:
-		status->security = WIFI_SECURITY_TYPE_PSK;
-		break;
-	case RTW_SECURITY_WPA3_AES_PSK:
-		status->security = WIFI_SECURITY_TYPE_SAE;
-		break;
-	default:
-		status->security = WIFI_SECURITY_TYPE_UNKNOWN;
-		break;
-	}
-
-	rtos_mem_free(p_wifi_setting);
 
 	return 0;
 }
