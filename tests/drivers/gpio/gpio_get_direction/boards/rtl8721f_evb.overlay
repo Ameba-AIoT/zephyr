@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		led0 = &led_A26;
+	};
+
+	gpio-led {
+		compatible = "gpio-leds";
+		led_A26: led_A26 {
+			gpios = <&gpioa 26 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&gpioa {
+	status = "okay";
+};

@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		led0 = &led_0;
+	};
+
+	gpio-led {
+		compatible = "gpio-leds";
+		led_0: led_0 {
+			gpios = <&gpioa 25 0>;
+		};
+	};
+};

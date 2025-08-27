@@ -48,7 +48,8 @@ static int gpio_ameba_port_set_masked_raw(const struct device *dev, uint32_t mas
 {
 	const struct gpio_ameba_config *cfg = dev->config;
 
-	GPIO_PortDirection(cfg->port, mask, GPIO_Mode_OUT);
+	/* GPIO_PortDirection(cfg->port, mask, GPIO_Mode_OUT); */
+
 	GPIO_PortWrite(cfg->port, mask, value);
 
 	return 0;
@@ -139,6 +140,82 @@ static int gpio_ameba_configure(const struct device *dev, gpio_pin_t pin, gpio_f
 	return 0;
 }
 
+#ifdef CONFIG_GPIO_GET_CONFIG
+static int gpio_ameba_get_config(const struct device *dev, gpio_pin_t pin, gpio_flags_t *out_flags)
+{
+	gpio_flags_t flag = 0;
+
+	const struct gpio_ameba_config *cfg = dev->config;
+	int port = cfg->port;
+
+	uint32_t pin_name = GPIO_PINNAME(port, pin);
+
+	uint32_t dir = GPIO_DirectionGet(port, BIT(pin));
+	uint32_t out_val = GPIO_ReadDataBit(pin_name);
+
+	if (dir == GPIO_Mode_OUT) {
+		flag |= GPIO_OUTPUT;
+
+		if (out_val == GPIO_PIN_HIGH) {
+			flag |= GPIO_OUTPUT_HIGH;
+		} else {
+			flag |= GPIO_OUTPUT_LOW;
+		}
+
+	} else {
+		flag |= GPIO_INPUT;
+		uint32_t pull_type = PAD_PullCtrlGet(pin_name);
+
+		if (pull_type == GPIO_PuPd_UP) {
+			flag |= GPIO_PULL_UP;
+		} else if (pull_type == GPIO_PuPd_DOWN) {
+			flag |= GPIO_PULL_DOWN;
+		}
+		/* flag |= GPIO_NO_PULL; */
+	}
+
+	*out_flags = flag;
+
+	return 0;
+}
+
+#endif
+
+#ifdef CONFIG_GPIO_GET_DIRECTION
+int gpio_ameba_get_direction(const struct device *dev, gpio_port_pins_t map,
+			     gpio_port_pins_t *inputs, gpio_port_pins_t *outputs)
+{
+	const struct gpio_ameba_config *cfg = dev->config;
+	int port = cfg->port;
+	gpio_port_pins_t ip = 0;
+	gpio_port_pins_t op = 0;
+
+	map &= cfg->common.port_pin_mask;
+
+	for (uint8_t pin = 0; pin < 32; pin++) {
+		/* check pin whether exists in pin_mask */
+		if (map & BIT(pin)) {
+			uint32_t pin_mask = BIT(pin);
+
+			/* get pin direction */
+			uint32_t dir = GPIO_DirectionGet(port, pin_mask);
+
+			/* update dir for inputs and outputs */
+			if (dir == GPIO_Mode_OUT) {
+				op |= pin_mask;
+			} else {
+				ip |= pin_mask;
+			}
+		}
+	}
+
+	*inputs = ip;
+	*outputs = op;
+
+	return 0;
+}
+#endif
+
 static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin_t pin,
 					      enum gpio_int_mode mode, enum gpio_int_trig trig)
 {
@@ -153,21 +230,24 @@ static int gpio_ameba_pin_interrupt_configure(const struct device *dev, gpio_pin
 	GPIO_INTConfig(gpio_pin, DISABLE);
 
 	LOG_DBG("Config GPIO int:%d-%d, mode:%x, flag:0x%x\n", cfg->port, pin, mode, trig);
+
 	gpio_initstruct.GPIO_Pin = gpio_pin;
 	gpio_initstruct.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	gpio_initstruct.GPIO_Mode = GPIO_Mode_INT;
 	gpio_initstruct.GPIO_ITDebounce = GPIO_INT_DEBOUNCE_DISABLE;
 
 	if (mode != GPIO_INT_MODE_DISABLED) {
-		if (mode & GPIO_INT_MODE_EDGE) {
+		if (mode == GPIO_INT_MODE_EDGE) {
 			switch (trig) {
 			case GPIO_INT_TRIG_LOW:
 				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
 				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_LOW;
+				gpio_initstruct.GPIO_PuPd = GPIO_PuPd_UP;
 				break;
 			case GPIO_INT_TRIG_HIGH:
 				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_EDGE;
 				gpio_initstruct.GPIO_ITPolarity = GPIO_INT_POLARITY_ACTIVE_HIGH;
+				gpio_initstruct.GPIO_PuPd = GPIO_PuPd_DOWN;
 				break;
 			case GPIO_INT_TRIG_BOTH:
 				gpio_initstruct.GPIO_ITTrigger = GPIO_INT_Trigger_BOTHEDGE;
@@ -251,6 +331,9 @@ static void gpio_ameba_isr(const struct device *dev)
 
 static const struct gpio_driver_api gpio_ameba_driver_api = {
 	.pin_configure = gpio_ameba_configure,
+#ifdef CONFIG_GPIO_GET_CONFIG
+	.pin_get_config = gpio_ameba_get_config,
+#endif
 	.port_get_raw = gpio_ameba_port_get_raw,
 	.port_set_masked_raw = gpio_ameba_port_set_masked_raw,
 	.port_set_bits_raw = gpio_ameba_port_set_bits_raw,
@@ -259,6 +342,9 @@ static const struct gpio_driver_api gpio_ameba_driver_api = {
 	.pin_interrupt_configure = gpio_ameba_pin_interrupt_configure,
 	.manage_callback = gpio_ameba_manage_callback,
 	.get_pending_int = gpio_ameba_get_pending_int,
+#ifdef CONFIG_GPIO_GET_DIRECTION
+	.port_get_direction = gpio_ameba_get_direction,
+#endif
 };
 
 #define GPIO_AMEBA_INIT(n)                                                                         \

@@ -26,28 +26,28 @@
 		i2c-0 = &i2c0;
 		// led-strip =&ledc;
 		rtc = &rtc;
-		sw0 = &button0;
+		// sw0 = &button0;
 		// watchdog0 = &wdg;
 		// pwm-0 = &pwm0;
-		led0 = &green_led_4;
+		// led0 = &green_led_4;
 	};
 
-	buttons {
-		compatible = "gpio-keys";
-		button0: button_0 {
-			gpios = < &gpioa 25 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
-			label = "User button";
-			zephyr,code = <INPUT_KEY_4>;
-		};
-	};
+	//buttons {
+	//	compatible = "gpio-keys";
+	//	button0: button_0 {
+	//		gpios = < &gpioa 25 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+	//		label = "User button";
+	//		zephyr,code = <INPUT_KEY_4>;
+	//	};
+	//};
 
-	leds {
-		compatible = "gpio-leds";
-		green_led_4: led_4 {
-			gpios = <&gpioa 26 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
-			label = "User LD4";
-		};
-	};
+	//leds {
+	//	compatible = "gpio-leds";
+	//	green_led_4: led_4 {
+	//		gpios = <&gpioa 26 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+	//		label = "User LD4";
+	//	};
+	//};
 
 };
 
