@@ -21,6 +21,10 @@ u32 SOC_OSC131_Enable(void)
 {
 	u32 temp;
 
+	if (RCC_PeriphClockEnableChk(APBPeriph_RTC_CLOCK)) {
+		return 0;
+	}
+
 	while (0 == RTC_GetDetintr()) {
 	}
 	RTC_ClearDetINT();

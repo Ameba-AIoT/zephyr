@@ -57,10 +57,6 @@ static int wdt_ameba_setup(const struct device *dev, uint8_t options)
 	struct wdt_ameba_data *data = dev->data;
 	WDG_InitTypeDef WDG_initstruct;
 
-	if (options == WDT_OPT_PAUSE_HALTED_BY_DBG) {
-		LOG_ERR("pausing watchdog by debugger is not supported\n");
-		return -ENOTSUP;
-	}
 	if (data->timeout == 0) {
 		LOG_ERR("timeout illegal!\n");
 		return -ENOTSUP;

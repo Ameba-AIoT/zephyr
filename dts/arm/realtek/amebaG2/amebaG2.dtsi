@@ -416,14 +416,14 @@
 		//	status = "disabled";
 		//};
 
-		///* wdg2 - km4_ns */
-		//wdg: watchdog@41008d80 {
-		//	compatible = "realtek,ameba-watchdog";
-		//	reg = <0x41008d80 0x20>;
-		//	interrupts = <65 0>;
-		//	early_int_cnt = <500>;
-		//	status = "disabled";
-		//};
+		/* wdg2 - km4_tz ns_wdg */
+		wdg: watchdog@4080ad80 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x4080ad80 0x20>;
+			interrupts = <69 0>;
+			early_int_cnt = <500>;
+			status = "disabled";
+		};
 
 		spic: flash-controller@4011d000 {
 			compatible = "realtek,ameba-flash-controller";
