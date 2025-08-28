@@ -35,6 +35,7 @@ struct pwm_ameba_data {
 	u16 prescale;
 	bool CC_polarity;
 	u32 channel_idx;
+	u32 port_count;
 #ifdef CONFIG_PWM_CAPTURE
 	struct pwm_ameba_capture_data capture[PWM_CHAN_MAX];
 #endif /* CONFIG_PWM_CAPTURE */
@@ -69,6 +70,11 @@ static int pwm_ameba_set_cycles(const struct device *dev, uint32_t channel_idx,
 	const struct pwm_ameba_config *config = dev->config;
 	struct pwm_ameba_data *data = dev->data;
 	TIM_CCInitTypeDef TIM_CCInitStruct;
+
+	if (channel_idx >= data->port_count) {
+		LOG_ERR("invalid channel_idx!");
+		return -EINVAL;
+	}
 
 	data->CC_polarity = (flags & AMEBA_PWM_POLARITY);
 	RTIM_CCStructInit(&TIM_CCInitStruct);
@@ -112,6 +118,11 @@ static int pwm_ameba_configure_capture(const struct device *dev, uint32_t channe
 	struct pwm_ameba_data *data = dev->data;
 	TIM_CCInitTypeDef TIM_CCInitStruct;
 
+	if (channel_idx >= data->port_count) {
+		LOG_ERR("invalid channel_idx!");
+		return -EINVAL;
+	}
+
 	RTIM_CCStructInit(&TIM_CCInitStruct);
 	TIM_CCInitStruct.TIM_CCMode = TIM_CCMode_Inputcapture;
 	if (flags & AMEBA_PWM_POLARITY) {
@@ -135,6 +146,12 @@ static int pwm_ameba_configure_capture(const struct device *dev, uint32_t channe
 static int pwm_ameba_disable_capture(const struct device *dev, uint32_t channel_idx)
 {
 	const struct pwm_ameba_config *config = dev->config;
+	struct pwm_ameba_data *data = dev->data;
+
+	if (channel_idx >= data->port_count) {
+		LOG_ERR("invalid channel_idx!");
+		return -EINVAL;
+	}
 
 	RTIM_CCxCmd(config->pwm_timer, channel_idx, TIM_CCx_Disable);
 
@@ -274,6 +291,7 @@ static const struct pwm_driver_api pwm_ameba_api = {
 	IRQ_CONFIG_FUNC(n);                                                                        \
 	static struct pwm_ameba_data pwm_ameba_data_##n = {                                        \
 		.prescale = DT_INST_PROP(n, prescale),                                             \
+		.port_count = DT_INST_PROP(n, channel_count),                                      \
 	};                                                                                         \
 	static const struct pwm_ameba_config pwm_ameba_config_##n = {                              \
 		.pwm_timer = (RTIM_TypeDef *)DT_INST_REG_ADDR(n),                                  \
