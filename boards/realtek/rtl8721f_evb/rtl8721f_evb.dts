@@ -27,7 +27,7 @@
 		// led-strip =&ledc;
 		rtc = &rtc;
 		// sw0 = &button0;
-		// watchdog0 = &wdg;
+		watchdog0 = &wdg;
 		pwm-0 = &pwm0;
 		// led0 = &green_led_4;
 	};
@@ -160,9 +160,9 @@
 //	status = "okay";
 //};
 
-//&wdg {
-//	status = "okay";
-//};
+&wdg {
+	status = "okay";
+};
 
 &trng {
 	status = "okay";
