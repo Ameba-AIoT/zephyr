@@ -17,13 +17,17 @@ properties:
   prescale:
     type: int
     required: true
-    description: |
-      16 bit timer prescale for the global clock.
+    description: 16 bit timer prescale for the global clock.
 
   clock-frequency:
     type: int
     default: 40000000
     description: clock-frequency of PWM timer clk source
+
+  channel-count:
+    type: int
+    required: true
+    description: pwm channel count
 
   "#pwm-cells":
     const: 3

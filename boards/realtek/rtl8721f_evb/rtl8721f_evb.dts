@@ -28,7 +28,7 @@
 		rtc = &rtc;
 		// sw0 = &button0;
 		// watchdog0 = &wdg;
-		// pwm-0 = &pwm0;
+		pwm-0 = &pwm0;
 		// led0 = &green_led_4;
 	};
 
@@ -147,12 +147,12 @@
 //	status = "okay";
 //};
 
-//&pwm0 {
-//	pinctrl-0 = <&pwm0_default>;
-//	pinctrl-names = "default";
-//	prescale = <255>;
-//	status = "okay";
-//};
+&pwm0 {
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
+	prescale = <255>;
+	status = "okay";
+};
 
 //&ledc {
 //	pinctrl-names = "default";
