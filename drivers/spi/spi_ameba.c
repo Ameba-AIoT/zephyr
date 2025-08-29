@@ -45,6 +45,7 @@ struct spi_ameba_config {
 
 	/* pinctrl info */
 	const struct pinctrl_dev_config *pcfg;
+
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
 	void (*irq_configure)();
 #endif
@@ -289,35 +290,17 @@ static void spi_ameba_isr(struct device *dev)
 	int err = 0;
 
 	uint32_t int_mask = SPI_GetINTConfig(spi);
-
-	LOG_INF("[ISR] int_mask 0X%x \r\n", int_mask);
-
-#if 0
-	err = spi_ameba_get_err(cfg);
-	if (err) {
-		spi_ameba_complete(dev, err);
-		return;
-	}
-
-	if (spi_ameba_transfer_ongoing(data)) {
-		err = spi_ameba_frame_exchange(dev);
-	}
-
-	if (err || !spi_ameba_transfer_ongoing(data)) {
-		spi_ameba_complete(dev, err);
-	}
-#else
+	LOG_DBG("[ISR] int_mask 0X%x \r\n", int_mask);
 
 	uint32_t int_status = SSI_GetIsr(spi);
-
 	SSI_SetIsrClean(spi, int_status);
 
 	if (int_status & (SPI_BIT_TXOIS | SPI_BIT_RXUIS | SPI_BIT_RXOIS | SPI_BIT_TXUIS)) {
-		LOG_INF("[INT] InterruptStatus %x\n", int_status);
+		LOG_DBG("[INT] InterruptStatus %x\n", int_status);
 	}
 
 	if (int_status & SPI_BIT_RXFIS) {
-		LOG_INF("[ISR] RXFIS\r\n");
+		LOG_DBG("[ISR] RXFIS\r\n");
 		spi_ameba_receive_data(dev);
 
 		if (!spi_context_rx_on(ctx)) {
@@ -326,7 +309,7 @@ static void spi_ameba_isr(struct device *dev)
 	}
 
 	if (int_status & SPI_BIT_TXEIS) {
-		LOG_INF("[ISR] TXEIS\r\n");
+		LOG_DBG("[ISR] TXEIS\r\n");
 		spi_ameba_send_data(dev);
 
 		if (!spi_context_tx_on(ctx)) {
@@ -337,7 +320,6 @@ static void spi_ameba_isr(struct device *dev)
 	if (!spi_ameba_transfer_ongoing(data)) {
 		spi_ameba_complete(dev, err);
 	}
-#endif
 }
 #endif /* CONFIG_SPI_AMEBA_INTERRUPT */
 
@@ -431,9 +413,11 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 									 : SCPOL_INACTIVE_IS_LOW));
 	SSI_SetDataFrameSize(spi, (SPI_WORD_SIZE_GET(spi_cfg->operation) - 1)); /* DataFrameSize */
 
-	/* set frequency */
-	bus_freq = 100000000;
-	SSI_SetBaudDiv(spi, bus_freq / spi_cfg->frequency);
+	if (!(spi_ameba_is_slave(data))) {
+		/* set frequency */
+		bus_freq = 100000000;
+		SSI_SetBaudDiv(spi, bus_freq / spi_cfg->frequency);
+	}
 
 	/* DiagPrintf("spi_ameba_configure line%d cfgfreq %d div %d \r\n", __LINE__,
 	 * spi_cfg->frequency, clk_div);
@@ -486,8 +470,9 @@ static int spi_ameba_transceive_impl(const struct device *dev, const struct spi_
 			int_mask |= SPI_BIT_RXFIM;
 		}
 
-		DiagPrintf("Set int_mask 0x%x \r\n", int_mask);
-		SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, ENABLE);
+		LOG_DBG("Set int_mask 0x%x \r\n", int_mask);
+		/* SSI_INTConfig(spi, SPI_BIT_TXEIM | SPI_BIT_RXFIM, ENABLE); */
+		SSI_INTConfig(spi, int_mask, ENABLE);
 	}
 
 	/* slave take sema forever, master take sema by timeout */
@@ -537,10 +522,12 @@ static int spi_ameba_init(const struct device *dev)
 	const struct spi_ameba_config *cfg = dev->config;
 	int ret;
 
+	/* check clock device */
 	if (!cfg->clock_dev) {
 		return -EINVAL;
 	}
 
+	/* pinmux config */
 	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret) {
 		LOG_ERR("Failed to apply pinctrl state");
@@ -559,6 +546,7 @@ static int spi_ameba_init(const struct device *dev)
 	}
 
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
+	/* register ISR and enable IRQn */
 	cfg->irq_configure(dev);
 #endif
 
@@ -580,15 +568,21 @@ static int spi_ameba_transceive_async(const struct device *dev, const struct spi
 				      const struct spi_buf_set *rx_bufs, spi_callback_t cb,
 				      void *userdata)
 {
-	return transceive(dev, spi_cfg, tx_bufs, rx_bufs, true, cb, userdata);
+	return spi_ameba_transceive_impl(dev, spi_cfg, tx_bufs, rx_bufs, true, cb, userdata);
 }
 #endif /* CONFIG_SPI_ASYNC */
 
-static const struct spi_driver_api ameba_spi_api = {.transceive = spi_ameba_transceive,
+static const struct spi_driver_api ameba_spi_api = {
+	.transceive = spi_ameba_transceive,
 #ifdef CONFIG_SPI_ASYNC
-						    .transceive_async = spi_ameba_transceive_async,
-#endif
-						    .release = spi_ameba_release};
+	.transceive_async = spi_ameba_transceive_async,
+#endif /* CONFIG_SPI_ASYNC */
+
+#ifdef CONFIG_SPI_RTIO
+	.iodev_submit = spi_rtio_iodev_default_submit,
+#endif /* CONFIG_SPI_RTIO */
+	.release = spi_ameba_release,
+};
 
 #define AMEBA_SPI_IRQ_CONFIGURE(n)                                                                 \
 	static void spi_ameba_irq_configure_##n(void)                                              \
@@ -619,8 +613,8 @@ static const struct spi_driver_api ameba_spi_api = {.transceive = spi_ameba_tran
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
 		IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, \
-			(.irq_configure = spi_ameba_irq_configure_##n)) };                        \
-                                                                                                   \
+			(.irq_configure = spi_ameba_irq_configure_##n)),                          \
+	};                                                                                         \
 	DEVICE_DT_INST_DEFINE(n, &spi_ameba_init, NULL, &spi_ameba_data_##n,                       \
 			      &spi_ameba_config_##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,        \
 			      &ameba_spi_api);

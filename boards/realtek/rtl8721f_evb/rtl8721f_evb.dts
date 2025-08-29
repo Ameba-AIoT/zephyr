@@ -105,12 +105,21 @@
 	status = "okay";
 };
 
-//&spi1 {
-//	pinctrl-0 = <&spi1_default>;
-//	pinctrl-names = "default";
-//	rtk,spi-default-cs = <0>;
-//	status = "okay";
-//};
+&spi0 {
+	pinctrl-0 = <&spi0_default>;
+	pinctrl-names = "default";
+	//clock-frequency = <1000000>;
+	//rtk,spi-default-cs = <0>;
+	status = "disabled";
+};
+
+&spi1 {
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	//clock-frequency = <1000000>;
+	//rtk,spi-default-cs = <0>;
+	status = "disabled";
+};
 
 &i2c0 {
 	pinctrl-0 = <&i2c0_default>;

@@ -127,25 +127,25 @@
 			status = "disabled";
 		};
 
-		//spi0: spi@40124000 {
-		//	compatible = "realtek,ameba-spi";
-		//	reg = <0x40124000 0x100>;
-		//	interrupts = <42 0>;
-		//	clocks = <&rcc AMEBA_SPI0_CLK>;
-		//	#address-cells = <1>;
-		//	#size-cells = <0>;
-		//	status = "disabled";
-		//};
+		spi0: spi@40121000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x40121000 0x100>;
+			interrupts = <38 0>;
+			clocks = <&rcc AMEBA_SPI0_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 
-		//spi1: spi@40125000 {
-		//	compatible = "realtek,ameba-spi";
-		//	reg = <0x40125000 0x100>;
-		//	interrupts = <43 0>;
-		//	clocks = <&rcc AMEBA_SPI1_CLK>;
-		//	#address-cells = <1>;
-		//	#size-cells = <0>;
-		//	status = "disabled";
-		//};
+		spi1: spi@40122000 {
+			compatible = "realtek,ameba-spi";
+			reg = <0x40122000 0x100>;
+			interrupts = <39 0>;
+			clocks = <&rcc AMEBA_SPI1_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 
 		i2c0: i2c0@41008000 {
 			compatible = "realtek,ameba-i2c";
