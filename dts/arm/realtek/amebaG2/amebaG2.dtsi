@@ -434,15 +434,25 @@
 			status = "disabled";
 		};
 
-	adc: adc@40812000 {
-		compatible = "realtek,ameba-adc";
-		reg = <0x40812000 0x100>;
-		clocks = <&rcc AMEBA_ADC_CLK>;
-		interrupts = <42 0>;
-		channel-count = <8>;
-		#io-channel-cells = <1>;
-		status = "disabled";
-	};
+		adc: adc@40812000 {
+			compatible = "realtek,ameba-adc";
+			reg = <0x40812000 0x100>;
+			clocks = <&rcc AMEBA_ADC_CLK>;
+			interrupts = <42 0>;
+			channel-count = <8>;
+			#io-channel-cells = <1>;
+			status = "disabled";
+		};
+
+		lcdc: lcdc@40100000 {
+			compatible = "realtek,ameba-lcdc";
+			reg = <0x40100000 0x100>;
+			clocks = <&rcc AMEBA_LCDC_CLK>;
+			interrupts = <49 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 
 	//ctc: ctc@41012000 {
 	//	compatible = "realtek,ameba-captouch";

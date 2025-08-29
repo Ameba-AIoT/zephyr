@@ -20,6 +20,7 @@
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
+		zephyr,display = &ili9341;
 	};
 
 	aliases {
@@ -205,5 +206,19 @@
 };
 
 &dma {
+	status = "okay";
+};
+
+&lcdc {
+	ili9341: ili9341@0 {
+		compatible = "ilitek,ili9341";
+		mipi-max-frequency = <25000000>;
+		pixel-format = <0>;
+		reg = <0>;
+		rotation = <270>;
+		width = <320>;
+		height = <240>;
+	};
+
 	status = "okay";
 };

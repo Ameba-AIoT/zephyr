@@ -62,12 +62,13 @@ extern "C" {
 #define AMEBA_I2C0_CLK  33
 #define AMEBA_I2C1_CLK  34
 #define AMEBA_TRNG_CLK  35
+#define AMEBA_LCDC_CLK  36
 
 /* misc clocks */
-#define AMEBA_BTON_CLK 36
-#define AMEBA_PKE_CLK  37
+#define AMEBA_BTON_CLK 37
+#define AMEBA_PKE_CLK  38
 
-#define AMEBA_CLK_MAX 38 /* clk idx max */
+#define AMEBA_CLK_MAX 39 /* clk idx max */
 
 #define AMEBA_NUMERICAL_PERIPH(name, n)                                                            \
 	[AMEBA_##name##n##_CLK] = {                                                                \
@@ -130,6 +131,7 @@ extern "C" {
 #define AMEBA_AC_PERIPHS      AMEBA_SINGLE_PERIPH(AC)         /* AMEBA_AC_CLK */
 #define AMEBA_IRDA_PERIPHS    AMEBA_SINGLE_PERIPH(IRDA)       /* AMEBA_IRDA_CLK */
 #define AMEBA_TRNG_PERIPHS    AMEBA_SINGLE_PERIPH(TRNG)       /* AMEBA_TRNG_CLK */
+#define AMEBA_LCDC_PERIPHS    AMEBA_SINGLE_PERIPH(LCDC)       /* AMEBA_LCDC_CLK */
 #define AMEBA_RTC_PERIPHS     AMEBA_SINGLE_PERIPH_NO_FEN(RTC) /* AMEBA_RTC_CLK */
 #define AMEBA_LEDC_PERIPHS    AMEBA_SINGLE_PERIPH(LEDC)       /* AMEBA_LEDC_CLK */
 #define AMEBA_ADC_PERIPHS     AMEBA_SINGLE_PERIPH(ADC)        /* AMEBA_ADC_CLK */
@@ -156,6 +158,7 @@ extern "C" {
 	AMEBA_AC_PERIPHS                                                                           \
 	AMEBA_I2C_PERIPHS                                                                          \
 	AMEBA_TRNG_PERIPHS                                                                         \
+	AMEBA_LCDC_PERIPHS                                                                         \
 	AMEBA_BTON_PERIPHS
 
 #ifdef __cplusplus

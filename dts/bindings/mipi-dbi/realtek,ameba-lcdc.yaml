@@ -1,0 +1,17 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Ameba LCDC Display Controller.
+compatible: "realtek,ameba-lcdc"
+
+include: ["mipi-dbi-controller.yaml", "pinctrl-device.yaml"]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  clocks:
+    required: true

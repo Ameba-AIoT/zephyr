@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+zephyr_sources_ifdef(CONFIG_MIPI_DBI_LCDC_AMEBA mipi_dbi_lcdc_ameba.c)
 zephyr_sources_ifdef(CONFIG_MIPI_DBI_SPI mipi_dbi_spi.c)
 zephyr_sources_ifdef(CONFIG_MIPI_DBI_BITBANG mipi_dbi_bitbang.c)
 zephyr_sources_ifdef(CONFIG_MIPI_DBI_SMARTBOND mipi_dbi_smartbond.c)
