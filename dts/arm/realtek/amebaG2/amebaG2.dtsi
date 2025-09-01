@@ -476,6 +476,11 @@
 			status = "disabled";
 		};
 	};
+
+	bt: bt {
+		compatible = "realtek,ameba-bt-hci";
+		status = "disabled";
+	};
 };
 
 &nvic {

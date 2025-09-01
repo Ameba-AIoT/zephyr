@@ -453,6 +453,11 @@
 			reg = <0x40000000 0x80000>;
 			status = "disabled";
 		};
+
+		bt: bt {
+			compatible = "realtek,ameba-bt-hci";
+			status = "disabled";
+		};
 	};
 };
 

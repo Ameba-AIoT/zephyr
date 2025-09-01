@@ -21,6 +21,7 @@
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
 		zephyr,display = &ili9341;
+		zephyr,bt-hci = &bt;
 	};
 
 	aliases {
@@ -229,5 +230,9 @@
 		height = <240>;
 	};
 
+	status = "okay";
+};
+
+&bt {
 	status = "okay";
 };
