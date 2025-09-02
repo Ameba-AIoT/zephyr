@@ -21,7 +21,6 @@ config MIPI_DBI_INIT_PRIORITY
 	help
 	  MIPI-DBI Host Controllers initialization priority.
 
-source "drivers/mipi_dbi/Kconfig.ameba"
 source "drivers/mipi_dbi/Kconfig.spi"
 source "drivers/mipi_dbi/Kconfig.bitbang"
 source "drivers/mipi_dbi/Kconfig.smartbond"

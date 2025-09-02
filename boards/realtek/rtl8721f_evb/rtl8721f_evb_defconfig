@@ -52,7 +52,7 @@ CONFIG_PWM_CAPTURE=y
 # # enable captouch
 # CONFIG_INPUT=y
 
-CONFIG_MIPI_DBI=y
+# CONFIG_MIPI_DBI=y
 CONFIG_DISPLAY=y
 
 # enable wifi

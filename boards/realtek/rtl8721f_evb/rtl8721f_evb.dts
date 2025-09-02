@@ -8,6 +8,7 @@
 
 #include <realtek/amebaG2/amebaG2.dtsi>
 #include "rtl8721f_evb-pinctrl.dtsi"
+#include <zephyr/dt-bindings/display/panel.h>
 
 / {
 	model = "RealTek AmebaG2 RTL8721F EVB";
@@ -20,18 +21,18 @@
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
-		zephyr,display = &ili9341;
+		zephyr,display = &zephyr_lcdc;
 		zephyr,bt-hci = &bt;
 	};
 
 	aliases {
 		i2c-0 = &i2c0;
-		// led-strip =&ledc;
+		//led-strip =&ledc;
 		rtc = &rtc;
-		// sw0 = &button0;
+		//sw0 = &button0;
 		watchdog0 = &wdg;
 		pwm-0 = &pwm0;
-		// led0 = &green_led_4;
+		//led0 = &green_led_4;
 	};
 
 	//buttons {
@@ -219,20 +220,35 @@
 	status = "okay";
 };
 
-&lcdc {
-	ili9341: ili9341@0 {
-		compatible = "ilitek,ili9341";
-		mipi-max-frequency = <25000000>;
-		pixel-format = <0>;
-		reg = <0>;
-		rotation = <270>;
-		width = <320>;
-		height = <240>;
-	};
-
-	status = "okay";
+zephyr_lcdc: &lcdc {
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
 };
 
 &bt {
 	status = "okay";
+};
+
+
+&zephyr_lcdc {
+	status = "okay";
+	width = <480>;
+	height = <272>;
+	display-timings {
+		compatible = "zephyr,panel-timing";
+		hsync-len = <41>;
+		hfront-porch = <4>;
+		hback-porch = <8>;
+		vsync-len = <10>;
+		vfront-porch = <4>;
+		vback-porch = <2>;
+		de-active= <1>;
+		pixelclk-active = <1>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		clock-frequency = <9210240>;
+	};
+	pixel-format = <PANEL_PIXEL_FORMAT_BGR_565>;
+	data-bus-width = "16-bit";
+	//backlight-gpios = <&ameba_parallel_lcd_connector 0 GPIO_ACTIVE_HIGH>;
 };

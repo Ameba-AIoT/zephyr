@@ -1,0 +1,49 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig AMEBA_LCDC
+	bool "AMEBA LCD-TFT display controller driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
+	select CACHE_MANAGEMENT if CPU_HAS_DCACHE
+	select PINCTRL
+	help
+	  Enable driver for AMEBA LCD-TFT display controller peripheral.
+
+if AMEBA_LCDC
+
+config AMEBA_LCDC_FB_NUM
+	int "Frame buffer number"
+	default 1
+	range 0 2
+	help
+	  AMEBA LCDC frame buffer number config:
+	    - 0 frame buffer maintained by application, must write with full screen pixels.
+	    - 1 single frame buffer in ameba lcdc driver.
+	    - 2 double frame buffer in ameba lcdc driver.
+
+choice AMEBA_LCDC_PIXEL_FORMAT
+	prompt "Color pixel format"
+	default AMEBA_LCDC_RGB565
+	depends on AMEBA_LCDC
+	help
+	  Specify the color pixel format for the AMEBA LCD-TFT display controller.
+
+	config AMEBA_LCDC_ARGB8888
+		bool "ARGB8888"
+		help
+		  One pixel consists of 8-bit alpha, 8-bit red, 8-bit green and 8-bit blue value
+		  (4 bytes per pixel)
+	config AMEBA_LCDC_RGB888
+		bool "RGB888"
+		help
+		  One pixel consists of 8-bit red, 8-bit green and 8-bit blue value
+		  (3 bytes per pixel)
+	config AMEBA_LCDC_RGB565
+		bool "RGB565"
+		help
+		  One pixel consists of 5-bit red, 6-bit green and 5-bit blue value
+		  (2 bytes per pixel)
+endchoice
+
+endif # AMEBA_LCDC
