@@ -33,6 +33,7 @@
 		watchdog0 = &wdg;
 		pwm-0 = &pwm0;
 		//led0 = &green_led_4;
+		die-temp0 = &coretemp;
 	};
 
 	//buttons {
@@ -229,6 +230,9 @@ zephyr_lcdc: &lcdc {
 	status = "okay";
 };
 
+&coretemp {
+	status = "okay";
+};
 
 &zephyr_lcdc {
 	status = "okay";
