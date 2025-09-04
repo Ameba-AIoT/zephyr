@@ -1,0 +1,18 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: AMEBA Ethernet
+
+compatible: "realtek,ameba-eth"
+
+include:
+  - name: ethernet-controller.yaml
+
+properties:
+  phy-handle:
+    required: true
+
+  ref-clk-output-gpios:
+    type: phandle-array
+    description: |
+      GPIO to output RMII Clock.

@@ -1,0 +1,23 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# AMEBA Ethernet driver configuration options
+menuconfig ETH_AMEBA
+	bool "AMEBA Ethernet driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_ETH_ENABLED
+	select MDIO
+	help
+	  Enable AMEBA Ethernet driver.
+
+if ETH_AMEBA
+
+config ETH_AMEBA_RX_THREAD_STACK_SIZE
+	int "AMEBA Ethernet receive thread stack size"
+	default 768
+
+config ETH_AMEBA_RX_THREAD_PRIORITY
+	int "AMEBA Ethernet receive thread priority"
+	default 2
+
+endif # ETH_AMEBA

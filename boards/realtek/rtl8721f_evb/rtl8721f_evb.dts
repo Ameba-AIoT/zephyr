@@ -262,3 +262,20 @@ zephyr_lcdc: &lcdc {
 	data-bus-width = "16-bit";
 	//backlight-gpios = <&ameba_parallel_lcd_connector 0 GPIO_ACTIVE_HIGH>;
 };
+
+&mdio {
+	status = "okay";
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
+
+	phy: ethernet-phy@0 {
+		compatible = "ethernet-phy";
+		reg = <0x0>;
+		status = "okay";
+	};
+};
+
+&mac {
+	status = "okay";
+	phy-handle = <&phy>;
+};

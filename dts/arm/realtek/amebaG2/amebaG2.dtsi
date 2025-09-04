@@ -459,6 +459,24 @@
 			status = "disabled";
 		};
 
+		ethernet@4011a000 {
+			reg = <0x4011a000 0x1440>;
+
+			mac: ethernet {
+				compatible = "realtek,ameba-eth";
+				clocks = <&rcc AMEBA_GMAC_CLK>;
+				interrupts = <48 0>;
+				status = "disabled";
+			};
+
+			mdio: mdio {
+				compatible = "realtek,ameba-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				status = "disabled";
+			};
+		};
+
 		//ctc: ctc@41012000 {
 		//	compatible = "realtek,ameba-captouch";
 		//	reg = <0x41012000 0x210>;

@@ -4,6 +4,7 @@ zephyr_library()
 
 zephyr_library_sources_ifdef(CONFIG_MDIO_SHELL		mdio_shell.c)
 zephyr_library_sources_ifdef(CONFIG_MDIO_ATMEL_SAM	mdio_sam.c)
+zephyr_library_sources_ifdef(CONFIG_MDIO_AMEBA		mdio_ameba.c)
 zephyr_library_sources_ifdef(CONFIG_MDIO_ESP32		mdio_esp32.c)
 zephyr_library_sources_ifdef(CONFIG_MDIO_LITEX_LITEETH	mdio_litex_liteeth.c)
 zephyr_library_sources_ifdef(CONFIG_MDIO_NXP_IMX_NETC	mdio_nxp_imx_netc.c)
