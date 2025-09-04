@@ -234,6 +234,12 @@ zephyr_lcdc: &lcdc {
 	status = "okay";
 };
 
+&a2c0 {
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 &zephyr_lcdc {
 	status = "okay";
 	width = <480>;

@@ -1,0 +1,13 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Realtek AMEBA A2C configuration options
+config CAN_AMEBA_A2C
+	bool "Realtek A2C CAN driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_A2C_ENABLED
+	select CAN_SJA1000
+	select PINCTRL
+	help
+	  This enables support for the Realtek xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	  (A2C) CAN driver.

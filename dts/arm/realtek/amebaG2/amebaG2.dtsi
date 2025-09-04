@@ -443,6 +443,22 @@
 			status = "disabled";
 		};
 
+		a2c0: can@41005000 {
+			compatible = "realtek,ameba-a2c";
+			reg = <0x41005000 0x400>;
+			clocks = <&rcc AMEBA_A2C0_CLK>;
+			interrupts = <60 0>;
+			status = "disabled";
+		};
+
+		a2c1: can@41006000 {
+			compatible = "realtek,ameba-a2c";
+			reg = <0x41006000 0x400>;
+			clocks = <&rcc AMEBA_A2C1_CLK>;
+			interrupts = <61 0>;
+			status = "disabled";
+		};
+
 		//ctc: ctc@41012000 {
 		//	compatible = "realtek,ameba-captouch";
 		//	reg = <0x41012000 0x210>;
@@ -461,8 +477,8 @@
 
 		coretemp: coretemp@40816000 {
 			compatible = "realtek,ameba-temp";
-			friendly-name = "coretemp";
 			reg = <0x40816000 0x30>;
+			friendly-name = "coretemp";
 			status = "disabled";
 		};
 
