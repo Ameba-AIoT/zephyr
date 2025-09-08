@@ -107,10 +107,10 @@
 #define AMEBA_UART3_RXD      104
 #define AMEBA_UART3_CTS      105
 #define AMEBA_UART3_RTS      106
-#define AMEBA_CAN0_TX        107
-#define AMEBA_CAN0_RX        108
-#define AMEBA_CAN1_TX        109
-#define AMEBA_CAN1_RX        110
+#define AMEBA_A2C0_TX        107
+#define AMEBA_A2C0_RX        108
+#define AMEBA_A2C1_TX        109
+#define AMEBA_A2C1_RX        110
 #define AMEBA_TIM4_PWM0      111
 #define AMEBA_TIM4_PWM1      112
 #define AMEBA_TIM4_PWM2      113

@@ -235,7 +235,13 @@ zephyr_lcdc: &lcdc {
 };
 
 &a2c0 {
-	pinctrl-0 = <&pwm0_default>;
+	pinctrl-0 = <&a2c0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&a2c1 {
+	pinctrl-0 = <&a2c1_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };

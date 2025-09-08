@@ -234,6 +234,7 @@ DEVICE_API(can, can_ameba_a2c_driver_api) = {
 	static const struct can_ameba_a2c_config can_ameba_a2c_config_##inst = {                   \
 		.base = DT_INST_REG_ADDR(inst),                                                    \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(inst)),                             \
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(inst, idx),            \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),                                      \
 	};                                                                                         \
 	static const struct can_sja1000_config can_sja1000_config_##inst =                         \

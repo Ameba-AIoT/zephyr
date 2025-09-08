@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-description: AMEBA Two-Wire Auto to Car (A2C)
+description: AMEBA Automotive 2-Wire Connection (A2C)
 
 compatible: "realtek,ameba-a2c"
 

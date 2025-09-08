@@ -93,6 +93,22 @@
 		};
 	};
 
+	a2c0_default: a2c0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 13, AMEBA_A2C0_TX)>,
+					 <AMEBA_PINMUX('A', 12, AMEBA_A2C0_RX)>;
+			bias-pull-up;
+		};
+	};
+
+	a2c1_default: a2c1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 15, AMEBA_A2C1_TX)>,
+					 <AMEBA_PINMUX('A', 14, AMEBA_A2C1_RX)>;
+			bias-pull-up;
+		};
+	};
+
 	//ledc_default: ledc_default {
 	//	group1 {
 	//		pinmux = <AMEBA_PINMUX('B', 18, AMEBA_LEDC)>;

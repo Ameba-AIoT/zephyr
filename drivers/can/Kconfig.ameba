@@ -9,5 +9,5 @@ config CAN_AMEBA_A2C
 	select CAN_SJA1000
 	select PINCTRL
 	help
-	  This enables support for the Realtek xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	  This enables support for the Realtek automotive 2-wire connection
 	  (A2C) CAN driver.
