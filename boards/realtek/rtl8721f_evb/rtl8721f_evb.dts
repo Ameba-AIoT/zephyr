@@ -32,6 +32,7 @@
 		//sw0 = &button0;
 		watchdog0 = &wdg;
 		pwm-0 = &pwm0;
+		pwm-1 = &pwm1;
 		//led0 = &green_led_4;
 		die-temp0 = &coretemp;
 	};
@@ -163,10 +164,16 @@
 &pwm0 {
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
-	prescale = <255>;
+	prescale = <39999>;
 	status = "okay";
 };
 
+&pwm1 {
+	pinctrl-0 = <&pwm1_default>;
+	pinctrl-names = "default";
+	prescale = <39999>;
+	status = "okay";
+};
 //&ledc {
 //	pinctrl-names = "default";
 //	pinctrl-0 = <&ledc_default>;

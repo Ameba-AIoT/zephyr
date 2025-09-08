@@ -1,9 +1,6 @@
 /* The custom flags are on the upper 8bits of the pwm_flags_t
  * @{
  */
-/* PWM pin polarity */
-/* 0 -> active-high pulse  1 -> active-low pulse*/
-#define AMEBA_PWM_POLARITY          (1U << 0)
 /* PWM configuration flags: bit8 is used for config OCPROTECTION*/
 /* 0 -> ENABLE OCPROTECTION function  1 -> DISABLE OCPROTECTION function*/
 #define AMEBA_PWM_OCPROTECTION      (1U << 8)

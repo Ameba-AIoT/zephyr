@@ -24,6 +24,11 @@ properties:
     default: 40000000
     description: clock-frequency of PWM timer clk source
 
+  index:
+    type: int
+    required: true
+    description: pwm index
+
   channel-count:
     type: int
     required: true

@@ -177,9 +177,14 @@
 
 	pwm0_default: pwm0_default {
 		group1 {
-			pinmux = <AMEBA_PINMUX('A', 6, AMEBA_TIM4_PWM0)>, /* Channel 0 Output Pin */
-					 <AMEBA_PINMUX('A', 7, AMEBA_TIM4_PWM1)>,
-					 <AMEBA_PINMUX('A', 8, AMEBA_PWM_TIM4_TRIG)>; /* TRGI */
+			pinmux = <AMEBA_PINMUX('A', 6, AMEBA_TIM4_PWM0)>; /* Channel 0 Output Pin */
+			bias-pull-up;
+		};
+	};
+
+	pwm1_default: pwm1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 8, AMEBA_PWM_TIM5_TRIG)>; /* TRGI */
 			bias-pull-up;
 		};
 	};
