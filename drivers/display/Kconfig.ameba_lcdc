@@ -14,7 +14,7 @@ if AMEBA_LCDC
 
 config AMEBA_LCDC_FB_NUM
 	int "Frame buffer number"
-	default 1
+	default 2
 	range 0 2
 	help
 	  AMEBA LCDC frame buffer number config:
@@ -24,7 +24,7 @@ config AMEBA_LCDC_FB_NUM
 
 choice AMEBA_LCDC_PIXEL_FORMAT
 	prompt "Color pixel format"
-	default AMEBA_LCDC_RGB565
+	default AMEBA_LCDC_RGB888
 	depends on AMEBA_LCDC
 	help
 	  Specify the color pixel format for the AMEBA LCD-TFT display controller.

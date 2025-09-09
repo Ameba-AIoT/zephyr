@@ -193,6 +193,15 @@
 			status = "disabled";
 		};
 
+		gpioc: gpio@40811800 {
+			compatible = "realtek,ameba-gpio";
+			reg = <0x40811800 0x400>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <27 0>;
+			status = "disabled";
+		};
+
 		timer0: counter@40819000 {
 			compatible = "realtek,ameba-counter";
 			reg = <0x40819000 0x30>;
