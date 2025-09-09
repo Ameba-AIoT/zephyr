@@ -1,0 +1,5 @@
+board:
+  name: rtl8735b_evb
+  vendor: realtek
+  socs:
+    - name: amebapro2

@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/amebapro2-pinctrl.h>
+
+&pinctrl {
+	compatible = "realtek,amebapro2-pinctrl";
+
+	loguart_default: loguart_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX(PORT_F, 3, PID_UART1)>,        /* RXD */
+					 <AMEBA_PINMUX(PORT_F, 4, PID_UART1)>;        /* TXD */
+			bias-pull-up;
+		};
+	};
+};

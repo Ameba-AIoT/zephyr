@@ -1,0 +1,9 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config PINCTRL_AMEBAPRO2
+	bool "Pin controller driver for Realtek AmebaPro2 SoC"
+	default y
+	depends on DT_HAS_REALTEK_AMEBAPRO2_PINCTRL_ENABLED
+	help
+	  Enable pin controller driver for Realtek AmebaPro2 SoC
