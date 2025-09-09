@@ -21,7 +21,8 @@
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
-		zephyr,display = &zephyr_lcdc;
+		//zephyr,display = &zephyr_lcdc;
+		zephyr,display = &st7796s;
 		zephyr,bt-hci = &bt;
 	};
 
@@ -232,7 +233,7 @@
 	status = "okay";
 };
 
-zephyr_lcdc: &lcdc {
+zephyr_lcdc: &lcdc_dpi {
 	pinctrl-0 = <&lcdc_rgb_default>;
 	pinctrl-names = "default";
 };
@@ -245,17 +246,17 @@ zephyr_lcdc: &lcdc {
 	status = "okay";
 };
 
-&a2c0 {
-	pinctrl-0 = <&a2c0_default>;
-	pinctrl-names = "default";
-	status = "okay";
-};
+//&a2c0{
+//	pinctrl-0 = <&a2c0_default;
+//	pinctrl-names = "default;
+//	status = "okay;
+//};
 
-&a2c1 {
-	pinctrl-0 = <&a2c1_default>;
-	pinctrl-names = "default";
-	status = "okay";
-};
+//&a2c1{
+//	pinctrl-0 = <&a2c1_default;
+//	pinctrl-names = "default;
+//	status = "okay;
+//};
 
 &zephyr_lcdc {
 	status = "disabled";
@@ -297,4 +298,45 @@ zephyr_lcdc: &lcdc {
 &mac {
 	status = "okay";
 	phy-handle = <&phy>;
+};
+
+zephyr_mipi_dbi_parallel: &lcdc_dbi {
+	shifters-count = <4>;
+	timers-count = <1>;
+	enwr-pin = <31>;
+	rd-pin = <28>;
+	data-pin-start = <0>;
+	reset-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
+	cs-gpios = <&gpioa 19 GPIO_ACTIVE_HIGH>;
+	rs-gpios = <&gpioa 17 GPIO_ACTIVE_HIGH>;
+	pinctrl-0 = <&pwm0_default>; /* maybe init in lcdc? */
+	pinctrl-names = "default";
+};
+
+&zephyr_mipi_dbi_parallel {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	st7796s: lcd-pane@0 {
+		compatible = "sitronix,st7796s";
+		reg = <0>;
+		/* Baud rate on each pin is 1MHz */
+		mipi-max-frequency = <10000000>;
+		mipi-mode = "MIPI_DBI_MODE_8080_BUS_16_BIT";
+		height = <320>;
+		width = <480>;
+		invert-mode = "1-dot";
+		frmctl1 = [80 10];
+		bpc = [1F 50 00 20];
+		dfc = [8A 07 3B];
+		pwr1 = [80 64];
+		pwr2 = <0x13>;
+		pwr3 = <0xA7>;
+		vcmpctl = <0x09>;
+		doca = [40 8A 00 00 29 19 A5 33];
+		pgc = [F0 06 0B 07 06 05 2E 33 47 3A 17 16 2E 31];
+		ngc = [F0 09 0D 09 08 23 2E 33 46 38 13 13 2C 32];
+		madctl = <0x28>;
+		color-invert;
+	};
 };

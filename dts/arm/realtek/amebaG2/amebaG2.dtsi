@@ -449,11 +449,21 @@
 		};
 
 		lcdc: lcdc@40100000 {
-			compatible = "realtek,ameba-lcdc";
 			reg = <0x40100000 0x100>;
-			clocks = <&rcc AMEBA_LCDC_CLK>;
-			interrupts = <49 0>;
-			status = "disabled";
+
+			lcdc_dpi: lcdc_dpi {
+				compatible = "realtek,ameba-lcdc";
+				clocks = <&rcc AMEBA_LCDC_CLK>;
+				interrupts = <49 0>;
+				status = "disabled";
+			};
+
+			lcdc_dbi: lcdc_dbi {
+				compatible = "realtek,mipi-dbi-ameba-lcdc";
+				clocks = <&rcc AMEBA_LCDC_CLK>;
+				interrupts = <49 0>;
+				status = "disabled";
+			};
 		};
 
 		a2c0: can@41005000 {

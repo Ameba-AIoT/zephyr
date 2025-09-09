@@ -1,0 +1,11 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config MIPI_DBI_AMEBA_LCDC
+	bool "MIPI DBI AMEBA LCDC driver"
+	default y
+	depends on DT_HAS_REALTEK_MIPI_DBI_AMEBA_LCDC_ENABLED
+	depends on CLOCK_CONTROL
+	select PINCTRL
+	help
+	  Enable support for AMEBA LCDC display controller driver

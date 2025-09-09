@@ -7,9 +7,6 @@ compatible: "realtek,ameba-lcdc"
 include: [lcd-controller.yaml, pinctrl-device.yaml]
 
 properties:
-  reg:
-    required: true
-
   interrupts:
     required: true
 
