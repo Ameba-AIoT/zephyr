@@ -18,17 +18,32 @@ properties:
 
   data-bus-width:
     type: string
-    default: "16-bit"
+    required: true
     enum:
-      - "16-bit"
+      - "6-bit"
       - "8-bit"
-      - "18-bit"
+      - "16-bit"
       - "24-bit"
     description:
-      LCD data bus width. The default is set to the reset value of 16-bit
+      LCD data bus width. The default is set to the reset value of 24-bit.
+
+  frame-rate:
+    type: int
+    required: true
+    description: |
+      The LCD controller transmits the frame rate to the LCD.
 
   backlight-gpios:
     type: phandle-array
+    required: true
+    description:
+      Backlight on/off GPIO pin. It's required true for blanking on/off reason.
+      Configure the GPIO polarity (active high/active low) according to LCD datasheet.
+
+  display-gpios:
+    type: phandle-array
     # required: true
     description:
-      LCB backlight control gpio. Driver will initialize this GPIO to active high
+      Display on/off GPIO pin.
+      Configure the GPIO polarity (active high/active low) according to LCD datasheet.
+
