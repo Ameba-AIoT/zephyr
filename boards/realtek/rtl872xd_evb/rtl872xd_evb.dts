@@ -115,7 +115,7 @@
 &pwm0 {
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
-	prescale = <255>;
+	prescale = <39>;
 	status = "okay";
 };
 

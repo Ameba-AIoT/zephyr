@@ -134,7 +134,7 @@
 &pwm0 {
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
-	prescale = <255>;
+	prescale = <39>;
 	channel-count = <8>;
 	status = "okay";
 };

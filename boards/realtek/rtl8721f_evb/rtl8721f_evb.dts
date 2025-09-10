@@ -165,14 +165,14 @@
 &pwm0 {
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
-	prescale = <39999>;
+	prescale = <39>;
 	status = "okay";
 };
 
 &pwm1 {
 	pinctrl-0 = <&pwm1_default>;
 	pinctrl-names = "default";
-	prescale = <39999>;
+	prescale = <39>;
 	status = "okay";
 };
 //&ledc {
