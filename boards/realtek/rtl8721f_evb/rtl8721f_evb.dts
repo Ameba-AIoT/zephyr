@@ -234,8 +234,9 @@
 };
 
 zephyr_lcdc: &lcdc_dpi {
-	pinctrl-0 = <&lcdc_rgb_default>;
-	pinctrl-names = "default";
+	status = "disabled";
+	// pinctrl-0 = <&lcdc_rgb_default>;
+	// pinctrl-names = "default";
 };
 
 &bt {
@@ -257,31 +258,6 @@ zephyr_lcdc: &lcdc_dpi {
 //	pinctrl-names = "default;
 //	status = "okay;
 //};
-
-&zephyr_lcdc {
-	status = "disabled";
-	width = <800>;
-	height = <480>;
-	display-timings {
-		compatible = "zephyr,panel-timing";
-		vsync-len = <1>;
-		vback-porch = <4>;
-		vfront-porch = <6>;
-		hsync-len = <4>;
-		hback-porch = <40>;
-		hfront-porch = <40>;
-		de-active= <1>;
-		pixelclk-active = <1>;
-		hsync-active = <0>;
-		vsync-active = <0>;
-		#clock-frequency = <9210240>;
-	};
-	data-bus-width = "24-bit";
-	pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
-	frame-rate = <40>;
-	backlight-gpios = <&gpioc 1 GPIO_ACTIVE_HIGH>;
-	display-gpios = <&gpiob 13 GPIO_ACTIVE_HIGH>;
-};
 
 &mdio {
 	status = "okay";

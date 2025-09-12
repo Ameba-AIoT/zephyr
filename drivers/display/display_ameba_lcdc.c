@@ -180,6 +180,29 @@ static int lcdc_ameba_write(const struct device *dev, const uint16_t x, const ui
 	return 0;
 }
 
+static int lcdc_ameba_read(const struct device *dev, const uint16_t x, const uint16_t y,
+			   const struct display_buffer_descriptor *desc, void *buf)
+{
+	const struct lcdc_ameba_config *config = dev->config;
+	struct lcdc_ameba_data *data = dev->data;
+	uint8_t *dst = buf;
+	const uint8_t *src = data->front_buf;
+	uint16_t row;
+
+	/* src = pointer to upper left pixel of the rectangle to be read from frame buffer */
+	src += (x * data->current_pixel_size);
+	src += (y * config->lcdc_panel.ImgWidth * data->current_pixel_size);
+
+	for (row = 0; row < desc->height; row++) {
+		(void)memcpy(dst, src, desc->width * data->current_pixel_size);
+		sys_cache_data_flush_range(dst, desc->width * data->current_pixel_size);
+		src += (config->lcdc_panel.ImgWidth * data->current_pixel_size);
+		dst += (desc->pitch * data->current_pixel_size);
+	}
+
+	return 0;
+}
+
 static int lcdc_ameba_display_blanking_off(const struct device *dev)
 {
 	const struct lcdc_ameba_config *config = dev->config;
@@ -250,29 +273,6 @@ static void lcdc_ameba_get_capabilities(const struct device *dev,
 	capabilities->current_orientation = DISPLAY_ORIENTATION_NORMAL;
 }
 
-static int lcdc_ameba_read(const struct device *dev, const uint16_t x, const uint16_t y,
-			   const struct display_buffer_descriptor *desc, void *buf)
-{
-	const struct lcdc_ameba_config *config = dev->config;
-	struct lcdc_ameba_data *data = dev->data;
-	uint8_t *dst = buf;
-	const uint8_t *src = data->front_buf;
-	uint16_t row;
-
-	/* src = pointer to upper left pixel of the rectangle to be read from frame buffer */
-	src += (x * data->current_pixel_size);
-	src += (y * config->lcdc_panel.ImgWidth * data->current_pixel_size);
-
-	for (row = 0; row < desc->height; row++) {
-		(void)memcpy(dst, src, desc->width * data->current_pixel_size);
-		sys_cache_data_flush_range(dst, desc->width * data->current_pixel_size);
-		src += (config->lcdc_panel.ImgWidth * data->current_pixel_size);
-		dst += (desc->pitch * data->current_pixel_size);
-	}
-
-	return 0;
-}
-
 static void *lcdc_ameba_get_framebuffer(const struct device *dev)
 {
 	struct lcdc_ameba_data *data = dev->data;
@@ -284,7 +284,7 @@ static int lcdc_ameba_init(const struct device *dev)
 {
 	const struct lcdc_ameba_config *cfg = dev->config;
 	struct lcdc_ameba_data *data = dev->data;
-	uint32_t line_num = cfg->lcdc_panel.ImgWidth / 2;
+	uint32_t line_num = cfg->lcdc_panel.ImgHeight / 2;
 	int err;
 
 	/* Configure and set display on/off GPIO */
@@ -298,7 +298,8 @@ static int lcdc_ameba_init(const struct device *dev)
 
 	/* Configure and set display backlight control GPIO */
 	if (cfg->bl_ctrl_gpio.port) {
-		err = gpio_pin_configure_dt(&cfg->bl_ctrl_gpio, GPIO_OUTPUT_INACTIVE);
+		err = gpio_pin_configure_dt(&cfg->bl_ctrl_gpio,
+					    GPIO_OUTPUT_INACTIVE); /* GPIO_OUTPUT_ACTIVE */
 		if (err < 0) {
 			LOG_ERR("Configuration of display backlight control GPIO failed");
 			return err;
@@ -371,7 +372,7 @@ PINCTRL_DT_INST_DEFINE(0);
 		.IfWidth = GET_LCDC_RGB_INTERFACE(DT_INST_ENUM_IDX(0, data_bus_width)),            \
 		.ImgWidth = DT_INST_PROP(0, width),                                                \
 		.ImgHeight = DT_INST_PROP(0, height),                                              \
-		.InputFormat = DISPLAY_INIT_PIXEL_FORMAT,                                          \
+		.InputFormat = AMEBA_LCDC_INIT_PIXEL_FORMAT,                                       \
 		.OutputFormat = GET_LCDC_RGB_OUTPUT_FORMAT(DT_INST_PROP(0, pixel_format)),         \
 		.RGBRefreshFreq = DT_INST_PROP(0, frame_rate),                                     \
 	}
