@@ -6,8 +6,8 @@
 
 /* EVB V2 */
 
-#include "rtl8721f_evb_rgb_st7262.dtsi"
-// #include "rtl8721f_evb_srgb_st7272a.dtsi"
+// #include "rtl8721f_evb_rgb_st7262.dtsi"
+#include "rtl8721f_evb_srgb_st7272a.dtsi"
 
 / {
 	chosen {

@@ -45,6 +45,11 @@ choice AMEBA_LCDC_PIXEL_FORMAT
 		help
 		  One pixel consists of 5-bit red, 6-bit green and 5-bit blue value
 		  (2 bytes per pixel)
+	config AMEBA_LCDC_BGR565
+		bool "BGR565"
+		help
+		  One pixel consists of 5-bit blue, 6-bit green and 5-bit red value
+		  (2 bytes per pixel)
 endchoice
 
 endif # AMEBA_LCDC

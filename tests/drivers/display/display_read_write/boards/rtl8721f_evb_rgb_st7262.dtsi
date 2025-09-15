@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* EVB V2 */
+&pinctrl {
+	lcdc_rgb_default: lcdc_rgb_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 15, AMEBA_LCD_D0)>,
+			<AMEBA_PINMUX('B', 17, AMEBA_LCD_D1)>,
+			<AMEBA_PINMUX('B', 21, AMEBA_LCD_D2)>,
+			<AMEBA_PINMUX('B', 18, AMEBA_LCD_D3)>,
+			<AMEBA_PINMUX('A', 6, AMEBA_LCD_D4)>,
+			<AMEBA_PINMUX('A', 8, AMEBA_LCD_D5)>,
+			<AMEBA_PINMUX('A', 7, AMEBA_LCD_D6)>,
+			<AMEBA_PINMUX('A', 10, AMEBA_LCD_D7)>,
+
+			<AMEBA_PINMUX('B', 9, AMEBA_LCD_D8)>,
+			<AMEBA_PINMUX('B', 11, AMEBA_LCD_D9)>,
+			<AMEBA_PINMUX('B', 10, AMEBA_LCD_D10)>,
+			<AMEBA_PINMUX('B', 16, AMEBA_LCD_D11)>,
+			<AMEBA_PINMUX('B', 22, AMEBA_LCD_D12)>,
+			<AMEBA_PINMUX('B', 23, AMEBA_LCD_D13)>,
+			<AMEBA_PINMUX('B', 14, AMEBA_LCD_D14)>,
+			<AMEBA_PINMUX('B', 12, AMEBA_LCD_D15)>,
+
+			<AMEBA_PINMUX('A', 22, AMEBA_LCD_D16)>,
+			<AMEBA_PINMUX('A', 25, AMEBA_LCD_D17)>,
+			<AMEBA_PINMUX('A', 29, AMEBA_LCD_D18)>,
+			<AMEBA_PINMUX('B', 4, AMEBA_LCD_D19)>,
+			<AMEBA_PINMUX('B', 5, AMEBA_LCD_D20)>,
+			<AMEBA_PINMUX('B', 6, AMEBA_LCD_D21)>,
+			<AMEBA_PINMUX('B', 7, AMEBA_LCD_D22)>,
+			<AMEBA_PINMUX('B', 8, AMEBA_LCD_D23)>,
+
+			<AMEBA_PINMUX('A', 16, AMEBA_LCD_RGB_HSYNC)>,
+			<AMEBA_PINMUX('A', 13, AMEBA_LCD_RGB_VSYNC)>,
+			<AMEBA_PINMUX('A', 9, AMEBA_LCD_RGB_DCLK)>,
+			<AMEBA_PINMUX('A', 14, AMEBA_LCD_RGB_DE)>;
+		};
+		/* PB3: BLE; DISPLAY: PA17 */
+	};
+};
+
+
+&zephyr_lcdc {
+	status = "okay";
+
+	pinctrl-0 = <&lcdc_rgb_default>;
+	pinctrl-names = "default";
+
+	width = <800>;
+	height = <480>;
+	display-timings {
+		compatible = "zephyr,panel-timing";
+		vsync-len = <1>;
+		vback-porch = <4>;
+		vfront-porch = <6>;
+		hsync-len = <4>;
+		hback-porch = <40>;
+		hfront-porch = <40>;
+		de-active= <1>;
+		pixelclk-active = <1>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		#clock-frequency = <9210240>;
+	};
+	data-bus-width = "24-bit";
+	pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
+	frame-rate = <40>;
+	backlight-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+	display-gpios = <&gpioa 17 GPIO_ACTIVE_HIGH>;
+};
+
+

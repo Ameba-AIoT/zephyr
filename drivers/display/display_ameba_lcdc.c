@@ -33,6 +33,10 @@ LOG_MODULE_REGISTER(display_ameba_lcdc, CONFIG_DISPLAY_LOG_LEVEL);
 #define AMEBA_LCDC_INIT_PIXEL_SIZE   2u
 #define AMEBA_LCDC_INIT_PIXEL_FORMAT LCDC_INPUT_FORMAT_RGB565
 #define DISPLAY_INIT_PIXEL_FORMAT    PIXEL_FORMAT_RGB_565
+#elif CONFIG_AMEBA_LCDC_BGR565
+#define AMEBA_LCDC_INIT_PIXEL_SIZE   2u
+#define AMEBA_LCDC_INIT_PIXEL_FORMAT LCDC_INPUT_FORMAT_BGR565
+#define DISPLAY_INIT_PIXEL_FORMAT    PIXEL_FORMAT_BGR_565
 #else
 #error "Invalid LCDC pixel format chosen"
 #endif
@@ -105,6 +109,8 @@ static void lcdc_ameba_isr(const struct device *dev)
 
 		if (data->front_buf != data->pend_buf) {
 			data->front_buf = data->pend_buf;
+			LOG_DBG("[%s]front:0x%x pend:0x%x", __func__, data->front_buf,
+				data->pend_buf);
 			LCDC_DMAImgCfg(LCDC, (u32)(data->pend_buf));
 
 			LCDC_ShadowReloadConfig(LCDC);
@@ -126,6 +132,8 @@ static int lcdc_ameba_write(const struct device *dev, const uint16_t x, const ui
 	const uint8_t *pend_buf = NULL;
 	const uint8_t *src = buf;
 	uint16_t row;
+
+	LOG_DBG("[%s]buf:0x%x", __func__, buf);
 
 	if ((x == 0) && (y == 0) && (desc->width == config->lcdc_panel.ImgWidth) &&
 	    (desc->height == config->lcdc_panel.ImgHeight) && (desc->pitch == desc->width)) {
@@ -163,10 +171,14 @@ static int lcdc_ameba_write(const struct device *dev, const uint16_t x, const ui
 		}
 	}
 
+	LOG_DBG("[%s]A: front:0x%x data->pend:0x%x, pend:0x%x", __func__, data->front_buf,
+		data->pend_buf, pend_buf);
+
 	if (data->front_buf == pend_buf) {
 		return 0;
 	}
-
+	LOG_DBG("[%s]B: front:0x%x data->pend:0x%x, pend:0x%x", __func__, data->front_buf,
+		data->pend_buf, pend_buf);
 	k_sem_reset(&data->sem);
 
 	data->pend_buf = pend_buf;
@@ -192,6 +204,7 @@ static int lcdc_ameba_read(const struct device *dev, const uint16_t x, const uin
 	/* src = pointer to upper left pixel of the rectangle to be read from frame buffer */
 	src += (x * data->current_pixel_size);
 	src += (y * config->lcdc_panel.ImgWidth * data->current_pixel_size);
+	LOG_DBG("[%s]src:0x%x dst:0x%x", __func__, src, dst);
 
 	for (row = 0; row < desc->height; row++) {
 		(void)memcpy(dst, src, desc->width * data->current_pixel_size);
@@ -225,16 +238,25 @@ static int lcdc_ameba_set_pixel_format(const struct device *dev,
 
 	switch (pixel_format) {
 	case PIXEL_FORMAT_RGB_565:
+		LOG_DBG("[%s] RGB565", __func__);
 		LCDC_ColorFomatInputConfig(LCDC, LCDC_INPUT_FORMAT_RGB565);
 		data->current_pixel_format = PIXEL_FORMAT_RGB_565;
 		data->current_pixel_size = 2u;
 		break;
+	case PIXEL_FORMAT_BGR_565:
+		LOG_DBG("[%s] BGR565", __func__);
+		LCDC_ColorFomatInputConfig(LCDC, LCDC_INPUT_FORMAT_BGR565);
+		data->current_pixel_format = PIXEL_FORMAT_BGR_565;
+		data->current_pixel_size = 2u;
+		break;
 	case PIXEL_FORMAT_RGB_888:
+		LOG_DBG("[%s] RGB888", __func__);
 		LCDC_ColorFomatInputConfig(LCDC, LCDC_INPUT_FORMAT_RGB888);
 		data->current_pixel_format = PIXEL_FORMAT_RGB_888;
 		data->current_pixel_size = 3u;
 		break;
 	case PIXEL_FORMAT_ARGB_8888:
+		LOG_DBG("[%s] ARGB8888", __func__);
 		LCDC_ColorFomatInputConfig(LCDC, LCDC_INPUT_FORMAT_ARGB8888);
 		data->current_pixel_format = PIXEL_FORMAT_ARGB_8888;
 		data->current_pixel_size = 4u;
@@ -266,11 +288,12 @@ static void lcdc_ameba_get_capabilities(const struct device *dev,
 	memset(capabilities, 0, sizeof(struct display_capabilities));
 	capabilities->x_resolution = config->lcdc_panel.ImgWidth;
 	capabilities->y_resolution = config->lcdc_panel.ImgHeight;
-	capabilities->supported_pixel_formats =
-		PIXEL_FORMAT_ARGB_8888 | PIXEL_FORMAT_RGB_888 | PIXEL_FORMAT_RGB_565;
+	capabilities->supported_pixel_formats = PIXEL_FORMAT_ARGB_8888 | PIXEL_FORMAT_RGB_888 |
+						PIXEL_FORMAT_RGB_565 | PIXEL_FORMAT_BGR_565;
 	capabilities->screen_info = 0;
 	capabilities->current_pixel_format = data->current_pixel_format;
 	capabilities->current_orientation = DISPLAY_ORIENTATION_NORMAL;
+	LOG_DBG("[%s] CUR_FMT:0x%x", __func__, capabilities->current_pixel_format);
 }
 
 static void *lcdc_ameba_get_framebuffer(const struct device *dev)
@@ -287,6 +310,7 @@ static int lcdc_ameba_init(const struct device *dev)
 	uint32_t line_num = cfg->lcdc_panel.ImgHeight / 2;
 	int err;
 
+	/* DCache_Disable(); */
 	/* Configure and set display on/off GPIO */
 	if (cfg->disp_on_gpio.port) {
 		err = gpio_pin_configure_dt(&cfg->disp_on_gpio, GPIO_OUTPUT_ACTIVE);
@@ -311,7 +335,10 @@ static int lcdc_ameba_init(const struct device *dev)
 		LOG_ERR("Configuration pinctrl failed");
 		return err;
 	}
+	LOG_DBG("[%s]W:%u H:%u", __func__, cfg->lcdc_panel.ImgWidth, cfg->lcdc_panel.ImgHeight);
 
+	LOG_DBG("[%s] DISPLAY_INIT_PIXEL_FORMAT:0x%x, FB_NUM:%u", __func__,
+		DISPLAY_INIT_PIXEL_FORMAT, CONFIG_AMEBA_LCDC_FB_NUM);
 	data->current_pixel_format = DISPLAY_INIT_PIXEL_FORMAT;
 	data->current_pixel_size = AMEBA_LCDC_INIT_PIXEL_SIZE;
 
@@ -333,7 +360,7 @@ static int lcdc_ameba_init(const struct device *dev)
 	LCDC_DMAImgCfg(LCDC, (uint32_t)data->frame_buffer);
 
 	LCDC_LineINTPosConfig(LCDC, line_num);
-	LCDC_INTConfig(LCDC, LCDC_BIT_DMA_UN_INTEN | LCDC_BIT_LCD_LIN_INTEN, ENABLE);
+	LCDC_INTConfig(LCDC, LCDC_BIT_DMA_UN_INTEN, ENABLE); /* LCDC_BIT_LCD_LIN_INTEN */
 
 	/* Set default pixel format obtained from device tree */
 	/* lcdc_ameba_set_pixel_format(dev, data->pixel_format); */

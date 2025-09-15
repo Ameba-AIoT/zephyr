@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* EVB V2 */
+&pinctrl {
+	lcdc_srgb_default: lcdc_srgb_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 6,  AMEBA_LCD_D0)>,
+			<AMEBA_PINMUX('A', 8,  AMEBA_LCD_D1)>,
+			<AMEBA_PINMUX('A', 7,  AMEBA_LCD_D2)>,
+			<AMEBA_PINMUX('A', 10, AMEBA_LCD_D3)>,
+			<AMEBA_PINMUX('A', 11, AMEBA_LCD_D4)>,
+			<AMEBA_PINMUX('A', 9,  AMEBA_LCD_D5)>,
+			<AMEBA_PINMUX('A', 17, AMEBA_LCD_D6)>,
+			<AMEBA_PINMUX('A', 16, AMEBA_LCD_D7)>,
+
+			<AMEBA_PINMUX('B', 21, AMEBA_LCD_RGB_HSYNC)>,
+			<AMEBA_PINMUX('B', 17, AMEBA_LCD_RGB_VSYNC)>,
+			<AMEBA_PINMUX('B', 14, AMEBA_LCD_RGB_DCLK)>,
+			<AMEBA_PINMUX('A', 14, AMEBA_LCD_RGB_DE)>;
+		};
+		/* PB3: BLE; DISPLAY: PB22 */
+	};
+};
+
+
+&zephyr_lcdc {
+	status = "okay";
+
+	pinctrl-0 = <&lcdc_srgb_default>;
+	pinctrl-names = "default";
+
+	width = <320>;
+	height = <240>;
+	display-timings {
+		compatible = "zephyr,panel-timing";
+		vsync-len = <4>;
+		vback-porch = <8>;
+		vfront-porch = <8>;
+		hsync-len = <4>;
+		hback-porch = <39>;
+		hfront-porch = <8>;
+		de-active= <1>;
+		pixelclk-active = <1>;
+		hsync-active = <0>;
+		vsync-active = <0>;
+		#clock-frequency = <9210240>;
+	};
+	data-bus-width = "8-bit";
+	pixel-format = <PANEL_PIXEL_FORMAT_RGB_888>;
+	frame-rate = <35>;
+	backlight-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+	display-gpios = <&gpiob 22 GPIO_ACTIVE_HIGH>;
+};
+
