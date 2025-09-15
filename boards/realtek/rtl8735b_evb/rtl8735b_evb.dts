@@ -20,6 +20,10 @@
 	};
 };
 
+&spi0 {
+	status = "okay";
+};
+
 &loguart {
 	status = "okay";
 };

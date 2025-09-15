@@ -1,0 +1,27 @@
+# AMEBA SPI configuration
+
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig SPI_AMEBAPRO2
+	bool "AmebaPro2 SPI driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBAPRO2_SPI_ENABLED
+	select PINCTRL
+	help
+		Enables support for AMEBA SPI driver.
+
+if SPI_AMEBAPRO2
+
+#config SPI_AMEBA_INTERRUPT
+#	bool "AmebaPro2 SPI interrupt mode"
+#	help
+#		Enables interrupt support for AMEBA SPI driver.
+
+config SPI_AMEBAPRO2_DMA
+	bool "AmebaPro2 SPI DMA Support"
+#	select DMA
+	help
+	  Enable the SPI DMA mode.
+
+endif # SPI_AMEBAPRO2

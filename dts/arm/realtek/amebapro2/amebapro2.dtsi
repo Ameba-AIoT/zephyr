@@ -47,6 +47,16 @@
 			reg = <0x40040400 0x400>;
 			interrupts = <10 0>;
 			current-speed = <115200>;
+			status = "disabled";
+		};
+
+		spi0: spi@40042800 {
+			compatible = "realtek,amebapro2-spi";
+			reg = <0x40042800 0x400>;
+			interrupts = <18 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
 		};
 	};
 };
