@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-config AMEBA_TEMP
+config TEMP_AMEBA
 	bool "AMEBA Temperature Sensor"
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_TEMP_ENABLED

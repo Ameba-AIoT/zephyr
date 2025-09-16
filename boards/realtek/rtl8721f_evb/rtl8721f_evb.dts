@@ -34,7 +34,6 @@
 		pwm-0 = &pwm0;
 		pwm-1 = &pwm1;
 		//led0 = &green_led_4;
-		die-temp0 = &coretemp;
 	};
 
 	//buttons {

@@ -2,5 +2,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # zephyr-keep-sorted-start
-add_subdirectory_ifdef(CONFIG_AMEBA_TEMP ameba_temp)
+add_subdirectory_ifdef(CONFIG_TEMP_AMEBA ameba_temp)
 # zephyr-keep-sorted-stop
