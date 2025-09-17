@@ -12,6 +12,9 @@
 #include <zephyr/sys/util.h>
 #include "rtl8735b.h"
 
+/* for limits.h */
+#define PATH_MAX 256
+
 #endif /* _ASMLANGUAGE */
 
 #endif /* ZEPHYR_SOC_REALTEK_AMEBA_AMEBAPRO2_H_ */

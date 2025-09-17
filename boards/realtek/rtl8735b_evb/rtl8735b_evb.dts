@@ -17,10 +17,15 @@
 		zephyr,console = &loguart;
 		zephyr,shell-uart = &loguart;
 		zephyr,sram = &sram0;
+		zephyr,entropy = &trng;
 	};
 };
 
 &spi0 {
+	status = "okay";
+};
+
+&trng {
 	status = "okay";
 };
 
