@@ -258,19 +258,19 @@ zephyr_lcdc: &lcdc_dpi {
 //};
 
 &mdio {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pwm0_default>;
 	pinctrl-names = "default";
 
 	phy: ethernet-phy@0 {
 		compatible = "ethernet-phy";
 		reg = <0x0>;
-		status = "okay";
+		status = "disabled";
 	};
 };
 
 &mac {
-	status = "okay";
+	status = "disabled";
 	phy-handle = <&phy>;
 };
 
