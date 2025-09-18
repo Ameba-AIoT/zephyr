@@ -58,7 +58,6 @@ static int spi_dma_en;
 static int spi_ameba_configure(const struct device *dev, const struct spi_config *spi_cfg)
 {
 	struct spi_ameba_data *data = dev->data;
-	/*const struct spi_ameba_config *config = dev->config;*/
 
 #ifdef CONFIG_SPI_AMEBAPRO2_DMA
 
@@ -122,8 +121,6 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	}
 
 	/* set frequency */
-
-	/*LOG_INF("spi_cfg->frequency = %d\n\r",spi_cfg->frequency);*/
 	hal_ssi_set_sclk(&hal_ssi_adaptor, spi_cfg->frequency);
 
 	data->initialized = true;
@@ -136,8 +133,6 @@ static int spi_ameba_transceive_impl(const struct device *dev, const struct spi_
 				     const struct spi_buf_set *rx_bufs, bool asynchronous,
 				     spi_callback_t cb, void *userdata)
 {
-	/*struct spi_ameba_data *data = dev->data;*/
-	/*const struct spi_ameba_config *config = dev->config;*/
 	int ret = 0;
 
 	spi_ameba_configure(dev, spi_cfg);
@@ -148,10 +143,9 @@ static int spi_ameba_transceive_impl(const struct device *dev, const struct spi_
 	}
 
 	if (SPI_OP_MODE_GET(spi_cfg->operation) == SPI_OP_MODE_MASTER) {
-		/*printf("master!\n\r");*/
-
+		/*master*/
 		if (tx_bufs->count != 0) {
-			/*printf("master Tx!\n\r");*/
+			/*master Tx*/
 #ifdef CONFIG_SPI_AMEBAPRO2_DMA
 			if ((spi_dma_en & SPI_DMA_TX_EN) == 0) {
 				if (HAL_OK ==
@@ -170,10 +164,46 @@ static int spi_ameba_transceive_impl(const struct device *dev, const struct spi_
 #endif
 
 		} else {
-			/*printf("master Rx!\n\r");*/
+			/*master Rx*/
+#ifdef CONFIG_SPI_AMEBAPRO2_DMA
+			if ((spi_dma_en & SPI_DMA_TX_EN) == 0) {
+				if (HAL_OK ==
+				    hal_ssi_tx_gdma_init(&hal_ssi_adaptor,
+							 hal_ssi_adaptor.ptx_gdma_adaptor)) {
+					spi_dma_en |= SPI_DMA_TX_EN;
+				} else {
+					return HAL_BUSY;
+				}
+			}
+			if ((spi_dma_en & SPI_DMA_RX_EN) == 0) {
+				if (HAL_OK ==
+				    hal_ssi_rx_gdma_init(&hal_ssi_adaptor,
+							 hal_ssi_adaptor.prx_gdma_adaptor)) {
+					spi_dma_en |= SPI_DMA_RX_EN;
+				} else {
+					return HAL_BUSY;
+				}
+			}
+			/* as Master mode, sending data will receive data at sametime */
+			ret = hal_ssi_dma_recv(&hal_ssi_adaptor, rx_bufs->buffers->buf,
+					       rx_bufs->count);
+			if (ret == HAL_OK) {
+				ret = hal_ssi_dma_send(&hal_ssi_adaptor, tx_bufs->buffers->buf,
+						       rx_bufs->count);
+			} else {
+				return ret;
+			}
+#else
+			ret = hal_ssi_interrupt_init_read(&hal_ssi_adaptor, rx_bufs->buffers->buf,
+							  rx_bufs->count);
+			/* as Master mode, it need to push data to TX FIFO to generate clock out*/
+			/* then the slave can transmit data out */
+			/* send some dummy data out*/
+			ret = hal_ssi_interrupt_init_write(&hal_ssi_adaptor, NULL, rx_bufs->count);
+#endif
 		}
 	} else {
-		/*printf("slave!\n\r");*/
+		/*slave*/
 	}
 
 	while (hal_ssi_get_busy(&hal_ssi_adaptor)) {
@@ -200,10 +230,6 @@ static int spi_ameba_release(const struct device *dev, const struct spi_config *
 
 static int spi_ameba_init(const struct device *dev)
 {
-	/*struct spi_ameba_data *data = dev->data;*/
-	/*const struct spi_ameba_config *cfg = dev->config;*/
-	/*int ret;*/
-
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
 	cfg->irq_configure(dev);
 #endif
