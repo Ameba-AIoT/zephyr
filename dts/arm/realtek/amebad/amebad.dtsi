@@ -261,6 +261,10 @@
 			alarms-count = <1>;
 			status = "disabled";
 		};
+
+		bt: bt {
+			compatible = "realtek,ameba-bt-hci";
+		};
 	};
 };
 

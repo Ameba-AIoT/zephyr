@@ -20,6 +20,7 @@ struct bt_rtk_data {
 	bt_hci_recv_t recv;
 };
 
+extern bool hci_rx_pkt_free(struct hci_rx_packet_t *pkt);
 static void zephyr_recv(struct hci_rx_packet_t *pkt)
 {
 	const struct device *dev = DEVICE_DT_GET(DT_DRV_INST(0));
@@ -44,12 +45,12 @@ static void zephyr_recv(struct hci_rx_packet_t *pkt)
 	   */
 
 	if (!buf) {
-		return;
+		goto end;
 	}
 
 	if (buf->size < pkt->len) {
 		net_buf_unref(buf);
-		return;
+		goto end;
 	}
 
 	bt_buf_set_type(buf, type);
@@ -58,6 +59,9 @@ static void zephyr_recv(struct hci_rx_packet_t *pkt)
 
 	net_buf_add_mem(buf, pkt->buf, pkt->len);
 	hci->recv(dev, buf);
+
+end:
+	hci_rx_pkt_free(pkt);
 }
 
 static struct hci_transport_cb zephyr_stack_cb = {
@@ -70,7 +74,7 @@ static int hci_open(const struct device *dev, bt_hci_recv_t recv)
 
 	hci->recv = recv;
 
-	if (!hci_controller_enable()) {
+	if (!hci_controller_open()) {
 		return -1;
 	}
 
@@ -117,7 +121,7 @@ static int hci_close(const struct device *dev)
 {
 	struct bt_rtk_data *hci = dev->data;
 
-	hci_controller_disable();
+	hci_controller_close();
 	hci_controller_free();
 
 	hci->recv = NULL;
@@ -130,7 +134,6 @@ static DEVICE_API(bt_hci, drv) = {
 	.close = hci_close,
 };
 
-static struct bt_rtk_data bt_rtk_data = {};                                      
-DEVICE_DT_INST_DEFINE(0, NULL, NULL, &bt_rtk_data, NULL, 
-                      POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &drv)
-
+static struct bt_rtk_data bt_rtk_data = {};
+DEVICE_DT_INST_DEFINE(0, NULL, NULL, &bt_rtk_data, NULL, POST_KERNEL,
+		      CONFIG_KERNEL_INIT_PRIORITY_DEVICE, &drv)
