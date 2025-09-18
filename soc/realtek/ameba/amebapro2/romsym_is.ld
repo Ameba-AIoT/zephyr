@@ -1,4 +1,4 @@
-SECTIONS 
+SECTIONS
 {
     PROVIDE(__rom_stubs_hal_timer = 0x10000000);
     PROVIDE(Image$$_STUB_TMR$$Base = 0x10000000);

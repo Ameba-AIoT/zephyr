@@ -11,9 +11,9 @@
 
 #include <zephyr/drivers/pinctrl.h>
 
-#define AMEBA_GET_PORT_NUM(pin_mux)   (((pin_mux) >> 18) & 0x0F)
-#define AMEBA_GET_PIN_NUM(pin_mux)    (((pin_mux) >> 13) & 0x1F)
-#define AMEBA_GET_PIMNUX_ID(pin_mux)  (((((pin_mux) & 0x1E00) >> 9) << 28) | ((pin_mux) & 0x1FF))
+#define AMEBA_GET_PORT_NUM(pin_mux)  (((pin_mux) >> 18) & 0x0F)
+#define AMEBA_GET_PIN_NUM(pin_mux)   (((pin_mux) >> 13) & 0x1F)
+#define AMEBA_GET_PIMNUX_ID(pin_mux) (((((pin_mux) & 0x1E00) >> 9) << 28) | ((pin_mux) & 0x1FF))
 
 #define AMEBA_GPIO_PINNAME(PORT, PIN) (((PORT) << 5) | ((PIN) & 0x1F))
 

@@ -64,7 +64,7 @@ static int loguart_ameba_poll_in(const struct device *dev, unsigned char *c)
 		return -1;
 	}
 
-	hal_uart_rgetc(&log_uart, (char *) c);
+	hal_uart_rgetc(&log_uart, (char *)c);
 	return 0;
 }
 
@@ -78,7 +78,7 @@ static void loguart_ameba_poll_out(const struct device *dev, unsigned char c)
 {
 	ARG_UNUSED(dev);
 
-	hal_uart_wputc(&log_uart, (uint8_t) c);
+	hal_uart_wputc(&log_uart, (uint8_t)c);
 }
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
@@ -99,7 +99,7 @@ static int loguart_ameba_fifo_fill(const struct device *dev, const uint8_t *tx_d
 	key = irq_lock();
 
 	while ((len - num_tx > 0) && (log_uart.base_addr->tflvr_b.tx_fifo_lv < Uart_Tx_FIFO_Size)) {
-		hal_uart_wputc(&log_uart, (uint8_t) tx_data[num_tx++]);
+		hal_uart_wputc(&log_uart, (uint8_t)tx_data[num_tx++]);
 	}
 
 	irq_unlock(key);
@@ -114,7 +114,7 @@ static int loguart_ameba_fifo_read(const struct device *dev, uint8_t *rx_data, c
 	uint8_t num_rx = 0U;
 
 	while ((size - num_rx > 0) && (log_uart.base_addr->rflvr_b.rx_fifo_lv > 0)) {
-		hal_uart_rgetc(&log_uart, (char *) &rx_data[num_rx++]);
+		hal_uart_rgetc(&log_uart, (char *)&rx_data[num_rx++]);
 	}
 
 	return num_rx;
@@ -202,7 +202,7 @@ static int loguart_ameba_irq_update(const struct device *dev)
 }
 
 static void loguart_ameba_irq_callback_set(const struct device *dev,
-		uart_irq_callback_user_data_t cb, void *cb_data)
+					   uart_irq_callback_user_data_t cb, void *cb_data)
 {
 	struct loguart_ameba_data *data = dev->data;
 
@@ -230,7 +230,7 @@ static int loguart_ameba_init(const struct device *dev)
 	ret = hal_uart_init(&log_uart, STDIO_UART_TX_PIN, STDIO_UART_RX_PIN, NULL);
 
 	/* recover IRQ handler to zephyr ISR wrapper after hal_uart_init */
-	__NVIC_SetVector((IRQn_Type) UART1_IRQn, (uint32_t) _isr_wrapper);
+	__NVIC_SetVector((IRQn_Type)UART1_IRQn, (uint32_t)_isr_wrapper);
 
 	if (ret == HAL_OK) {
 		hal_uart_set_baudrate(&log_uart, data->config.baudrate);
@@ -311,13 +311,12 @@ AMEBA_LOGUART_IRQ_HANDLER
 static const struct loguart_ameba_config loguart_config = {AMEBA_LOGUART_IRQ_HANDLER_FUNC};
 
 static struct loguart_ameba_data loguart_data = {.config = {
-		.stop_bits = UART_CFG_STOP_BITS_1,
-		.data_bits = UART_CFG_DATA_BITS_8,
-		.baudrate = DT_INST_PROP(0, current_speed),
-		.parity = UART_CFG_PARITY_NONE,
-		.flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
-	}
-};
+							 .stop_bits = UART_CFG_STOP_BITS_1,
+							 .data_bits = UART_CFG_DATA_BITS_8,
+							 .baudrate = DT_INST_PROP(0, current_speed),
+							 .parity = UART_CFG_PARITY_NONE,
+							 .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+						 }};
 
 DEVICE_DT_INST_DEFINE(0, loguart_ameba_init, NULL, &loguart_data, &loguart_config, PRE_KERNEL_1,
-					  CONFIG_SERIAL_INIT_PRIORITY, &loguart_ameba_driver_api);
+		      CONFIG_SERIAL_INIT_PRIORITY, &loguart_ameba_driver_api);
