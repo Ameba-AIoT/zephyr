@@ -14,56 +14,51 @@ properties:
   clocks:
     required: true
 
-  shifters-count:
-    type: int
-    required: true
-    description: |
-      Number of AMEBA MCU shifters needed.
-
-  timers-count:
-    type: int
-    required: true
-    description: |
-      Number of AMEBA MCU timers needed.
-
-  enwr-pin:
-    type: int
-    required: true
-    description: |
-      Pin select for WR(8080 mode), EN(6800 mode).
-
-  rd-pin:
-    type: int
-    description: |
-      Pin select for RD(8080 mode), not used in 6800 mode.
-
-  data-pin-start:
-    type: int
-    required: true
-    description: |
-      Start index of the data pin.
-
-  cs-gpios:
+  backlight-gpios:
     type: phandle-array
-    required: true
-    description: |
-      CS Pin
-      GPIO to drive the CS pin.
-
-  rs-gpios:
-    type: phandle-array
-    required: true
-    description: |
-      RS Pin
-      GPIO to drive the RS pin.
-
-  rdwr-gpios:
-    type: phandle-array
-    description: |
-      RDWR Pin
-      GPIO to drive the RDWR pin. This is required for Motorola 68K bus.
+    # required: true
+    description:
+      Backlight on/off GPIO pin.
 
   reset-gpios:
     type: phandle-array
+    required: true
     description: |
       Reset GPIO pin.
+
+  data-bus-width:
+    type: string
+    #required: true
+    #mipi-mode = "MIPI_DBI_MODE_8080_BUS_16_BIT";
+    enum:
+      - "8-bit"  #RGB565, RGB888
+      - "16-bit" #RGB565
+      - "24-bit" #RGB888
+    description:
+      LCD data bus width.
+
+  swap-bytes:
+    type: boolean
+    description: |
+      Swap bytes while transferring pixel data. This is only valid for 8-bit RGB565 format.
+
+  im-gpios:
+    type: phandle-array
+    description: |
+      Four GPIO pins for configuring ILI9806 interface mode (IM3 to IM0).
+      The pins must be configured as output and set according to the desired bit width:
+        - 8-bit mode: [0, 0, 0, 0] (IM3=0, IM2=0, IM1=0, IM0=0)
+        - 16-bit mode: [0, 0, 0, 1] (IM3=0, IM2=0, IM1=0, IM0=1)
+        - 24-bit mode: [0, 0, 1, 0] (IM3=0, IM2=0, IM1=1, IM0=0)
+      The array must be ordered from IM3 (highest bit) to IM0 (lowest bit).
+
+      Example:
+
+          im-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>, // IM3
+                      <&gpio0 13 GPIO_ACTIVE_HIGH>,  // IM2
+                      <&gpio0 16 GPIO_ACTIVE_HIGH>,  // IM1
+                      <&gpio0 17 GPIO_ACTIVE_HIGH]>;   // IM0
+
+
+
+

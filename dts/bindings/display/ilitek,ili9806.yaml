@@ -1,0 +1,209 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: ILI9806 480RGBx800 display controller
+
+compatible: "ilitek,ili9806"
+
+include: ilitek,ili9xxx-common.yaml
+
+properties:
+  extccmdset:
+    type: uint8-array
+    default: [0xFF, 0x98, 0x06]
+    description:
+      EXTC command enable (EXTC Command Set enable) register value.
+
+  gip1:
+    type: uint8-array
+    default: [
+      0x01,
+      0x0F,
+      0x61,
+      0xFF,
+      0x01,
+      0x01,
+      0x0B,
+      0x10,
+      0x37,
+      0x63,
+      0xFF,
+      0xFF,
+      0x01,
+      0x01,
+      0x00,
+      0x00,
+      0xFF,
+      0x52,
+      0x01,
+      0x00,
+      0x40
+    ]
+    description:
+      GIP1 (Gate In Panel 1) register value.
+
+  gip2:
+    type: uint8-array
+    default: [0x01, 0x23, 0x45, 0x67, 0x01, 0x23, 0x45, 0x67]
+    description:
+      GIP2 (Gate In Panel 2) register value.
+
+  gip3:
+    type: uint8-array
+    default: [0x00, 0x01, 0xAB, 0x60, 0x22, 0x22, 0x22, 0x22, 0x22]
+    description:
+      GIP3 (Gate In Panel 3) register value.
+
+  vcomcontrol:
+    type: uint8-array
+    default: [0x36]
+    description:
+      VCOM control register value.
+
+  envolreg:
+    type: uint8-array
+    default: [0x7F, 0x0F]
+    description:
+      Environmental voltage register value.
+
+  pwctrl1:
+    type: uint8-array
+    default: [0x0F, 0x0B, 0x0A]
+    description:
+      Power control 1 register value.
+
+  avdd:
+    type: uint8-array
+    default: [0x08]
+    description:
+      AVDD register value.
+
+  engineerset:
+    type: uint8-array
+    default: [0x00, 0x00, 0x00, 0x00, 0x00, 0x20]
+    description:
+      Engineer set register value.
+
+  dvdd:
+    type: uint8-array
+    default: [0x74]
+    description:
+      DVDD register value.
+
+  invesiontype:
+    type: uint8-array
+    default: [0x00, 0x00, 0x00]
+    description:
+      Inversion type register value.
+
+  resolutionctrl:
+    type: uint8-array
+    default: [0x82]
+    description:
+      Resolution control register value.
+
+  frameratectrl:
+    type: uint8-array
+    default: [0x00, 0x13, 0x13]
+    description:
+      Frame rate control register value.
+
+  creqpcsdt:
+    type: uint8-array
+    default: [0x80, 0x04, 0x40, 0x28]
+    description:
+      Creq PCS DT register value.
+
+  pwctrl2:
+    type: uint8-array
+    default: [0x17, 0x88, 0x88, 0x20]
+    description:
+      Power control 2 register value.
+
+  pgamctrl:
+    type: uint8-array
+    default: [
+        0x00,
+        0x0A,
+        0x12,
+        0x10,
+        0x0E,
+        0x20,
+        0xCC,
+        0x07,
+        0x06,
+        0x0B,
+        0x0E,
+        0x0F,
+        0x0D,
+        0x15,
+        0x10,
+        0x00
+    ]
+    description:
+      Positive gamma control register value.
+
+  ngamctrl:
+    type: uint8-array
+    default: [
+        0x00,
+        0x0B,
+        0x13,
+        0x0D,
+        0x0E,
+        0x1B,
+        0x71,
+        0x06,
+        0x06,
+        0x0A,
+        0x0F,
+        0x0E,
+        0x0F,
+        0x15,
+        0x0C,
+        0x00
+    ]
+    description:
+      Negative gamma control register value.
+
+  caddrset:
+    type: uint8-array
+    default: [0x00, 0x00, 0x01, 0xdf]
+    description:
+      CMN column address set register value.
+
+  paddrset:
+    type: uint8-array
+    default: [0x00, 0x00, 0x03, 0x1f]
+    description:
+      CMN page address set register value.
+
+  # use definations in ilitek,ili9xxx-common.yaml
+  pixformat:
+    type: uint8-array
+    default: [0x77]
+    description:
+      Pixel format register value.
+      16bpp, rgb565; 24bpp, rgb888
+
+  memaccessctrl:
+    type: uint8-array
+    default: [0x00]
+    description:
+      Memory access control register value.
+
+  slpout:
+    type: uint8-array
+    description:
+      CMN sleep out register value.
+
+  displaypon:
+    type: uint8-array
+    description:
+      CMN display on register value.
+
+  memwrite:
+    type: uint8-array
+    description:
+      CMN memory write register value.
+

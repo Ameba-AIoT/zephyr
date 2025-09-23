@@ -21,7 +21,7 @@
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
-		zephyr,display = &st7796s;
+		zephyr,display = &ili9806;
 		zephyr,bt-hci = &bt;
 	};
 
@@ -233,8 +233,8 @@
 
 zephyr_lcdc: &lcdc_dpi {
 	status = "disabled";
-	// pinctrl-0 = <&lcdc_rgb_default>;
-	// pinctrl-names = "default";
+	//pinctrl-0 = <&lcdc_rgb_default>;
+	//pinctrl-names = "default";
 };
 
 &bt {
@@ -275,42 +275,65 @@ zephyr_lcdc: &lcdc_dpi {
 };
 
 zephyr_mipi_dbi_parallel: &lcdc_dbi {
-	shifters-count = <4>;
-	timers-count = <1>;
-	enwr-pin = <31>;
-	rd-pin = <28>;
-	data-pin-start = <0>;
-	reset-gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
-	cs-gpios = <&gpioa 19 GPIO_ACTIVE_HIGH>;
-	rs-gpios = <&gpioa 17 GPIO_ACTIVE_HIGH>;
-	pinctrl-0 = <&pwm0_default>; /* maybe init in lcdc? */
+	//D0-D23 and 8080 interface signals.
+	//DC: low level means cmd and high level mean data
+	//WR and RD: Data is fetched on the rising edge
+	pinctrl-0 = <&lcdc_mcu_default>;
 	pinctrl-names = "default";
+
+	data-bus-width = "8-bit";
+
+	backlight-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
+
+	//IM3 IM2 IM1 IM0
+	im-gpios = <&gpioa 14 GPIO_ACTIVE_HIGH>,
+			<&gpioa 13 GPIO_ACTIVE_HIGH>,
+			<&gpioa 16 GPIO_ACTIVE_HIGH>,
+			<&gpioa 17 GPIO_ACTIVE_HIGH>;
 };
 
 &zephyr_mipi_dbi_parallel {
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	st7796s: lcd-pane@0 {
-		compatible = "sitronix,st7796s";
+	ili9806: ili9806@0 {
+		compatible = "ilitek,ili9806";
 		reg = <0>;
-		/* Baud rate on each pin is 1MHz */
-		mipi-max-frequency = <10000000>;
+
+		//The SCK frequency is set to 10MHz, parsed into the struct spi_config,
+		//and will subsequently be applied to the LCDC configuration register
+		//unused keep to fix err
+		mipi-max-frequency = <25000000>;
+		//0 RGB565; 1 RGB888
+		pixel-format = <0>;
 		mipi-mode = "MIPI_DBI_MODE_8080_BUS_16_BIT";
-		height = <320>;
+
+		//unused keep to fix err; defined x_res and y _res in ili9806.h
 		width = <480>;
-		invert-mode = "1-dot";
-		frmctl1 = [80 10];
-		bpc = [1F 50 00 20];
-		dfc = [8A 07 3B];
-		pwr1 = [80 64];
-		pwr2 = <0x13>;
-		pwr3 = <0xA7>;
-		vcmpctl = <0x09>;
-		doca = [40 8A 00 00 29 19 A5 33];
-		pgc = [F0 06 0B 07 06 05 2E 33 47 3A 17 16 2E 31];
-		ngc = [F0 09 0D 09 08 23 2E 33 46 38 13 13 2C 32];
-		madctl = <0x28>;
-		color-invert;
+		height = <800>;
+		//display_inversion;
+
+		extccmdset = [FF 98 06];
+		gip1 = [01 0F 61 FF 01 01 0B 10 37 63 FF FF 01 01 00 00 FF 52 01 00 40];
+		gip2 = [01 23 45 67 01 23 45 67];
+		gip3 = [00 01 AB 60 22 22 22 22 22];
+		vcomcontrol = [36];
+		envolreg = [7F 0F];
+		pwctrl1 = [0F 0B 0A];
+		avdd = [08];
+		engineerset = [00 00 00 00 00 20];
+		dvdd = [74];
+		invesiontype = [00 00 00];
+		resolutionctrl = [82];
+		frameratectrl = [00 13 13];
+		creqpcsdt = [80 04 40 28];
+		pwctrl2 = [17 88 88 20];
+		pgamctrl = [00 0A 12 10 0E 20 CC 07 06 0B 0E 0F 0D 15 10 00];
+		ngamctrl = [00 0B 13 0D 0E 1B 71 06 06 0A 0F 0E 0F 15 0C 00];
+		caddrset = [00 00 01 df];
+		paddrset = [00 00 03 1f];
+		pixformat = [77];
+		memaccessctrl = [00];
 	};
 };

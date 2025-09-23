@@ -5,7 +5,47 @@ config MIPI_DBI_AMEBA_LCDC
 	bool "MIPI DBI AMEBA LCDC driver"
 	default y
 	depends on DT_HAS_REALTEK_MIPI_DBI_AMEBA_LCDC_ENABLED
-	depends on CLOCK_CONTROL
+	# depends on CLOCK_CONTROL
 	select PINCTRL
 	help
-	  Enable support for AMEBA LCDC display controller driver
+	  Enable support for MIPI DBI SPI driver.
+	  This driver implements a MIPI-DBI type B using LCDC display controller driver.
+
+
+choice AMEBA_LCDC_PIXEL_FORMAT
+	prompt "Color pixel format"
+	# default AMEBA_LCDC_RGB888
+	default AMEBA_LCDC_RGB565
+	depends on MIPI_DBI_AMEBA_LCDC
+	help
+	  Specify the color pixel format for the AMEBA LCD-TFT display controller.
+
+	config AMEBA_LCDC_ARGB8888
+		bool "ARGB8888"
+		help
+		  One pixel consists of 8-bit alpha, 8-bit red, 8-bit green and 8-bit blue value
+		  (4 bytes per pixel)
+	config AMEBA_LCDC_RGB888
+		bool "RGB888"
+		help
+		  One pixel consists of 8-bit red, 8-bit green and 8-bit blue value
+		  (3 bytes per pixel)
+	config AMEBA_LCDC_RGB565
+		bool "RGB565"
+		help
+		  One pixel consists of 5-bit red, 6-bit green and 5-bit blue value
+		  (2 bytes per pixel)
+	config AMEBA_LCDC_BGR565
+		bool "BGR565"
+		help
+		  One pixel consists of 5-bit blue, 6-bit green and 5-bit red value
+		  (2 bytes per pixel)
+endchoice
+
+
+config AMEBA_LCDC_TE_ENABLE
+	bool "Enable TE mode"
+	default n
+	help
+		Enable AMEBA TE mode configuration.
+

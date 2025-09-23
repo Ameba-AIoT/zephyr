@@ -512,6 +512,12 @@ static const struct ili9xxx_quirks ili9488_quirks = {
 };
 #endif
 
+#ifdef CONFIG_ILI9806
+static const struct ili9xxx_quirks ili9806_quirks = {
+	.cmd_set = CMD_SET_1,
+};
+#endif
+
 #define INST_DT_ILI9XXX(n, t) DT_INST(n, ilitek_ili##t)
 
 #define ILI9XXX_INIT(n, t)                                                     \
@@ -568,3 +574,9 @@ DT_INST_FOREACH_ILI9XXX_STATUS_OKAY(9342c);
 #include "display_ili9488.h"
 DT_INST_FOREACH_ILI9XXX_STATUS_OKAY(9488);
 #endif
+
+#ifdef CONFIG_ILI9806
+#include "display_ili9806.h"
+DT_INST_FOREACH_ILI9XXX_STATUS_OKAY(9806);
+#endif
+

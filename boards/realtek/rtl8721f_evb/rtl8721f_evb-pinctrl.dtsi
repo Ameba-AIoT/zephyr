@@ -205,4 +205,46 @@
 		};
 	};
 
+	lcdc_mcu_default: lcdc_mcu_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 26, AMEBA_LCD_D0)>,
+				<AMEBA_PINMUX('A', 24, AMEBA_LCD_D1)>,
+				<AMEBA_PINMUX('A', 23, AMEBA_LCD_D2)>,
+				<AMEBA_PINMUX('A', 22, AMEBA_LCD_D3)>,
+				<AMEBA_PINMUX('A', 25, AMEBA_LCD_D4)>,
+				<AMEBA_PINMUX('A', 29, AMEBA_LCD_D5)>,
+				<AMEBA_PINMUX('B', 4, AMEBA_LCD_D6)>,
+				<AMEBA_PINMUX('B', 5, AMEBA_LCD_D7)>,
+
+				//for 8bit mode, in EVB_V2:
+				//D8~D23 are not used, should be configured to the same bias status
+				<AMEBA_PINMUX('B', 6, AMEBA_LCD_D8)>,
+				<AMEBA_PINMUX('B', 7, AMEBA_LCD_D9)>,
+				<AMEBA_PINMUX('B', 8, AMEBA_LCD_D10)>,
+				<AMEBA_PINMUX('B', 9, AMEBA_LCD_D11)>,
+				<AMEBA_PINMUX('B', 11, AMEBA_LCD_D12)>,
+				<AMEBA_PINMUX('B', 10, AMEBA_LCD_D13)>,
+				<AMEBA_PINMUX('B', 16, AMEBA_LCD_D14)>,
+				<AMEBA_PINMUX('B', 22, AMEBA_LCD_D15)>,
+
+				//for 16bit mode, in EVB_V2:
+				//D16~D23 are not used, should be configured to the same bias status
+				<AMEBA_PINMUX('B', 23, AMEBA_LCD_D16)>,
+				<AMEBA_PINMUX('B', 14, AMEBA_LCD_D17)>,
+				<AMEBA_PINMUX('B', 12, AMEBA_LCD_D18)>,
+				<AMEBA_PINMUX('B', 15, AMEBA_LCD_D19)>,
+				<AMEBA_PINMUX('B', 17, AMEBA_LCD_D20)>,
+				<AMEBA_PINMUX('B', 21, AMEBA_LCD_D21)>,
+				<AMEBA_PINMUX('B', 18, AMEBA_LCD_D22)>,
+				<AMEBA_PINMUX('A', 6, AMEBA_LCD_D23)>,
+
+				<AMEBA_PINMUX('A', 9, AMEBA_LCD_MCU_DCX)>,
+				<AMEBA_PINMUX('A', 11, AMEBA_LCD_MCU_WR)>,
+				<AMEBA_PINMUX('A', 10, AMEBA_LCD_MCU_RD)>,
+				<AMEBA_PINMUX('A', 7, AMEBA_LCD_MCU_CSX)>;
+
+				/* bias config is need */
+				bias-pull-up;
+		};
+	};
 };
