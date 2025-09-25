@@ -33,3 +33,7 @@
 	status = "okay";
 };
 
+&video0 {
+	status = "okay";
+};
+

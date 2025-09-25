@@ -1,0 +1,11 @@
+# AmebaPro2 video driver configuration options
+
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config VIDEO_AMEBAPRO2
+	bool "Realtek AmebaPro2 Video Driver"
+	depends on VIDEO && DT_HAS_REALTEK_AMEBAPRO2_VIDEO_ENABLED
+	default y
+	help
+		Enable support for the Realtek AmebaPro2 video driver.
