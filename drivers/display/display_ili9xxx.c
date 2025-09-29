@@ -346,6 +346,18 @@ static int ili9xxx_set_orientation(const struct device *dev,
 		} else if (orientation == DISPLAY_ORIENTATION_ROTATED_270) {
 			tx_data |= ILI9XXX_MADCTL_MV | ILI9XXX_MADCTL_MX;
 		}
+	} else if (config->quirks->cmd_set == CMD_SET_3) {
+		tx_data = 0x00;
+
+		if (orientation == DISPLAY_ORIENTATION_NORMAL) {
+			/* Do nothing */
+		} else if (orientation == DISPLAY_ORIENTATION_ROTATED_90) {
+			tx_data |= ILI9XXX_MADCTL_MV | ILI9XXX_MADCTL_MX;
+		} else if (orientation == DISPLAY_ORIENTATION_ROTATED_180) {
+			tx_data |= ILI9XXX_MADCTL_MY | ILI9XXX_MADCTL_MX;
+		} else if (orientation == DISPLAY_ORIENTATION_ROTATED_270) {
+			tx_data |= ILI9XXX_MADCTL_MV | ILI9XXX_MADCTL_MY;
+		}
 	}
 
 	r = ili9xxx_transmit(dev, ILI9XXX_MADCTL, &tx_data, 1U);
@@ -514,7 +526,7 @@ static const struct ili9xxx_quirks ili9488_quirks = {
 
 #ifdef CONFIG_ILI9806
 static const struct ili9xxx_quirks ili9806_quirks = {
-	.cmd_set = CMD_SET_1,
+	.cmd_set = CMD_SET_3,
 };
 #endif
 

@@ -21,7 +21,6 @@
 		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
 		zephyr,flash-controller = &spic;
-		zephyr,display = &ili9806;
 		zephyr,bt-hci = &bt;
 	};
 
@@ -275,18 +274,14 @@ zephyr_lcdc: &lcdc_dpi {
 };
 
 zephyr_mipi_dbi_parallel: &lcdc_dbi {
-	//D0-D23 and 8080 interface signals.
-	//DC: low level means cmd and high level mean data
-	//WR and RD: Data is fetched on the rising edge
 	pinctrl-0 = <&lcdc_mcu_default>;
 	pinctrl-names = "default";
 
-	data-bus-width = "8-bit";
-
+	/* EVB V2 */
 	backlight-gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
 	reset-gpios = <&gpioa 8 GPIO_ACTIVE_LOW>;
 
-	//IM3 IM2 IM1 IM0
+	/* IM3 IM2 IM1 IM0 */
 	im-gpios = <&gpioa 14 GPIO_ACTIVE_HIGH>,
 			<&gpioa 13 GPIO_ACTIVE_HIGH>,
 			<&gpioa 16 GPIO_ACTIVE_HIGH>,
@@ -294,25 +289,32 @@ zephyr_mipi_dbi_parallel: &lcdc_dbi {
 };
 
 &zephyr_mipi_dbi_parallel {
-	status = "okay";
+	status = "disabled";
 	#address-cells = <1>;
 	#size-cells = <0>;
+
+	/* swap-bytes; */
+
 	ili9806: ili9806@0 {
+		status = "disabled";
 		compatible = "ilitek,ili9806";
 		reg = <0>;
 
-		//The SCK frequency is set to 10MHz, parsed into the struct spi_config,
-		//and will subsequently be applied to the LCDC configuration register
-		//unused keep to fix err
+		/** 
+                 * The SCK frequency is set to 25MHz, parsed into the struct spi_config,
+		 * and will subsequently be applied to the LCDC configuration register
+		 * unused but keep to fix err
+                 */
 		mipi-max-frequency = <25000000>;
-		//0 RGB565; 1 RGB888
+		/* 0 RGB565; 1 RGB888 */
 		pixel-format = <0>;
-		mipi-mode = "MIPI_DBI_MODE_8080_BUS_16_BIT";
+		mipi-mode = "MIPI_DBI_MODE_8080_BUS_8_BIT";
+		rotation = <0>;
 
-		//unused keep to fix err; defined x_res and y _res in ili9806.h
+		/* unused keep to fix err; defined x_res and y _res in ili9806.h */
 		width = <480>;
 		height = <800>;
-		//display_inversion;
+		/* display_inversion; */
 
 		extccmdset = [FF 98 06];
 		gip1 = [01 0F 61 FF 01 01 0B 10 37 63 FF FF 01 01 00 00 FF 52 01 00 40];
@@ -331,9 +333,11 @@ zephyr_mipi_dbi_parallel: &lcdc_dbi {
 		pwctrl2 = [17 88 88 20];
 		pgamctrl = [00 0A 12 10 0E 20 CC 07 06 0B 0E 0F 0D 15 10 00];
 		ngamctrl = [00 0B 13 0D 0E 1B 71 06 06 0A 0F 0E 0F 15 0C 00];
+		/* following for debug usage */
 		caddrset = [00 00 01 df];
 		paddrset = [00 00 03 1f];
-		pixformat = [77];
+		/* 0x77 24bpp; 0x55 16bpp */
+		pixformat = [55];
 		memaccessctrl = [00];
 	};
 };

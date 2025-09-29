@@ -10,7 +10,6 @@
 #include <soc.h>
 #include <ameba_soc.h>
 
-/* #include <zephyr/drivers/dma.h> */
 #include <zephyr/drivers/display.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pinctrl.h>
@@ -48,6 +47,11 @@ LOG_MODULE_REGISTER(mipi_dbi_ameba_lcdc, CONFIG_MIPI_DBI_LOG_LEVEL);
 	 : (panel_format) == PIXEL_FORMAT_BGR_565 ? LCDC_OUTPUT_FORMAT_BGR565                      \
 						  : LCDC_OUTPUT_FORMAT_RGB888)
 
+#define PANEL_PARENT_NODE DT_NODELABEL(zephyr_mipi_dbi_parallel)
+#define GET_CHILD_PROP_MIPI_MODE(child)                                                            \
+	DT_STRING_UPPER_TOKEN_OR(child, mipi_mode, MIPI_DBI_MODE_8080_BUS_16_BIT)
+#define CHILD_PROP_MIPI_MODE DT_FOREACH_CHILD(PANEL_PARENT_NODE, GET_CHILD_PROP_MIPI_MODE)
+
 /*0000 8bit, 1100, 9bit, 0001 16bit, 1101 18bit, 0010 24bit */
 enum ILI9806_MCU_Parallel {
 	ILI9806_MCU_Parallel_8b_0000 = 0,
@@ -60,6 +64,9 @@ enum ILI9806_MCU_Parallel {
 struct mipi_dbi_lcdc_ameba_data {
 	struct k_sem lock;
 	struct k_sem transfer_done;
+
+	uint32_t color_out_format;
+	bool clear_screen_finish;
 	const struct mipi_dbi_config *active_cfg;
 };
 
@@ -81,6 +88,8 @@ struct mipi_dbi_lcdc_ameba_config {
 
 	bool swap_bytes;
 
+	uint32_t if_width;
+
 	/* reset and backlight gpios */
 	struct gpio_dt_spec reset_gpios;
 	struct gpio_dt_spec bl_ctrl_gpios;
@@ -99,6 +108,10 @@ static void mipi_dbi_lcdc_ameba_isr(const struct device *dev)
 	if (status & LCDC_BIT_LCD_FRD_INTS) {
 		LOG_DBG("intr: frame done \r\n");
 		k_sem_give(&data->transfer_done);
+	}
+
+	if (status & LCDC_BIT_PANEL_TE_INTS) {
+		LOG_INF("intr: panel te input \r\n");
 	}
 
 	if (status & LCDC_BIT_DMA_UN_INTS) {
@@ -147,6 +160,9 @@ static void set_interface_bit(const struct device *dev, enum ILI9806_MCU_Paralle
 		LOG_WRN("Unknown ILI9806_MCU_Parallel_xbits !!! \r\n");
 		break;
 	}
+
+	/* delay is required before send init commands */
+	k_sleep(K_MSEC(50));
 }
 
 /* config lcdc work in io mode */
@@ -185,30 +201,38 @@ static int mipi_dbi_lcdc_dbi_configure(const struct device *dev,
 	LCDC_Cmd(LCDC, DISABLE);
 
 	LCDC_MCUStructInit(&lcdc_dbi_config);
+	lcdc_dbi_config.Panel_Init.InputFormat = AMEBA_LCDC_INIT_PIXEL_FORMAT;
 
 	switch (bus_type) {
 	case MIPI_DBI_MODE_8080_BUS_8_BIT:
+		LOG_INF("%s bus_type=8bit color-out=RGB565 color-in%x \r\n(0x0-argb888, "
+			"0x1-rgb888, 0x2-rgb565, 0xa-bgr565)",
+			__func__, AMEBA_LCDC_INIT_PIXEL_FORMAT);
 		lcdc_dbi_config.Panel_Init.IfWidth = LCDC_MCU_IF_8_BIT;
-		if (cfg->if_ctrl_gpios.im3.port != NULL && cfg->if_ctrl_gpios.im2.port != NULL &&
-		    cfg->if_ctrl_gpios.im1.port != NULL && cfg->if_ctrl_gpios.im0.port != NULL) {
-			set_interface_bit(dev, ILI9806_MCU_Parallel_8b_0000);
-		}
+		lcdc_dbi_config.Panel_Init.OutputFormat = LCDC_OUTPUT_FORMAT_RGB565; /* BGR888 */
+		data->color_out_format = PIXEL_FORMAT_RGB_565; /* PIXEL_FORMAT_RGB_888 */
 		break;
 
 	case MIPI_DBI_MODE_8080_BUS_16_BIT:
+		LOG_INF("%s bus_type=16bit color-out=RGB565 color-in%x \r\n(0x0-argb888, "
+			"0x1-rgb888, 0x2-rgb565, 0xa-bgr565)",
+			__func__, AMEBA_LCDC_INIT_PIXEL_FORMAT);
 		lcdc_dbi_config.Panel_Init.IfWidth = LCDC_MCU_IF_16_BIT;
-		if (cfg->if_ctrl_gpios.im3.port != NULL && cfg->if_ctrl_gpios.im2.port != NULL &&
-		    cfg->if_ctrl_gpios.im1.port != NULL && cfg->if_ctrl_gpios.im0.port != NULL) {
-			set_interface_bit(dev, ILI9806_MCU_Parallel_16b_0001);
-		}
+		lcdc_dbi_config.Panel_Init.OutputFormat = LCDC_OUTPUT_FORMAT_RGB565; /* BGR565 */
+		data->color_out_format = PIXEL_FORMAT_RGB_565;
 		break;
 #ifdef AMEBA_TODO
+		/* note: it's extension of RealTek for
+		 * zephyr/include/zephyr/dt-bindings/mipi_dbi/mipi_dbi.h
+		 */
+
 	case MIPI_DBI_MODE_8080_BUS_24_BIT:
+		LOG_INF("%s bus_type=24bit color-out=RGB888 color-in%x \r\n(0x0-argb888, "
+			"0x1-rgb888, 0x2-rgb565, 0xa-bgr565) \r\n",
+			__func__, AMEBA_LCDC_INIT_PIXEL_FORMAT);
 		lcdc_dbi_config.Panel_Init.IfWidth = LCDC_MCU_IF_24_BIT;
-		if (cfg->if_ctrl_gpios.im3.port != NULL && cfg->if_ctrl_gpios.im2.port != NULL &&
-		    cfg->if_ctrl_gpios.im1.port != NULL && cfg->if_ctrl_gpios.im0.port != NULL) {
-			set_interface_bit(dev, ILI9806_MCU_Parallel_24_0010);
-		}
+		lcdc_dbi_config.Panel_Init.OutputFormat = LCDC_OUTPUT_FORMAT_RGB888;
+		data->color_out_format = PIXEL_FORMAT_RGB_888;
 		break;
 #endif
 	default:
@@ -218,8 +242,6 @@ static int mipi_dbi_lcdc_dbi_configure(const struct device *dev,
 
 	/* lcdc_dbi_config.Panel_Init.ImgWidth = WIDTH; */
 	/* lcdc_dbi_config.Panel_Init.ImgHeight = HEIGHT; */
-	lcdc_dbi_config.Panel_Init.InputFormat = AMEBA_LCDC_INIT_PIXEL_FORMAT;
-	lcdc_dbi_config.Panel_Init.OutputFormat = LCDC_INPUT_FORMAT_RGB565;
 
 	/* KD043WVFBA085 */
 	lcdc_dbi_config.Panel_McuTiming.McuRdPolar = LCDC_MCU_RD_PUL_RISING_EDGE_FETCH;
@@ -228,6 +250,11 @@ static int mipi_dbi_lcdc_dbi_configure(const struct device *dev,
 	lcdc_dbi_config.Panel_McuTiming.McuTePolar = LCDC_MCU_TE_PUL_HIGH_LEV_ACTIVE;
 	lcdc_dbi_config.Panel_McuTiming.McuSyncPolar = LCDC_MCU_VSYNC_PUL_LOW_LEV_ACTIVE;
 	LCDC_MCUInit(LCDC, &lcdc_dbi_config);
+
+	if (cfg->swap_bytes) {
+		LCDC_MCUCtrlSwap(cfg->base, ENABLE);
+		LOG_INF("enable swap!");
+	}
 
 	LCDC_Cmd(LCDC, ENABLE);
 	data->active_cfg = dbi_config;
@@ -243,7 +270,7 @@ static int mipi_dbi_lcdc_ameba_write_display(const struct device *dev,
 	struct mipi_dbi_lcdc_ameba_data *data = dev->data;
 	const struct mipi_dbi_lcdc_ameba_config *cfg = dev->config;
 	LCDC_TypeDef *reg = cfg->base;
-	u32 lcdc_out_format = GET_LCDC_DBI_OUTPUT_FORMAT(pixfmt);
+	u32 lcdc_out_format;
 	int ret = 0;
 
 	k_sem_take(&data->lock, K_FOREVER);
@@ -251,28 +278,89 @@ static int mipi_dbi_lcdc_ameba_write_display(const struct device *dev,
 	/* The DBI bus type and output color format. */
 	ret = mipi_dbi_lcdc_dbi_configure(dev, dbi_config);
 	if (ret) {
-		goto error_exit;
+		k_sem_give(&data->lock);
+		return ret;
 	}
 
 	/* switch to auto/trigger DMA mode */
 	LCDC_Cmd(LCDC, DISABLE);
 
-	LOG_INF("pixfmt:%x, lcdc_out_format:%x", pixfmt, lcdc_out_format);
-	LCDC_ColorFomatOutputConfig(LCDC, lcdc_out_format);
+	if (pixfmt != data->color_out_format) {
+		LOG_INF("color-out: 0x%x-> 0x%x (bit0-rgb888, bit4-rgb565, bit5-bgr565) ",
+			data->color_out_format, pixfmt);
+
+		/* lcdc_out_format: 0x%x (0x0-rgb888, 0x1-rgb565, 0x8-bgr888,0x9 bgr565)" */
+		lcdc_out_format = GET_LCDC_DBI_OUTPUT_FORMAT(pixfmt);
+		LCDC_ColorFomatOutputConfig(LCDC, lcdc_out_format);
+
+		data->color_out_format = pixfmt;
+	}
 
 	/* configure the plane size */
-	LOG_INF("width:%u, height:%u, pitch:%u, buflen:%u ", desc->width, desc->height, desc->pitch,
+	LOG_DBG("width:%u, height:%u, pitch:%u, buflen:%u ", desc->width, desc->height, desc->pitch,
 		desc->buf_size);
 
 	if (desc->width != desc->pitch) {
 		LOG_WRN("%s desc->width != desc->pitch !!!", __func__);
 	}
 
+#ifdef CONFIG_AMEBA_LCDC_IO_ENABLE
+	uint8_t *pbuf8 = (uint8_t *)framebuf;
+	uint16_t *pbuf16 = (uint16_t *)framebuf;
+	uint32_t len = desc->buf_size;
+	uint32_t if_width = cfg->if_width;
+
+	LCDC_Cmd(LCDC, ENABLE);
+
+	if (if_width == MIPI_DBI_MODE_8080_BUS_16_BIT) {
+		if (data->clear_screen_finish == FALSE) {
+			for (int32_t i = 0; i < len / 2; i++) {
+				LCDC_MCUIOWriteData(cfg->base, (0xffff));
+			}
+			data->clear_screen_finish = TRUE;
+		}
+		for (int32_t i = 0; i < len / 2; i++) {
+			LCDC_MCUIOWriteData(cfg->base, (pbuf16[i] & 0xFFFF));
+		}
+		LOG_INF("%s txdone-16bit", __func__);
+
+	} else if (if_width == MIPI_DBI_MODE_8080_BUS_8_BIT) {
+		if (data->clear_screen_finish == FALSE) {
+			for (int32_t i = 0; i < len; i++) {
+				LCDC_MCUIOWriteData(cfg->base, (0xFF));
+			}
+			data->clear_screen_finish = TRUE;
+		}
+
+		for (int32_t i = 0; i < len; i++) {
+			LCDC_MCUIOWriteData(cfg->base, (pbuf8[i] & 0xFF));
+		}
+		LOG_INF("%s txdone-8bit", __func__);
+	} else if (if_width == MIPI_DBI_MODE_8080_BUS_24_BIT) {
+		if (data->clear_screen_finish == FALSE) {
+			for (int32_t i = 0; i < len / 3; i++) {
+				LCDC_MCUIOWriteData(cfg->base, 0xFFFFFF);
+			}
+			data->clear_screen_finish = TRUE;
+		}
+
+		for (int32_t i = 0; i < len / 3; i++) {
+			uint8_t byte0 = pbuf8[3 * i];
+			uint8_t byte1 = pbuf8[3 * i + 1];
+			uint8_t byte2 = pbuf8[3 * i + 2];
+			uint32_t data = (byte2 << 16) | (byte1 << 8) | byte0;
+
+			LCDC_MCUIOWriteData(cfg->base, data & 0xFFFFFF);
+		}
+		LOG_INF("%s txdone-24bit", __func__);
+	}
+	k_sem_give(&data->lock);
+
+#else /* MIPI_DBI_AMEBA_LCDC_IO_MODE */
 	reg->LCDC_PLANE_SIZE &= ~(LCDC_MASK_IMAGEHEIGHT | LCDC_MASK_IMAGEWIDTH);
-	/* plane size is needed in dma mode */
 	reg->LCDC_PLANE_SIZE |= (LCDC_IMAGEWIDTH(desc->width) | LCDC_IMAGEHEIGHT(desc->height));
 
-#ifndef CONFIG_AMEBA_LCDC_TE_ENABLE /* TE mode */
+#ifdef CONFIG_AMEBA_LCDC_VSYNC_ENABLE /* VSYNC mode */
 	Lcdc_McuDmaCfgDef LCDC_MCUDmaCfgStruct;
 
 	LCDC_MCUDmaCfgStruct.TeMode = 0; /* DISABLE */
@@ -287,21 +375,20 @@ static int mipi_dbi_lcdc_ameba_write_display(const struct device *dev,
 	LCDC_DMAImgCfg(LCDC, (u32)framebuf);
 	DCache_Clean((u32)framebuf, desc->buf_size);
 
-	/* LCDC_LineINTPosConfig(LCDC, LCDC_LINE_NUM_INTR_DEF); */
-	/*LCDC_BIT_LCD_LIN_INTEN*/
 	LCDC_INTConfig(LCDC, LCDC_BIT_LCD_FRD_INTEN | LCDC_BIT_DMA_UN_INTEN, ENABLE);
-
 	LCDC_Cmd(LCDC, ENABLE);
-	k_sem_give(&data->lock);
 
-#ifndef CONFIG_AMEBA_LCDC_TE_ENABLE
-	LOG_INF("%s trigger one time", __func__);
+#ifdef CONFIG_AMEBA_LCDC_VSYNC_ENABLE
+	LOG_DBG("%s trigger one time", __func__);
 	LCDC_MCUDMATrigger(LCDC);
 #endif
 
-error_exit:
-	k_sem_take(&data->transfer_done, K_FOREVER);
+	k_sem_give(&data->lock);
 
+	k_sem_take(&data->transfer_done, K_FOREVER);
+	LCDC_INTConfig(LCDC, LCDC_BIT_LCD_FRD_INTEN, DISABLE);
+
+#endif
 	return 0;
 }
 
@@ -318,8 +405,10 @@ static int mipi_dbi_lcdc_ameba_configure_te(const struct device *dev, uint8_t ed
 	u32 t_wr_ns = (wrdiv + 1) * 2 * 1000000000 / LCDC_SYS_CLK;
 	u32 delay_cycle = 2 * delay_us * 1000 / t_wr_ns;
 
-	LOG_INF("ipclk:%u wrdiv:%u t_wr_ns:%u delay_cycle:%u", LCDC_SYS_CLK, wrdiv, t_wr_ns,
-		delay_cycle);
+	LOG_INF("%s ipclk:%u wrdiv:%u t_wr_ns:%u delay_cycle:%u", __func__, LCDC_SYS_CLK, wrdiv,
+		t_wr_ns, delay_cycle);
+
+	LCDC_Cmd(reg, DISABLE);
 
 	Lcdc_McuDmaCfgDef LCDC_MCUDmaCfgStruct;
 
@@ -335,7 +424,7 @@ static int mipi_dbi_lcdc_ameba_configure_te(const struct device *dev, uint8_t ed
 
 	case MIPI_DBI_TE_NO_EDGE:
 	default:
-		LOG_INF("TE disabled %u and set vsync trigger mode", edge);
+		LOG_INF("%s TE disabled and set vsync trigger mode", __func__);
 		LCDC_MCUDmaCfgStruct.TeMode = 0; /* DISABLE */
 		LCDC_MCUDmaCfgStruct.TriggerDma = LCDC_TRIGGER_DMA_MODE;
 		LCDC_MCUDmaMode(LCDC, &LCDC_MCUDmaCfgStruct);
@@ -343,9 +432,14 @@ static int mipi_dbi_lcdc_ameba_configure_te(const struct device *dev, uint8_t ed
 	}
 
 	LCDC_MCUDmaCfgStruct.TeMode = 1;
-	delay_cycle = (delay_cycle < 5) ? 0 : (delay_cycle - 5);
-	LCDC_MCUDmaCfgStruct.TeDelay = LCDC_TEDELAY(delay_cycle);
+	if (delay_cycle < 5) {
+		delay_cycle = 5;
+	}
+	LCDC_MCUDmaCfgStruct.TeDelay = delay_cycle;
 	LCDC_MCUDmaMode(LCDC, &LCDC_MCUDmaCfgStruct);
+
+	LCDC_INTConfig(LCDC, LCDC_BIT_PANEL_TE_INTEN, ENABLE);
+
 	return 0;
 }
 #endif
@@ -355,6 +449,7 @@ static int mipi_dbi_lcdc_ameba_write_cmd(const struct device *dev,
 					 const uint8_t *data_buf, size_t data_len)
 {
 	const struct mipi_dbi_lcdc_ameba_config *cfg = dev->config;
+	LCDC_TypeDef *reg = cfg->base;
 	struct mipi_dbi_lcdc_ameba_data *data = dev->data;
 	int ret = 0;
 
@@ -366,17 +461,35 @@ static int mipi_dbi_lcdc_ameba_write_cmd(const struct device *dev,
 		goto error_exit;
 	}
 
-	/*LCDC_Cmd(LCDC, ENABLE);*/
+	if (LCDC_MCUGetRunStatus(LCDC) == LCDC_MCU_RUN_DMA_MODE) {
+		LCDC_Cmd(LCDC, DISABLE);
 
-	LCDC_MCUIOWriteCmd(cfg->base, cmd);
+		LOG_DBG("%s DMA mode -> IO mode", __func__);
+
+		/* configure mcu io/dma mode to io mode */
+		reg->LCDC_MCU_CFG |= LCDC_BIT_MCU_IO_MODE_EN;
+
+		/* configure mcu sync mode for io mode */
+		reg->LCDC_MCU_CFG &= ~LCDC_MASK_MCU_SYNC_MODE;
+		reg->LCDC_MCU_CFG |= LCDC_MCU_SYNC_MODE(LCDC_MCU_SYNC_WITH_INTERNAL_CLK);
+		LCDC_Cmd(LCDC, ENABLE);
+	}
+
+	if (!(reg->LCDC_CTRL & LCDC_BIT_EN)) {
+		LOG_INF("%s enable lcdc", __func__);
+		LCDC_Cmd(LCDC, ENABLE);
+	}
+
+	LCDC_MCUIOWriteCmd(cfg->base, (cmd & 0xFF));
 
 	if (data_len != 0U) {
 		if (data_buf != NULL) {
 			for (int i = 0; i < data_len; i++) {
-				LCDC_MCUIOWriteData(cfg->base, data_buf[i]);
+				LCDC_MCUIOWriteData(cfg->base, (data_buf[i] & 0xFF));
 			}
 		} else {
 			LOG_ERR("%s data_len=%u data_buf is NULL", __func__, data_len);
+
 			ret = -EINVAL;
 			goto error_exit;
 		}
@@ -398,22 +511,22 @@ static int mipi_dbi_lcdc_ameba_reset(const struct device *dev, k_timeout_t delay
 		return -ENOSYS;
 	}
 
-	ret = gpio_pin_configure_dt(&cfg->reset_gpios, GPIO_OUTPUT_HIGH);
-	if (ret) {
+	/* ACTIVE LOW */
+	ret = gpio_pin_set_dt(&cfg->reset_gpios, 1);
+	if (ret < 0) {
 		return ret;
 	}
+
+	/* ili9xxx delay 1ms not enough for ili9806 */
+	k_sleep(K_MSEC(10));
 
 	ret = gpio_pin_set_dt(&cfg->reset_gpios, 0);
 	if (ret < 0) {
 		return ret;
 	}
 
-	k_sleep(delay);
-
-	ret = gpio_pin_set_dt(&cfg->reset_gpios, 1);
-	if (ret < 0) {
-		return ret;
-	}
+	/* ili9xxx delay 5ms not enough for ili9806 */
+	k_sleep(K_MSEC(120));
 
 	LOG_DBG("%s device reset complete", dev->name);
 
@@ -428,6 +541,7 @@ static int mipi_dbi_lcdc_ameba_init(const struct device *dev)
 	int ret = 0;
 
 	/* DCache_Disable(); */
+
 	/* Configure and set display on/off GPIO */
 	if (cfg->bl_ctrl_gpios.port) {
 		ret = gpio_pin_configure_dt(&cfg->bl_ctrl_gpios, GPIO_OUTPUT_ACTIVE);
@@ -438,8 +552,8 @@ static int mipi_dbi_lcdc_ameba_init(const struct device *dev)
 	}
 
 	if (cfg->reset_gpios.port) {
-		ret = gpio_pin_configure_dt(&cfg->reset_gpios,
-					    GPIO_OUTPUT_INACTIVE); /* GPIO_OUTPUT_ACTIVE */
+		ret = gpio_pin_configure_dt(&cfg->reset_gpios, GPIO_OUTPUT_HIGH);
+
 		if (ret < 0) {
 			LOG_ERR("configuration of reset control GPIO failed");
 			return ret;
@@ -450,6 +564,40 @@ static int mipi_dbi_lcdc_ameba_init(const struct device *dev)
 	if (ret) {
 		LOG_ERR("configuration pinctrl failed");
 		return ret;
+	}
+
+	LOG_INF("%s %d cfg->if_width%x \r\n", __func__, __LINE__, cfg->if_width);
+
+	if (cfg->if_width != 0) {
+		if (cfg->if_ctrl_gpios.im3.port != NULL && cfg->if_ctrl_gpios.im2.port &&
+		    cfg->if_ctrl_gpios.im1.port != NULL && cfg->if_ctrl_gpios.im0.port) {
+
+			switch (cfg->if_width) {
+			case MIPI_DBI_MODE_8080_BUS_8_BIT:
+				set_interface_bit(dev, ILI9806_MCU_Parallel_8b_0000);
+				break;
+			case MIPI_DBI_MODE_8080_BUS_16_BIT:
+				set_interface_bit(dev, ILI9806_MCU_Parallel_16b_0001);
+				break;
+#ifdef AMEBA_TODO
+				/* note: it's extension of RealTek for
+				 * zephyr/include/zephyr/dt-bindings/mipi_dbi/mipi_dbi.h
+				 */
+
+			case MIPI_DBI_MODE_8080_BUS_24_BIT:
+				set_interface_bit(dev, ILI9806_MCU_Parallel_24b_0010);
+				break;
+#endif
+			default:
+				LOG_ERR("%s unknown if_width(0x%x)", __func__, cfg->if_width);
+				return -EINVAL;
+			}
+		} else {
+			LOG_WRN("im[3:0] is not assigned, make sure if_width is fixed");
+		}
+	} else {
+		LOG_WRN("if_width is not configured");
+		return -EINVAL;
 	}
 
 	/* enable function and clock */
@@ -468,7 +616,8 @@ static int mipi_dbi_lcdc_ameba_init(const struct device *dev)
 		return ret;
 	}
 
-	LOG_DBG("%s device init complete", dev->name);
+	LOG_INF("%s device init complete", dev->name);
+
 	return 0;
 }
 
@@ -494,6 +643,8 @@ static const struct mipi_dbi_lcdc_ameba_config mipi_dbi_lcdc_config = {
 	.base = (LCDC_TypeDef *)DT_REG_ADDR(DT_PARENT(DT_DRV_INST(0))),
 	.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(0),
 	.irq_config_func = mipi_dbi_lcdc_ameba_irq_config,
+	.if_width = (CHILD_PROP_MIPI_MODE), /*MIPI_DBI_MODE_8080_BUS_16_BIT*/
+	.swap_bytes = DT_INST_PROP(0, swap_bytes),
 	.reset_gpios = GPIO_DT_SPEC_INST_GET(0, reset_gpios),
 	.bl_ctrl_gpios = GPIO_DT_SPEC_INST_GET_OR(0, backlight_gpios, {0}),
 	.if_ctrl_gpios = COND_CODE_1(DT_INST_NODE_HAS_PROP(0, im_gpios),
@@ -509,7 +660,7 @@ static const struct mipi_dbi_lcdc_ameba_config mipi_dbi_lcdc_config = {
 };
 
 static struct mipi_dbi_lcdc_ameba_data mipi_dbi_lcdc_data = {
-
+	.clear_screen_finish = FALSE,
 };
 
 DEVICE_DT_INST_DEFINE(0, mipi_dbi_lcdc_ameba_init, NULL, &mipi_dbi_lcdc_data, &mipi_dbi_lcdc_config,

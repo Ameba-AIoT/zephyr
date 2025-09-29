@@ -26,17 +26,6 @@ properties:
     description: |
       Reset GPIO pin.
 
-  data-bus-width:
-    type: string
-    #required: true
-    #mipi-mode = "MIPI_DBI_MODE_8080_BUS_16_BIT";
-    enum:
-      - "8-bit"  #RGB565, RGB888
-      - "16-bit" #RGB565
-      - "24-bit" #RGB888
-    description:
-      LCD data bus width.
-
   swap-bytes:
     type: boolean
     description: |

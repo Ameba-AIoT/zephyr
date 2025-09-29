@@ -13,7 +13,7 @@ config MIPI_DBI_AMEBA_LCDC
 
 
 choice AMEBA_LCDC_PIXEL_FORMAT
-	prompt "Color pixel format"
+	prompt "Color pixel format(input)"
 	# default AMEBA_LCDC_RGB888
 	default AMEBA_LCDC_RGB565
 	depends on MIPI_DBI_AMEBA_LCDC
@@ -42,10 +42,23 @@ choice AMEBA_LCDC_PIXEL_FORMAT
 		  (2 bytes per pixel)
 endchoice
 
-
-config AMEBA_LCDC_TE_ENABLE
-	bool "Enable TE mode"
-	default n
+choice MIPI_DBI_AMEBA_LCDC_MODE_SELECT
+	prompt "Work mode"
+	default AMEBA_LCDC_VSYNC_ENABLE
+	depends on MIPI_DBI_AMEBA_LCDC
 	help
-		Enable AMEBA TE mode configuration.
+	  Specify the work mode in MIPI-DBI for LCDC controller.
 
+	config AMEBA_LCDC_TE_ENABLE
+		bool "Tear Effect"
+		help
+		  Work in TE mode
+	config AMEBA_LCDC_IO_ENABLE
+		bool "IO"
+		help
+		  Work in IO mode
+	config AMEBA_LCDC_VSYNC_ENABLE
+		bool "VSYNC"
+		help
+		  Work in VSYNC trigger mode
+endchoice

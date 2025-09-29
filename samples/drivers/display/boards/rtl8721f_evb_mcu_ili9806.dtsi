@@ -1,0 +1,121 @@
+/*
+ * Copyright (c) 2025 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* EVB V1 */
+
+lcdc_mcu_default: &lcdc_mcu_default {
+	group1 {
+		/* EVB V1 */
+		pinmux = <AMEBA_PINMUX('B', 31, AMEBA_LCD_D0)>,  /* D0 - B0 */
+			<AMEBA_PINMUX('B', 29, AMEBA_LCD_D1)>,  /* D1 */
+			<AMEBA_PINMUX('B', 27, AMEBA_LCD_D2)>,  /* D2 */
+			<AMEBA_PINMUX('B', 25, AMEBA_LCD_D3)>,  /* D3 */
+			<AMEBA_PINMUX('B', 24, AMEBA_LCD_D4)>,  /* D4 */
+			<AMEBA_PINMUX('B', 23, AMEBA_LCD_D5)>,  /* D5 */
+			<AMEBA_PINMUX('B', 18, AMEBA_LCD_D6)>,  /* D6 */
+			<AMEBA_PINMUX('B', 14, AMEBA_LCD_D7)>,  /* D7 - B7 */
+
+			<AMEBA_PINMUX('B', 13, AMEBA_LCD_D8)>,  /* D8 - G0 */
+			<AMEBA_PINMUX('B', 0, AMEBA_LCD_D9)>,   /* D9 */
+			<AMEBA_PINMUX('A', 25, AMEBA_LCD_D10)>, /* D10 */
+			<AMEBA_PINMUX('A', 28, AMEBA_LCD_D11)>, /* D11 */
+			<AMEBA_PINMUX('A', 19, AMEBA_LCD_D12)>, /* D12 */
+			<AMEBA_PINMUX('A', 23, AMEBA_LCD_D13)>, /* D13 */
+			<AMEBA_PINMUX('A', 22, AMEBA_LCD_D14)>, /* D14 */
+			<AMEBA_PINMUX('A', 21, AMEBA_LCD_D15)>, /* D15 - G7 */
+
+			<AMEBA_PINMUX('C', 0, AMEBA_LCD_D16)>,  /* D16 - R0 */
+			<AMEBA_PINMUX('B', 30, AMEBA_LCD_D17)>, /* D17 */
+			<AMEBA_PINMUX('B', 28, AMEBA_LCD_D18)>, /* D18 */
+			<AMEBA_PINMUX('B', 26, AMEBA_LCD_D19)>, /* D19 */
+			<AMEBA_PINMUX('A', 27, AMEBA_LCD_D20)>, /* D20 */
+			<AMEBA_PINMUX('B', 22, AMEBA_LCD_D21)>, /* D21 */
+			<AMEBA_PINMUX('B', 21, AMEBA_LCD_D22)>, /* D22 */
+			<AMEBA_PINMUX('B', 17, AMEBA_LCD_D23)>, /* D23 - R7 */
+
+			<AMEBA_PINMUX('A', 30, AMEBA_LCD_MCU_DCX)>,
+			<AMEBA_PINMUX('A', 31, AMEBA_LCD_MCU_WR)>,
+			<AMEBA_PINMUX('A', 29, AMEBA_LCD_MCU_RD)>,
+			<AMEBA_PINMUX('B', 15, AMEBA_LCD_MCU_CSX)>;
+			/* EVB_V1 BLEN:PC1  RST:PB16 IM3-0: PA20 PA24 PA26 PA18*/
+			/* bias config is need */
+			bias-pull-up;
+	};
+};
+
+
+zephyr_mipi_dbi_parallel: &lcdc_dbi {
+	/** D0-D23 and 8080 interface signals.
+	 * DC: low level means cmd and high level mean data
+	 * WR and RD: Data is fetched on the rising edge
+         */
+	pinctrl-0 = <&lcdc_mcu_default>;
+	pinctrl-names = "default";
+
+	/* EVB V1 */
+	backlight-gpios = <&gpioc 1 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpiob 16 GPIO_ACTIVE_LOW>;
+
+	/* IM3 IM2 IM1 IM0 */
+	im-gpios = <&gpioa 20 GPIO_ACTIVE_HIGH>,
+			<&gpioa 24 GPIO_ACTIVE_HIGH>,
+			<&gpioa 26 GPIO_ACTIVE_HIGH>,
+			<&gpioa 18 GPIO_ACTIVE_HIGH>;
+};
+
+&zephyr_mipi_dbi_parallel {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* swap-bytes; */
+
+	ili9806: ili9806@0 {
+		status = "okay";
+		compatible = "ilitek,ili9806";
+		reg = <0>;
+
+		/**
+                 * The SCK frequency is set to 25MHz, parsed into the struct spi_config,
+		 * and will subsequently be applied to the LCDC configuration register
+		 * unused keep to fix err
+                 */
+		mipi-max-frequency = <25000000>;
+		/* 0 RGB565; 1 RGB888 */
+		pixel-format = <0>;
+		mipi-mode = "MIPI_DBI_MODE_8080_BUS_8_BIT";
+		rotation = <0>;
+
+		/* unused keep to fix err; defined x_res and y _res in ili9806.h */
+		width = <480>;
+		height = <800>;
+		/* display_inversion; */
+
+		extccmdset = [FF 98 06];
+		gip1 = [01 0F 61 FF 01 01 0B 10 37 63 FF FF 01 01 00 00 FF 52 01 00 40];
+		gip2 = [01 23 45 67 01 23 45 67];
+		gip3 = [00 01 AB 60 22 22 22 22 22];
+		vcomcontrol = [36];
+		envolreg = [7F 0F];
+		pwctrl1 = [0F 0B 0A];
+		avdd = [08];
+		engineerset = [00 00 00 00 00 20];
+		dvdd = [74];
+		invesiontype = [00 00 00];
+		resolutionctrl = [82];
+		frameratectrl = [00 13 13];
+		creqpcsdt = [80 04 40 28];
+		pwctrl2 = [17 88 88 20];
+		pgamctrl = [00 0A 12 10 0E 20 CC 07 06 0B 0E 0F 0D 15 10 00];
+		ngamctrl = [00 0B 13 0D 0E 1B 71 06 06 0A 0F 0E 0F 15 0C 00];
+		/* following for ameba debug usage */
+		caddrset = [00 00 01 df];
+		paddrset = [00 00 03 1f];
+		/* 0x77 24bpp; 0x55 16bpp */
+		pixformat = [55];
+		memaccessctrl = [00];
+	};
+};

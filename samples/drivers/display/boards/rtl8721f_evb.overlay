@@ -1,17 +1,20 @@
 /*
- * Copyright (c) 2024 Realtek Semiconductor Corp.
+ * Copyright (c) 2025 Realtek Semiconductor Corp.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /* EVB V2 */
+/* #include "rtl8721f_evb_rgb_st7262.dtsi" */
+/* #include "rtl8721f_evb_srgb_st7272a.dtsi" */
 
-#include "rtl8721f_evb_rgb_st7262.dtsi"
-// #include "rtl8721f_evb_srgb_st7272a.dtsi"
+/* EVB V1*/
+#include "rtl8721f_evb_mcu_ili9806.dtsi"
 
 / {
 	chosen {
-		zephyr,display = &zephyr_lcdc;
+		/* zephyr,display = &zephyr_lcdc; DPI */
+		zephyr,display = &ili9806;/* DBI */
 	};
 
 };

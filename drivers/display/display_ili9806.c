@@ -10,12 +10,15 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_ili9806, CONFIG_DISPLAY_LOG_LEVEL);
 
+/* #define ILI9806_SOLO_DEBUG */
+
 int ili9806_regs_init(const struct device *dev)
 {
 	const struct ili9xxx_config *config = dev->config;
 	const struct ili9806_regs *regs = config->regs;
 	int r;
 
+	LOG_DBG("%s start", __func__);
 	/* Extended Command Set */
 	LOG_HEXDUMP_DBG(regs->extccmdset, ILI9806_EXTCCMDSET_LEN, "EXTCCMDSET");
 	r = ili9xxx_transmit(dev, ILI9806_EXTCCMDSET, regs->extccmdset, ILI9806_EXTCCMDSET_LEN);
@@ -127,6 +130,7 @@ int ili9806_regs_init(const struct device *dev)
 		return r;
 	}
 
+#ifdef ILI9806_SOLO_DEBUG
 	/* Addressing */
 	LOG_HEXDUMP_DBG(regs->caddrset, ILI9806_CADDRSET_LEN, "CADDRSET");
 	r = ili9xxx_transmit(dev, ILI9806_CADDRSET, regs->caddrset, ILI9806_CADDRSET_LEN);
@@ -155,29 +159,28 @@ int ili9806_regs_init(const struct device *dev)
 	}
 
 	/* Display Control */
-#ifdef MIPI_DBI_AMEBA_LCDC_TODO
-	/* CMN by ili9xxx.c */
-	LOG_HEXDUMP_DBG(regs->slpout, ILI9806_SLPOUT_LEN, "SLPOUT");
-	r = ili9xxx_transmit(dev, ILI9806_SLPOUT, regs->slpout, ILI9806_SLPOUT_LEN);
-	if (r < 0) {
-		return r;
-	}
 
-	/* may called by application */
-	LOG_HEXDUMP_DBG(regs->displaypon, ILI9806_DISPLAYPON_LEN, "DISPLAYPON");
-	r = ili9xxx_transmit(dev, ILI9806_DISPLAYPON, regs->displaypon, ILI9806_DISPLAYPON_LEN);
+	/* CMN by ili9xxx.c */
+	r = ili9xxx_transmit(dev, ILI9806_SLPOUT, NULL, 0U);
 	if (r < 0) {
 		return r;
 	}
+	k_sleep(K_MSEC(120));
+
+	/* called by application*/
+	r = ili9xxx_transmit(dev, ILI9806_DISPLAYPON, NULL, 0U);
+	if (r < 0) {
+		return r;
+	}
+	k_sleep(K_MSEC(20));
 
 	/* Memory Write */
-	/* may called by application */
-	LOG_HEXDUMP_DBG(regs->memwrite, ILI9806_MEMWRITE_LEN, "MEMWRITE");
-	r = ili9xxx_transmit(dev, ILI9806_MEMWRITE, regs->memwrite, ILI9806_MEMWRITE_LEN);
+	/* called by application */
+	r = ili9xxx_transmit(dev, ILI9806_MEMWRITE, NULL, 0U);
 	if (r < 0) {
 		return r;
 	}
 #endif
-
+	LOG_DBG("%s end ", __func__);
 	return 0;
 }

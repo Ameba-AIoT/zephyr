@@ -59,6 +59,7 @@
 enum madctl_cmd_set {
 	CMD_SET_1,	/* Default for most of ILI9xxx display controllers */
 	CMD_SET_2,	/* Used by ILI9342c */
+	CMD_SET_3,	/* Used by ILI9806 */
 };
 
 struct ili9xxx_quirks {
