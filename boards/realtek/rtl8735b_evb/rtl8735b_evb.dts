@@ -17,7 +17,41 @@
 		zephyr,console = &loguart;
 		zephyr,shell-uart = &loguart;
 		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
 		zephyr,entropy = &trng;
+		zephyr,flash-controller = &spic;
+	};
+};
+
+/* 16MB flash */
+&flash0 {
+	reg = <0x08000000 DT_SIZE_M(16)>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@9000 {
+			label = "bootloader";
+			reg = <0x00009000 0x00027000>;
+			read-only;
+		};
+
+		slot0_partition: partition@60000 {
+			label = "image-0";
+			reg = <0x00060000 0x00400000>;
+		};
+
+		slot1_partition: partition@520000 {
+			label = "image-1";
+			reg = <0x00520000 0x00400000>;
+		};
+
+		storage_partition: partition@F64000 {
+			label = "storage";
+			reg = <0x00F64000 0x0009C000>;
+		};
 	};
 };
 
@@ -30,6 +64,10 @@
 };
 
 &loguart {
+	status = "okay";
+};
+
+&spic {
 	status = "okay";
 };
 

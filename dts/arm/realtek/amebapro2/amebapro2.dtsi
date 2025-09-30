@@ -65,6 +65,22 @@
 			status = "disabled";
 		};
 
+		spic: flash-controller@40006000 {
+			compatible = "realtek,amebapro2-flash-controller";
+			reg = <0x40006000 0x12c>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			flash0: flash@8000000 {
+				compatible = "soc-nv-flash";
+				erase-block-size = <DT_SIZE_K(4)>;
+				write-block-size = <4>;
+				/* Flash size is specified in board dts */
+			};
+		};
+
 		video0: video@40300000 {
 			compatible = "realtek,amebapro2-video";
 			reg = <0x40300000 0x1000>;
