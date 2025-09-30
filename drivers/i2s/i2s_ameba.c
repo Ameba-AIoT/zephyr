@@ -484,6 +484,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		LOG_ERR("START trigger: invalid state %u", data->tx.state);
 		return -EINVAL;
 	}
+
 	ret = i2s_ameba_start_state_check(&data->rx);
 	if (ret < 0) {
 		LOG_ERR("START trigger: invalid state %u", data->rx.state);
@@ -1564,11 +1565,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 	switch (cfg->clock_mode) {
 	case PLL_CLOCK_45P1584M:
 		RCC_PeriphClockSource_SPORT(cfg->i2s, CKSL_I2S_CPUPLL);
-		if (cfg->index == 0) {
-			PLL_I2S0_CLK(ENABLE, 1U);
-		} else {
-			PLL_I2S1_CLK(ENABLE, 1U);
-		}
+		PLL_I2S_CLK_DIV(cfg->index, ENABLE, 1U);
 
 		/*if (cfg->pll_tune == 0) {
 		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_AUTO);
@@ -1584,11 +1581,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 
 	case PLL_CLOCK_98P304M:
 		RCC_PeriphClockSource_SPORT(cfg->i2s, CKSL_I2S_CPUPLL);
-		if (cfg->index == 0) {
-			PLL_I2S0_CLK(ENABLE, 0);
-		} else {
-			PLL_I2S1_CLK(ENABLE, 0);
-		}
+		PLL_I2S_CLK_DIV(cfg->index, ENABLE, 0U);
 
 		/*if (cfg->pll_tune == 0) {
 		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_AUTO);

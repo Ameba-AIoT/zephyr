@@ -129,16 +129,11 @@
 	status = "okay";
 };
 
-//&i2s0 {
-//	pinctrl-0 = <&i2s0_default>;
-//	pinctrl-names = "default";
-//	status = "okay";
-//};
-
-//&i2s1 {
-//	pinctrl-0 = <&i2s1_default>;
-//	pinctrl-names = "default";
-//};
+&i2s0 {
+	pinctrl-0 = <&i2s0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
 
 //&codec {
 //	pinctrl-0 = <&dmic_default>;
