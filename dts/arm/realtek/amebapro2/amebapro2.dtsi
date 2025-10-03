@@ -59,6 +59,15 @@
 			status = "disabled";
 		};
 
+		i2c1: i2c@40044400 {
+			compatible = "realtek,amebapro2-i2c";
+			reg = <0x40044400 0x400>;
+			interrupts = <15 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		trng: trng@4000b000 {
 			compatible = "realtek,amebapro2-trng";
 			reg = <0x4000b000 0x10>;
