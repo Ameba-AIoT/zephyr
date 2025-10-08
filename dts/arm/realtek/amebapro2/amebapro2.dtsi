@@ -97,6 +97,13 @@
 			status = "disabled";
 			label = "VIDEO_AMEBAPRO2";
 		};
+
+		sdmmc: sdmmc-controller@40058000 {
+			compatible = "realtek,amebapro2-sdmmc";
+			reg = <0x40058000 0x100>;
+			interrupts = <27 0>;
+			status = "disabled";
+		};
 	};
 };
 

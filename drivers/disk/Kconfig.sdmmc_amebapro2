@@ -1,0 +1,11 @@
+# AmebaPro2 sd card driver configuration options
+
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config SDMMC_AMEBAPRO2
+	bool "Realtek AmebaPro2 SD Driver"
+	depends on DT_HAS_REALTEK_AMEBAPRO2_SDMMC_ENABLED && DISK_ACCESS
+	default y
+	help
+		Enable support for the Realtek AmebaPro2 sd card driver.
