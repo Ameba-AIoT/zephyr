@@ -25,6 +25,7 @@
 
 	aliases {
 		i2c-0 = &i2c0;
+		i2c-1 = &i2c1;
 		led-strip =&ledc;
 		rtc = &rtc;
 		sw0 = &button0;
@@ -99,6 +100,11 @@
 	pinctrl-0 = <&i2c0_default>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-names = "default";
 };
 
 &i2s0 {

@@ -155,8 +155,8 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			dmas = <&dma 4 17 0>,
-				   <&dma 5 16 0>;
+			dmas = <&dma 2 17 0>,
+				   <&dma 3 16 0>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};
@@ -169,8 +169,8 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			dmas = <&dma 4 19 0>,
-				   <&dma 5 18 0>;
+			dmas = <&dma 2 19 0>,
+				   <&dma 3 18 0>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};

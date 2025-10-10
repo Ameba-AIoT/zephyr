@@ -57,7 +57,6 @@ struct i2c_ameba_data {
 typedef void (*irq_connect_cb)(void);
 
 struct i2c_ameba_config {
-	int index;
 	I2C_TypeDef *I2Cx;
 	uint32_t bitrate;
 	const struct pinctrl_dev_config *pcfg;
@@ -173,13 +172,14 @@ static int i2c_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	struct i2c_dma_stream *i2c_dma = NULL;
 
 	i2c_dma = &data->dma_tx;
+	uint32_t handshake_index = i2c_dma->dma_cfg.dma_slot;
 
 	memset(&i2c_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2c_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2c_dma->dma_cfg.head_block = &i2c_dma->blk_cfg;
 	i2c_dma->blk_cfg.source_address = (u32)pdata;
-	i2c_dma->blk_cfg.dest_address = (u32)&I2C_DEV_TABLE[cfg->index].I2Cx->IC_DATA_CMD;
-	i2c_dma->dma_cfg.dma_slot = I2C_DEV_TABLE[cfg->index].Tx_HandshakeInterface;
+	i2c_dma->blk_cfg.dest_address = cfg->I2Cx->IC_DATA_CMD;
+	i2c_dma->dma_cfg.dma_slot = handshake_index;
 	i2c_dma->dma_cfg.dma_callback = i2c_ameba_dma_tx_cb;
 
 	i2c_dma->dma_cfg.channel_direction = MEMORY_TO_PERIPHERAL;
@@ -228,12 +228,14 @@ static int i2c_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	struct i2c_dma_stream *i2c_dma = NULL;
 
 	i2c_dma = &data->dma_rx;
+	uint32_t handshake_index = i2c_dma->dma_cfg.dma_slot;
+
 	memset(&i2c_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2c_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2c_dma->dma_cfg.head_block = &i2c_dma->blk_cfg;
 
-	i2c_dma->blk_cfg.source_address = (u32)&I2C_DEV_TABLE[cfg->index].I2Cx->IC_DATA_CMD;
-	i2c_dma->dma_cfg.dma_slot = I2C_DEV_TABLE[cfg->index].Rx_HandshakeInterface;
+	i2c_dma->blk_cfg.source_address = cfg->I2Cx->IC_DATA_CMD;
+	i2c_dma->dma_cfg.dma_slot = handshake_index;
 	i2c_dma->dma_cfg.dma_callback = i2c_ameba_dma_rx_cb;
 
 	i2c_dma->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
@@ -601,7 +603,6 @@ static int i2c_ameba_init(const struct device *dev)
 								   I2C_DMA_CHANNEL(n, tx)};        \
                                                                                                    \
 	static const struct i2c_ameba_config i2c_ameba_config_##n = {                              \
-		.index = n,                                                                        \
 		.I2Cx = (I2C_TypeDef *)DT_INST_REG_ADDR(n),                                        \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.bitrate = DT_INST_PROP(n, clock_frequency),                                       \
