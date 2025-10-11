@@ -55,7 +55,7 @@ uint32_t i2s_ameba_tx_fifo_empty_handler(struct device *dev)
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	struct i2s_ameba_data *data = dev->data;
 	struct stream *stream = &data->tx;
-	AUDIO_SPORT_TypeDef *SPORTx = AUDIO_DEV_TABLE[cfg->index].SPORTx;
+	AUDIO_SPORT_TypeDef *SPORTx = cfg->i2s;
 
 	if (data->fifo_num == 0 || data->fifo_num == 1) {
 		if (SPORTx->SP_FIFO_CTRL & SP_BIT_TX_FIFO_EMPTY_INTR_0) {
@@ -94,7 +94,7 @@ static void i2s_ameba_tx_sport_fifo_empty_irq(const struct device *dev, bool ena
 {
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	struct i2s_ameba_data *data = dev->data;
-	AUDIO_SPORT_TypeDef *SPORTx = AUDIO_DEV_TABLE[cfg->index].SPORTx;
+	AUDIO_SPORT_TypeDef *SPORTx = cfg->i2s;
 
 	if (data->fifo_num == 2 || data->fifo_num == 3) {
 		if (enable) {
@@ -292,22 +292,19 @@ void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 		if (IS_REORDER_CH(data->reorder_mode)) {
 			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (u32)buffer,
-				   (u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_0_WR_ADDR,
-				   upper_block_size);
+				   (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, upper_block_size);
 			/* dma_start */
 			dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 			dma_reload(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel,
 				   (u32)buffer + upper_block_size,
-				   (u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_1_WR_ADDR,
-				   bottom_block_size);
+				   (u32)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR, bottom_block_size);
 			/* dma_start */
 			dma_start(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel);
 		} else
 #endif
 		{
 			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (u32)buffer,
-				   (u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_0_WR_ADDR,
-				   stream->cfg.block_size);
+				   (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, stream->cfg.block_size);
 			/* dma_start */
 			dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 		}
@@ -384,21 +381,18 @@ void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 				if (IS_REORDER_CH(data->reorder_mode)) {
 					dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
-						   (u32)&AUDIO_DEV_TABLE[cfg->index]
-							   .SPORTx->SP_RX_FIFO_0_RD_ADDR,
+						   (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
 						   (u32)buffer, upper_block_size);
 					dma_reload(data->dma_rx_ext.dma_dev,
 						   data->dma_rx_ext.dma_channel,
-						   (u32)&AUDIO_DEV_TABLE[cfg->index]
-							   .SPORTx->SP_RX_FIFO_1_RD_ADDR,
+						   (u32)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR,
 						   (u32)buffer + upper_block_size,
 						   bottom_block_size);
 				} else
 #endif
 				{
 					dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
-						   (u32)&AUDIO_DEV_TABLE[cfg->index]
-							   .SPORTx->SP_RX_FIFO_0_RD_ADDR,
+						   (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
 						   (u32)buffer, stream->cfg.block_size);
 				}
 				/* put buffer in input queue */
@@ -790,14 +784,14 @@ static int i2s_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	struct i2s_dma_stream *i2s_dma = NULL;
 
 	i2s_dma = &data->dma_tx;
+	uint32_t handshake_index = i2s_dma->dma_cfg.dma_slot;
 
 	memset(&i2s_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.dest_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_0_WR_ADDR;
-	i2s_dma->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Tx_HandshakeInterface;
+	i2s_dma->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
+	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_tx_cb;
 
 	i2s_dma->dma_cfg.channel_direction = MEMORY_TO_PERIPHERAL;
@@ -847,13 +841,14 @@ static int i2s_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	struct i2s_dma_stream *i2s_dma = NULL;
 
 	i2s_dma = &data->dma_rx;
+	uint32_t handshake_index = i2s_dma->dma_cfg.dma_slot;
+
 	memset(&i2s_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.source_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_RX_FIFO_0_RD_ADDR;
-	i2s_dma->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Rx_HandshakeInterface;
+	i2s_dma->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
+	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_rx_cb;
 
 	i2s_dma->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
@@ -893,13 +888,14 @@ static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	int ret = 0;
 
 	i2s_dma = &data->dma_tx;
+	uint32_t handshake_index = i2s_dma->dma_cfg.dma_slot;
+
 	memset(&i2s_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.dest_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_0_WR_ADDR;
-	i2s_dma->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Tx_HandshakeInterface;
+	i2s_dma->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
+	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_tx_cb;
 
 	i2s_dma->dma_cfg.channel_direction = MEMORY_TO_PERIPHERAL;
@@ -928,12 +924,13 @@ static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	i2s_dma->dma_cfg.user_data = (void *)dev;
 
 	i2s_dma_ext = &data->dma_tx_ext;
+	uint32_t handshake_index_ext = i2s_dma_ext->dma_cfg.dma_slot;
+
 	memcpy(&i2s_dma_ext->dma_cfg, &i2s_dma->dma_cfg, sizeof(struct dma_config));
 	i2s_dma_ext->dma_cfg.head_block = &i2s_dma_ext->blk_cfg;
 	memcpy(&i2s_dma_ext->blk_cfg, &i2s_dma->blk_cfg, sizeof(struct dma_block_config));
-	i2s_dma_ext->blk_cfg.dest_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_TX_FIFO_1_WR_ADDR;
-	i2s_dma_ext->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Tx_HandshakeInterface1;
+	i2s_dma_ext->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR;
+	i2s_dma_ext->dma_cfg.dma_slot = handshake_index_ext;
 	i2s_dma_ext->blk_cfg.block_size = (data->fifo_num == 2) ? (length / 3) : (length / 2);
 	i2s_dma_ext->blk_cfg.source_address = (uint32_t)pdata + i2s_dma->blk_cfg.block_size;
 
@@ -959,13 +956,14 @@ static int i2s_rx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	int ret = 0;
 
 	i2s_dma = &data->dma_rx;
+	uint32_t handshake_index = i2s_dma->dma_cfg.dma_slot;
+
 	memset(&i2s_dma->dma_cfg, 0, sizeof(struct dma_config));
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.source_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_RX_FIFO_0_RD_ADDR;
-	i2s_dma->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Rx_HandshakeInterface;
+	i2s_dma->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
+	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_rx_cb;
 
 	i2s_dma->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
@@ -996,9 +994,8 @@ static int i2s_rx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	memcpy(&i2s_dma_ext->dma_cfg, &i2s_dma->dma_cfg, sizeof(struct dma_config));
 	i2s_dma_ext->dma_cfg.head_block = &i2s_dma_ext->blk_cfg;
 	memcpy(&i2s_dma_ext->blk_cfg, &i2s_dma->blk_cfg, sizeof(struct dma_block_config));
-	i2s_dma_ext->blk_cfg.source_address =
-		(u32)&AUDIO_DEV_TABLE[cfg->index].SPORTx->SP_RX_FIFO_1_RD_ADDR;
-	i2s_dma_ext->dma_cfg.dma_slot = AUDIO_DEV_TABLE[cfg->index].Rx_HandshakeInterface1;
+	i2s_dma_ext->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR;
+	i2s_dma_ext->dma_cfg.dma_slot = data->dma_rx.dma_cfg.dma_slot1;
 	i2s_dma_ext->blk_cfg.block_size = (data->fifo_num == 2) ? (length / 3) : (length / 2);
 	i2s_dma_ext->blk_cfg.dest_address = (uint32_t)pdata + i2s_dma->blk_cfg.block_size;
 
