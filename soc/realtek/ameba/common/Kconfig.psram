@@ -1,0 +1,31 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config AMEBA_PSRAM
+	def_bool y if $(dt_nodelabel_enabled,psram)
+
+config AMEBA_PSRAM_HEAP_SIZE
+	int "Size of PSRAM heap"
+	depends on AMEBA_PSRAM
+	default 262134 if SYS_HEAP_SMALL_ONLY
+	default 1048576 if !SYS_HEAP_SMALL_ONLY
+	help
+		Specify size of PSRAM heap.
+
+config AMEBA_PSRAM_SIZE
+	hex
+	depends on AMEBA_PSRAM
+	default $(dt_nodelabel_reg_size_hex,psram)
+
+choice
+	prompt "PSRAM Heap Allocate type"
+	depends on AMEBA_PSRAM
+	default PSRAM_HEAP_NONE
+	config PSRAM_HEAP_SHARED_MULTI
+		bool "SHARED MULTI HEAP"
+		select SHARED_MULTI_HEAP
+	config PSRAM_HEAP_SINGLE
+		bool "PSRAM HEAP SINGLE"
+	config PSRAM_HEAP_NONE
+		bool "PSRAM HEAP NONE"
+endchoice

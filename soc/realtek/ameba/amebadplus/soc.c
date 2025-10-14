@@ -79,4 +79,8 @@ void soc_early_init_hook(void)
 	ipc_table_init(IPCKM4_DEV);
 
 	app_vdd1833_detect();
+
+#ifdef CONFIG_AMEBA_PSRAM
+	ameba_init_psram();
+#endif
 }

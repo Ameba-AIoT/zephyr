@@ -11,6 +11,7 @@
 
 #include <zephyr/sys/util.h>
 #include "cmsis_cpu.h"
+#include "ameba_psram.h"
 
 #endif /* _ASMLANGUAGE */
 

@@ -76,4 +76,8 @@ void soc_early_init_hook(void)
 	ipc_table_init(IPCAP_DEV);
 	IRQ_CONNECT(IPC_CPU0_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCAP_DEV, 0);
 	irq_enable(IPC_CPU0_IRQ);
+
+#ifdef CONFIG_AMEBA_PSRAM
+	ameba_init_psram();
+#endif
 }

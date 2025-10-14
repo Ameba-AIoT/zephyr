@@ -56,6 +56,14 @@
 			reg = <0x20010020 0x00030000>;
 		};
 
+		psram: memory@60000000 {
+			compatible = "zephyr,memory-region";
+			device_type = "memory";
+			reg = <0x60000000 DT_SIZE_M(4)>;
+			zephyr,memory-region = "PSRAM";
+			status = "disabled";
+		};
+
 		ram_image2_entry: memory@20004da0 {
 			compatible = "zephyr,memory-region";
 			reg = <0x20004da0 0x20>;
