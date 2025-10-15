@@ -142,6 +142,9 @@
 			clocks = <&rcc AMEBA_SPI0_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			/* GDMA_HANDSHAKE_INTERFACE_SPI0_RX */
+			dmas = <&dma 2 7 0>, <&dma 3 6 0>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
@@ -152,6 +155,8 @@
 			clocks = <&rcc AMEBA_SPI1_CLK>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			dmas = <&dma 2 9 0>, <&dma 3 8 0>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
