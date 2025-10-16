@@ -4,10 +4,8 @@
 description: Realtek Ameba USB Device controller
 
 compatible: "realtek,ameba-udc"
-#Green2
+
 include: ["snps,dwc2.yaml", pinctrl-device.yaml]
-#Dplus
-#include: [base.yaml, pinctrl-device.yaml]
 
 bus: usb
 
@@ -23,15 +21,3 @@ properties:
 
   pinctrl-names:
     required: true
-
-  in-ep-cnt:
-    type: int
-
-  out-ep-cnt:
-    type: int
-
-  udc-max-speed:
-    type: int
-
-  ep-ranges:
-    type: array

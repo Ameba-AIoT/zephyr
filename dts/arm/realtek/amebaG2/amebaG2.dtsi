@@ -99,6 +99,13 @@
 			status = "disabled";
 		};
 
+		usb: usb@40080000 {
+			compatible = "realtek,ameba-usb";
+			reg = <0x40080000 0x20000>;
+			interrupts = <59 0>;
+			status = "disabled";
+		};
+
 		uart0: serial@4080c000 {
 			compatible = "realtek,ameba-uart";
 			reg = <0x4080c000 0x64>;
@@ -354,30 +361,6 @@
 			clocks = <&rcc AMEBA_TRNG_CLK>;
 			status = "disabled";
 		};
-
-		//usb: usb@40140000 {
-		//	compatible = "realtek,ameba-usb";
-		//	reg = <0x40140000 0x20000>;
-		//	interrupts = <68 0>;
-		//	status = "disabled";
-		//};
-
-		//zephyr_udc0: usbd@40150000 {
-		//	compatible = "realtek,ameba-udc";
-		//	reg = <0x40150000 0x200>;
-		//	interrupts = <68 0>;
-		//	in-ep-cnt = <5>;
-		//	out-ep-cnt = <5>;
-		//	udc-max-speed = <AMEBA_USB_BUS_SPEED_FS>;
-
-		//	/* epnum in/out type mps */
-		//	ep-ranges =
-		//	<AMEBA_USB_EP(1,AMEBA_USB_EP_DIR_IN, AMEBA_USB_EP_TYPE_NON_CTRL,64)>,
-		//	<AMEBA_USB_EP(2,AMEBA_USB_EP_DIR_OUT,AMEBA_USB_EP_TYPE_NON_CTRL,64)>,
-		//	<AMEBA_USB_EP(3,AMEBA_USB_EP_DIR_IN, AMEBA_USB_EP_TYPE_NON_CTRL,64)>,
-		//	<AMEBA_USB_EP(4,AMEBA_USB_EP_DIR_OUT,AMEBA_USB_EP_TYPE_NON_CTRL,64)>;
-		//	status = "disabled";
-		//};
 
 		//cryp: cryp@40100000 {
 		//	compatible = "realtek,ameba-crypto";
