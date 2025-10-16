@@ -245,17 +245,17 @@ zephyr_lcdc: &lcdc_dpi {
 	status = "okay";
 };
 
-//&a2c0{
-//	pinctrl-0 = <&a2c0_default;
-//	pinctrl-names = "default;
-//	status = "okay;
-//};
+&a2c0 {
+	pinctrl-0 = <&a2c0_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
 
-//&a2c1{
-//	pinctrl-0 = <&a2c1_default;
-//	pinctrl-names = "default;
-//	status = "okay;
-//};
+&a2c1 {
+	pinctrl-0 = <&a2c1_default>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
 
 &mdio {
 	status = "disabled";
