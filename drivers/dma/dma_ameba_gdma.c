@@ -171,24 +171,6 @@ static int dma_ameba_blockcfg_update(const struct device *dev, uint32_t channel)
 	data->channel_status[channel].gdma_struct.GDMA_DstInc =
 		data->channel_status[channel].cur_dma_blk_cfg->dest_addr_adj;
 
-	/* if data block size (or source addr, destination addr) is unaligned,
-	 * fix data width and burst length
-	 */
-	if (((data->channel_status[channel].cur_dma_blk_cfg->block_size & 0x03) != 0) ||
-	    (((data->channel_status[channel].cur_dma_blk_cfg->source_address) & 0x03) != 0) ||
-	    (((data->channel_status[channel].cur_dma_blk_cfg->dest_address) & 0x03) != 0)) {
-
-		LOG_WRN("Data buffer or address is unaligned, block size = %d, src_addr = 0x%x, "
-			"dst_addr = 0x%x. Dma will auto-fix.\n",
-
-			data->channel_status[channel].cur_dma_blk_cfg->block_size,
-			data->channel_status[channel].cur_dma_blk_cfg->source_address,
-			data->channel_status[channel].cur_dma_blk_cfg->dest_address);
-		/* move (1 byte * burst size)each transfer */
-		data->channel_status[channel].gdma_struct.GDMA_SrcDataWidth = TrWidthOneByte;
-		data->channel_status[channel].gdma_struct.GDMA_DstDataWidth = TrWidthOneByte;
-	}
-
 	/* set single block size = data block size / src_data_width */
 	data->channel_status[channel].gdma_struct.GDMA_BlockSize =
 		data->channel_status[channel].cur_dma_blk_cfg->block_size >>
@@ -400,23 +382,6 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 		data->channel_status[channel].gdma_struct.GDMA_DstMsize = ret;
 	} else {
 		return ret;
-	}
-
-	/* if data block size (or source addr, destination addr) is unaligned,
-	 * fix data width and burst length
-	 */
-	if (((config_dma->head_block->block_size & 0x03) != 0) ||
-	    (((config_dma->head_block->source_address) & 0x03) != 0) ||
-	    (((config_dma->head_block->dest_address) & 0x03) != 0)) {
-
-		LOG_WRN("Data buffer or address is unaligned, block size = %d, src_addr = 0x%x, "
-			"dst_addr = 0x%x. Dma will auto-fix.\n",
-
-			config_dma->head_block->block_size, config_dma->head_block->source_address,
-			config_dma->head_block->dest_address);
-		/* move (1 byte * burst size)each transfer */
-		data->channel_status[channel].gdma_struct.GDMA_SrcDataWidth = TrWidthOneByte;
-		data->channel_status[channel].gdma_struct.GDMA_DstDataWidth = TrWidthOneByte;
 	}
 
 	/* set single block size = data block size / src_data_width */
