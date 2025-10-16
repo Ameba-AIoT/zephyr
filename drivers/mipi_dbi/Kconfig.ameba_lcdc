@@ -52,13 +52,13 @@ choice MIPI_DBI_AMEBA_LCDC_MODE_SELECT
 	config AMEBA_LCDC_TE_ENABLE
 		bool "Tear Effect"
 		help
-		  Work in TE mode
+		  Work in MCU TE mode
 	config AMEBA_LCDC_IO_ENABLE
 		bool "IO"
 		help
-		  Work in IO mode
+		  Work in MCU IO mode
 	config AMEBA_LCDC_VSYNC_ENABLE
 		bool "VSYNC"
 		help
-		  Work in VSYNC trigger mode
+		  Work in MCU VSYNC trigger mode
 endchoice
