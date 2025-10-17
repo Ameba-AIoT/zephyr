@@ -13,3 +13,28 @@ zephyr_link_libraries(
     -T${CMAKE_CURRENT_SOURCE_DIR}/ameba_rom_symbol_acut_s.ld
     -T${CMAKE_CURRENT_SOURCE_DIR}/ameba_rom_symbol_wifi.ld
   )
+
+set(PYTHON_SCRIPT_ARGS
+    --soc ${CONFIG_SOC}
+    --bin-file ${ZEPHYR_BINARY_DIR}/${KERNEL_BIN_NAME}
+    --out-dir ${CMAKE_BINARY_DIR}
+    --module-dir ${ZEPHYR_HAL_REALTEK_MODULE_DIR}
+)
+
+if(CONFIG_BT_COEXIST)
+    list(APPEND PYTHON_SCRIPT_ARGS --bt-coexist)
+endif()
+
+#  west sign
+
+add_custom_target(zephyr.raw.map ALL
+  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+)
+
+add_custom_command(
+  OUTPUT ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+  COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+  COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
+  COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${PYTHON_SCRIPT_ARGS}
+  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC}/manifest.json5
+)
