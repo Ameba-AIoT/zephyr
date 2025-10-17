@@ -2,4 +2,4 @@ board:
   name: rtl8721f_evb
   vendor: realtek
   socs:
-    - name: amebaG2
+    - name: rtl8721f

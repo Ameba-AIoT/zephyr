@@ -2,4 +2,4 @@ board:
   name: rtl872xd_evb
   vendor: realtek
   socs:
-    - name: amebad
+    - name: rtl872xd

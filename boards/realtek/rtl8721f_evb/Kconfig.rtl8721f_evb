@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config BOARD_RTL8721F_EVB
-	select SOC_AMEBAG2
+	select SOC_RTL8721F

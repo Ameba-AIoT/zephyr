@@ -11,7 +11,7 @@ zephyr_linker_sources(SECTIONS psram_section.ld)
 set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
 
 set(PYTHON_SCRIPT_ARGS
-    --soc ${CONFIG_SOC}
+    --soc ${CONFIG_SOC_SERIES}
     --bin-file ${ZEPHYR_BINARY_DIR}/${KERNEL_BIN_NAME}
     --out-dir ${CMAKE_BINARY_DIR}
     --module-dir ${ZEPHYR_HAL_REALTEK_MODULE_DIR}
@@ -28,5 +28,5 @@ add_custom_command(
   COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
   COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
   COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${PYTHON_SCRIPT_ARGS}
-  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC}/manifest.json5
+  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC_SERIES}/manifest.json5
 )
