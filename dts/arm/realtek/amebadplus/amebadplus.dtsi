@@ -73,6 +73,7 @@
 		pinctrl: pinctrl@41008800 {
 			compatible = "realtek,ameba-pinctrl";
 			reg = <0x41008800 0x200>;
+			status = "disabled";
 		};
 
 		loguart: serial@4100f000 {
@@ -414,7 +415,6 @@
 				compatible = "soc-nv-flash";
 				erase-block-size = <DT_SIZE_K(4)>;
 				write-block-size = <4>;
-				/* Flash size is specified in board dts */
 			};
 		};
 

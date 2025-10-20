@@ -14,4 +14,3 @@ config SOC_RTL8721DX
 
 config SOC
 	default "rtl8721dx" if SOC_RTL8721DX
-

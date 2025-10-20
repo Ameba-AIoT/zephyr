@@ -151,6 +151,10 @@
 	status = "okay";
 };
 
+&pinctrl {
+	status = "okay";
+};
+
 &wdg {
 	status = "okay";
 };

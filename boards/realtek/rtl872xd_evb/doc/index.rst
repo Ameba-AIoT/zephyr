@@ -36,6 +36,19 @@ Supported Features
 
 .. zephyr:board-supported-hw::
 
+Prerequisites
+*************
+
+Realtek HAL requires binary blobs in order work. Run the command below to retrieve those files.
+
+.. code-block:: console
+
+   west blobs fetch hal_realtek
+
+.. note::
+
+   It is recommended running the command above after `west update`.
+
 Building
 ********
 
