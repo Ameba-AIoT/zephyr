@@ -19,14 +19,20 @@ set(PYTHON_SCRIPT_ARGS
 
 #  west sign
 
-add_custom_target(zephyr.raw.map ALL
-  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
-)
+file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/${CONFIG_SOC_SERIES}/bin/*.bin")
 
-add_custom_command(
-  OUTPUT ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
-  COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
-  COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
-  COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${PYTHON_SCRIPT_ARGS}
-  DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC_SERIES}/manifest.json5
-)
+if(BIN_FILES)
+  add_custom_target(zephyr.raw.map ALL
+    DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+  )
+
+  add_custom_command(
+    OUTPUT ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+    COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+    COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
+    COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${PYTHON_SCRIPT_ARGS}
+    DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC_SERIES}/manifest.json5
+  )
+else()
+  message(WARNING "Missing Realtek blobs. Run: `west blobs fetch hal_realtek`")
+endif()
