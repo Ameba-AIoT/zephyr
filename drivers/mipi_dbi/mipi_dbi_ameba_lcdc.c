@@ -122,9 +122,8 @@ static void mipi_dbi_lcdc_ameba_isr(const struct device *dev)
 	LOG_DBG("ints:%x \r\n", status);
 
 	if (status & LCDC_BIT_LCD_FRD_INTS) {
-		LOG_INF("intr: frame done \r\n");
+		LOG_DBG("intr: frame done \r\n");
 		k_sem_give(&data->transfer_done);
-		LOG_DBG(LCDC, DISABLE);
 	}
 
 	if (status & LCDC_BIT_PANEL_TE_INTS) {
@@ -432,7 +431,7 @@ static int mipi_dbi_lcdc_ameba_write_display(const struct device *dev,
 		assert_param(0);
 	}
 	k_sem_take(&data->transfer_done, K_FOREVER);
-	LCDC_INTConfig(LCDC, LCDC_BIT_LCD_FRD_INTEN, DISABLE); /* LCDC_BIT_PANEL_TE_INTEN */
+	LCDC_Cmd(LCDC, DISABLE);
 	k_sem_give(&data->lock);
 #endif
 #endif
