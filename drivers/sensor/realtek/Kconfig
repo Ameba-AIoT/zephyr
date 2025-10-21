@@ -1,6 +1,5 @@
-# Copyright (c) 2024 Analog Devices, Inc.
+# Copyright (c) 2025, Realtek, SIBG-SD7
 # SPDX-License-Identifier: Apache-2.0
 
-# zephyr-keep-sorted-start
+source "drivers/sensor/realtek/rts5912/Kconfig"
 source "drivers/sensor/realtek/ameba_temp/Kconfig"
-# zephyr-keep-sorted-stop

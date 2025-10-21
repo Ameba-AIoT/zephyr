@@ -1,6 +1,5 @@
-# Copyright (c) 2024 Analog Devices, Inc.
+# Copyright (c) 2025, Realtek, SIBG-SD7
 # SPDX-License-Identifier: Apache-2.0
 
-# zephyr-keep-sorted-start
+add_subdirectory_ifdef(CONFIG_TACH_RTS5912 rts5912)
 add_subdirectory_ifdef(CONFIG_TEMP_AMEBA ameba_temp)
-# zephyr-keep-sorted-stop
