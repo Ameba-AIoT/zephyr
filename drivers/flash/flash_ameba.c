@@ -89,9 +89,9 @@ static int flash_ameba_write(const struct device *dev, off_t address, const void
 
 static int flash_ameba_erase(const struct device *dev, off_t offset, size_t len)
 {
+	const size_t NOR_FLASH_SECTOR_SIZE = 4096;
 	struct flash_pages_info info;
 	uint32_t start_sector_offset, end_sector_offset;
-	uint32_t i;
 	int ret = 0;
 
 	flash_ameba_sem_take(dev);
@@ -107,8 +107,9 @@ static int flash_ameba_erase(const struct device *dev, off_t offset, size_t len)
 	}
 	end_sector_offset = info.start_offset;
 
-	for (i = start_sector_offset; i <= end_sector_offset; i++) {
+	while (start_sector_offset <= end_sector_offset) {
 		FLASH_EraseXIP(EraseSector, start_sector_offset);
+		start_sector_offset += NOR_FLASH_SECTOR_SIZE;
 	}
 
 	flash_ameba_sem_give(dev);
