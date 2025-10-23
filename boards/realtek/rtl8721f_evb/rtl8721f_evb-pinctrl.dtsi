@@ -129,13 +129,13 @@
 		};
 	};
 
-	//dmic_default: dmic_default {
-	//	group1 {
-	//		pinmux = <AMEBA_PINMUX('B', 0, AMEBA_DMIC_CLK)>,
-	//				 <AMEBA_PINMUX('B', 1, AMEBA_DMIC_DATA)>;
-	//		bias-pull-up;
-	//	};
-	//};
+	dmic_default: dmic_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 3, AMEBA_DMIC_CLK)>,
+					 <AMEBA_PINMUX('B', 4, AMEBA_DMIC_DATA)>;
+			bias-pull-up;
+		};
+	};
 
 	/* NOTE: PA17~PA2O CANNOT be selected by ADC and CTC simultaneously!!! */
 	/omit-if-no-ref/ adc_in0_pa20: adc_in0_pa20 {

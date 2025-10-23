@@ -140,12 +140,12 @@
 	status = "okay";
 };
 
-//&codec {
-//	pinctrl-0 = <&dmic_default>;
-//	pinctrl-names = "default";
-//	i2s-index = <0>;
-//	status = "okay";
-//};
+&codec {
+	pinctrl-0 = <&dmic_default>;
+	pinctrl-names = "default";
+	i2s-index = <0>;
+	status = "okay";
+};
 
 &adc {
 	pinctrl-0 = <&adc_in4_pa15 &adc_in5_pa14>;
