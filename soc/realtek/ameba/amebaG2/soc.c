@@ -77,6 +77,12 @@ void soc_early_init_hook(void)
 	IRQ_CONNECT(IPC_CPU0_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCAP_DEV, 0);
 	irq_enable(IPC_CPU0_IRQ);
 
+#ifdef CONFIG_AMEBAGREEN2_A_CUT
+	assert_param(EFUSE_GetChipVersion() == SYSCFG_CUT_VERSION_A);
+#else
+	assert_param(EFUSE_GetChipVersion() != SYSCFG_CUT_VERSION_A);
+#endif
+
 #ifdef CONFIG_AMEBA_PSRAM
 	ameba_init_psram();
 #endif
