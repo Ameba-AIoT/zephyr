@@ -475,13 +475,13 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 
 	ret = i2s_ameba_start_state_check(&data->tx);
 	if (ret < 0) {
-		LOG_ERR("START trigger: invalid state %u", data->tx.state);
+		LOG_ERR("I2S TX configure error: wrong state");
 		return -EINVAL;
 	}
 
 	ret = i2s_ameba_start_state_check(&data->rx);
 	if (ret < 0) {
-		LOG_ERR("START trigger: invalid state %u", data->rx.state);
+		LOG_ERR("I2S RX configure error: wrong state");
 		return -EINVAL;
 	}
 

@@ -9,6 +9,7 @@
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
 #include <ameba_soc.h>
+#include <ameba_audio_hw_usrcfg.h>
 
 #include <zephyr/audio/dmic.h>
 #include <zephyr/drivers/i2s.h>
@@ -180,6 +181,7 @@ int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 	} else {
 		AUDIO_CODEC_SetDmicClk(DMIC_2P5M, ENABLE);
 	}
+	k_msleep(AUDIO_HW_DMIC_STEADY_TIME); /* DMIC hardware steady time */
 
 	/* ADC digital volume gain*/
 	AUDIO_CODEC_SetADCVolume(ADC1, 0x2f);
@@ -205,7 +207,8 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 			tmp_state = DMIC_STATE_ACTIVE;
 			i2s_cmd = I2S_TRIGGER_START;
 		} else {
-			return 0;
+			LOG_ERR("DMIC trigger failed: device is not configured.\n");
+			return -EIO;
 		}
 		break;
 	case DMIC_TRIGGER_STOP:
@@ -213,10 +216,12 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 			tmp_state = DMIC_STATE_CONFIGURED;
 			i2s_cmd = I2S_TRIGGER_DROP;
 		} else {
-			return 0;
+			LOG_ERR("DMIC trigger failed: device is not active\n");
+			return -EIO;
 		}
 		break;
 	default:
+		LOG_ERR("DMIC trigger failed: invalid command %u", cmd);
 		return -EINVAL;
 	}
 

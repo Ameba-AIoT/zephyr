@@ -178,7 +178,7 @@ static int i2c_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	memset(&i2c_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2c_dma->dma_cfg.head_block = &i2c_dma->blk_cfg;
 	i2c_dma->blk_cfg.source_address = (u32)pdata;
-	i2c_dma->blk_cfg.dest_address = cfg->I2Cx->IC_DATA_CMD;
+	i2c_dma->blk_cfg.dest_address = (u32)&cfg->I2Cx->IC_DATA_CMD;
 	i2c_dma->dma_cfg.dma_slot = handshake_index;
 	i2c_dma->dma_cfg.dma_callback = i2c_ameba_dma_tx_cb;
 
@@ -234,7 +234,7 @@ static int i2c_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	memset(&i2c_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2c_dma->dma_cfg.head_block = &i2c_dma->blk_cfg;
 
-	i2c_dma->blk_cfg.source_address = cfg->I2Cx->IC_DATA_CMD;
+	i2c_dma->blk_cfg.source_address = (u32)&cfg->I2Cx->IC_DATA_CMD;
 	i2c_dma->dma_cfg.dma_slot = handshake_index;
 	i2c_dma->dma_cfg.dma_callback = i2c_ameba_dma_rx_cb;
 
