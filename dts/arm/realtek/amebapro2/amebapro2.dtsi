@@ -68,6 +68,33 @@
 			status = "disabled";
 		};
 
+		gpio_aon: gpioa@40009000 {
+			compatible = "realtek,amebapro2-gpio";
+			reg = <0x40009000 0x162>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <37 0>;
+			status = "disabled";
+		};
+
+		gpio_pon: gpiop@40009800 {
+			compatible = "realtek,amebapro2-gpio";
+			reg = <0x40009800 0xd2>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <53 0>;
+			status = "disabled";
+		};
+
+		gpio: gpio@40001000 {
+			compatible = "realtek,amebapro2-gpio";
+			reg = <0x40001000 0x2f0>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <5 0>;
+			status = "disabled";
+		};
+
 		trng: trng@4000b000 {
 			compatible = "realtek,amebapro2-trng";
 			reg = <0x4000b000 0x10>;

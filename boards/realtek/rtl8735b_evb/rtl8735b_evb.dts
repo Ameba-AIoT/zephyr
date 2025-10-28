@@ -63,6 +63,18 @@
 	status = "okay";
 };
 
+&gpio_aon {
+	status = "okay";
+};
+
+&gpio_pon {
+	status = "okay";
+};
+
+&gpio {
+	status = "okay";
+};
+
 &trng {
 	status = "okay";
 };
