@@ -50,28 +50,29 @@ extern "C" {
 
 /* SOC Domain clocks */
 #define AMEBA_DMAC_CLK  23
-#define AMEBA_SDD_CLK   24
-#define AMEBA_SPI0_CLK  25
-#define AMEBA_SPI1_CLK  26
-#define AMEBA_USB_CLK   27
-#define AMEBA_FLASH_CLK 28
-#define AMEBA_PSRAM_CLK 29
-#define AMEBA_SPORT_CLK 30
-#define AMEBA_AC_CLK    31
-#define AMEBA_IRDA_CLK  32
-#define AMEBA_I2C0_CLK  33
-#define AMEBA_I2C1_CLK  34
-#define AMEBA_TRNG_CLK  35
-#define AMEBA_LCDC_CLK  36
-#define AMEBA_A2C0_CLK  37
-#define AMEBA_A2C1_CLK  38
-#define AMEBA_GMAC_CLK  39
+#define AMEBA_SDH_CLK   24
+#define AMEBA_SDD_CLK   25
+#define AMEBA_SPI0_CLK  26
+#define AMEBA_SPI1_CLK  27
+#define AMEBA_USB_CLK   28
+#define AMEBA_FLASH_CLK 29
+#define AMEBA_PSRAM_CLK 30
+#define AMEBA_SPORT_CLK 31
+#define AMEBA_AC_CLK    32
+#define AMEBA_IRDA_CLK  33
+#define AMEBA_I2C0_CLK  34
+#define AMEBA_I2C1_CLK  35
+#define AMEBA_TRNG_CLK  36
+#define AMEBA_LCDC_CLK  37
+#define AMEBA_A2C0_CLK  38
+#define AMEBA_A2C1_CLK  39
+#define AMEBA_GMAC_CLK  40
 
 /* misc clocks */
-#define AMEBA_BTON_CLK 40
-#define AMEBA_PKE_CLK  41
+#define AMEBA_BTON_CLK 41
+#define AMEBA_PKE_CLK  42
 
-#define AMEBA_CLK_MAX 42 /* clk idx max */
+#define AMEBA_CLK_MAX 43 /* clk idx max */
 
 #define AMEBA_NUMERICAL_PERIPH(name, n)                                                            \
 	[AMEBA_##name##n##_CLK] = {                                                                \
@@ -131,6 +132,7 @@ extern "C" {
 
 #define AMEBA_LOGUART_PERIPHS AMEBA_SINGLE_PERIPH(LOGUART)    /* AMEBA_LOGUART_CLK */
 #define AMEBA_DMAC_PERIPHS    AMEBA_SINGLE_PERIPH(DMAC)       /* AMEBA_DMAC_CLK */
+#define AMEBA_SDH_PERIPHS     AMEBA_SINGLE_PERIPH(SDH)        /* AMEBA_SDH_CLK */
 #define AMEBA_SDD_PERIPHS     AMEBA_SINGLE_PERIPH(SDD)        /* AMEBA_SDD_CLK */
 #define AMEBA_USB_PERIPHS     AMEBA_SINGLE_PERIPH(USB)        /* AMEBA_USB_CLK */
 #define AMEBA_FLASH_PERIPHS   AMEBA_SINGLE_PERIPH(FLASH)      /* AMEBA_FLASH_CLK */
@@ -158,6 +160,7 @@ extern "C" {
 	AMEBA_LTIM_PERIPHS                                                                         \
 	AMEBA_PTIM_PERIPHS                                                                         \
 	AMEBA_DMAC_PERIPHS                                                                         \
+	AMEBA_SDH_PERIPHS                                                                          \
 	AMEBA_SDD_PERIPHS                                                                          \
 	AMEBA_SPI_PERIPHS                                                                          \
 	AMEBA_USB_PERIPHS                                                                          \
