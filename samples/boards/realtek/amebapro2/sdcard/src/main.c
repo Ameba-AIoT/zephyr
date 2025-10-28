@@ -11,7 +11,6 @@
 #include <zephyr/storage/disk_access.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/fs/fs.h>
-#include "os_wrapper.h"
 #include <ff.h>
 #include <zephyr/shell/shell.h>
 #include <strings.h>
@@ -32,7 +31,12 @@ static struct fs_mount_t fat_mount = {
 	.storage_dev = "SD",
 };
 
-void sd_task(void *param)
+#define STACKSIZE 1024
+#define PRIORITY  5
+K_THREAD_STACK_DEFINE(stack_area, STACKSIZE);
+struct k_thread sd_thread;
+
+void sd_task(void *param, void *param1, void *param2)
 {
 	int rc;
 	struct fs_file_t file;
@@ -83,14 +87,16 @@ EXIT:
 
 int main(void)
 {
-	rtos_task_create(NULL, "sd", sd_task, NULL, 16 * 1024, 3);
+	k_thread_create(&sd_thread, stack_area, STACKSIZE, sd_task, NULL, NULL, NULL, PRIORITY, 0,
+			K_NO_WAIT);
 	return 0;
 }
 
 static int cmd_sdcard_start(const struct shell *shell, size_t argc, char **argv)
 {
 	if (fatfs_status == FATFS_IDLE) {
-		rtos_task_create(NULL, "sd", sd_task, NULL, 16 * 1024, 3);
+		k_thread_create(&sd_thread, stack_area, STACKSIZE, sd_task, NULL, NULL, NULL,
+				PRIORITY, 0, K_NO_WAIT);
 	} else {
 		LOG_INF("Filesystem is still start\r\n");
 	}
