@@ -6,6 +6,9 @@
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
+
+#define CONFIG_RTK_WIFI_AP_STA_MODE 1
+
 #if defined(CONFIG_BT_COEXIST)
 #include "rtw_coex_ipc.h"
 #endif
@@ -32,6 +35,9 @@ K_THREAD_STACK_DEFINE(ameba_wifi_event_stack, WIFI_EVENT_STACK_SIZE);
 static struct k_thread ameba_wifi_event_thread;
 /* for add dhcp callback in mgmt_thread in net_mgmt */
 static struct net_mgmt_event_callback ameba_dhcp_cb = {0};
+
+static int dev_init_done;
+static unsigned char if_init_idx;
 
 #ifndef CONFIG_SINGLE_CORE_WIFI
 extern int (*rx_callback_ptr)(uint8_t idx, void *buffer, uint16_t len);
@@ -542,29 +548,26 @@ static void ameba_wifi_init(struct net_if *iface)
 	const struct device *dev = net_if_get_device(iface);
 	struct ameba_wifi_runtime *dev_data = dev->data;
 	struct ethernet_context *eth_ctx = net_if_l2_data(iface);
-	static unsigned char if_idx;
 
 	eth_ctx->eth_if_type = L2_ETH_IF_TYPE_WIFI;
-	ameba_wifi_iface[if_idx % NET_IF_MAX_CONFIGS] = iface;
+	ameba_wifi_iface[if_init_idx] = iface;
 	dev_data->state = RTK_STA_STOPPED;
 
-	if (if_idx == STA_WLAN_INDEX) {
+	if (if_init_idx == STA_WLAN_INDEX) {
 		wlan_int_enable();
 		wifi_init();
 	}
 
-	if (if_idx == SOFTAP_WLAN_INDEX) {
+#if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
+	if (if_init_idx == SOFTAP_WLAN_INDEX) {
 		configure_ap_mode(iface);
 	}
-
+#endif
 	/* Start interface when we are actually connected with Wi-Fi network */
-	wifi_get_mac_address(if_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_idx], 1);
+	wifi_get_mac_address(if_init_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_init_idx], 1);
 
-	/* TBD, link addr with net_dev, only one dev */
-	if (if_idx == STA_WLAN_INDEX) {
-		/* Assign link local address. */
-		net_if_set_link_addr(iface, dev_data->mac_addr[if_idx], 6, NET_LINK_ETHERNET);
-	}
+	/* Assign link local address. */
+	net_if_set_link_addr(iface, dev_data->mac_addr[if_init_idx], 6, NET_LINK_ETHERNET);
 
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
@@ -574,29 +577,33 @@ static void ameba_wifi_init(struct net_if *iface)
 #endif
 
 	/* separate ap and sta */
-	net_if_set_name(iface, iface_name[if_idx]);
+	net_if_set_name(iface, iface_name[if_init_idx]);
 
-	if_idx++;
+	if_init_idx++;
 }
 
 static int ameba_wifi_dev_init(const struct device *dev)
 {
-	k_tid_t tid =
-		k_thread_create(&ameba_wifi_event_thread, ameba_wifi_event_stack,
-				WIFI_EVENT_STACK_SIZE, (k_thread_entry_t)ameba_wifi_event_task,
-				NULL, NULL, NULL, 14, K_INHERIT_PERMS, K_NO_WAIT);
+	if (dev_init_done == 0) {
+		k_tid_t tid = k_thread_create(&ameba_wifi_event_thread, ameba_wifi_event_stack,
+					      WIFI_EVENT_STACK_SIZE,
+					      (k_thread_entry_t)ameba_wifi_event_task, NULL, NULL,
+					      NULL, 14, K_INHERIT_PERMS, K_NO_WAIT);
 
-	k_thread_name_set(tid, "rtk_event");
+		k_thread_name_set(tid, "rtk_event");
 
-	/* add event call back in net_mgmt */
-	if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
-		net_mgmt_init_event_callback(&ameba_dhcp_cb, wifi_event_handler, DHCPV4_MASK);
-		net_mgmt_add_event_callback(&ameba_dhcp_cb);
-	}
+		/* add event call back in net_mgmt */
+		if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
+			net_mgmt_init_event_callback(&ameba_dhcp_cb, wifi_event_handler,
+						     DHCPV4_MASK);
+			net_mgmt_add_event_callback(&ameba_dhcp_cb);
+		}
 
 #if defined(CONFIG_BT_COEXIST)
-	coex_ipc_entry();
+		coex_ipc_entry();
 #endif
+		dev_init_done++;
+	}
 
 	return 0;
 }
@@ -623,3 +630,11 @@ static const struct net_wifi_mgmt_offload rtk_api = {
 NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
 			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
 			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
+
+#if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
+
+NET_DEVICE_DT_INST_DEFINE(1, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
+			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
+			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
+
+#endif

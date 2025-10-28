@@ -78,6 +78,7 @@ enum rtk_state_flag {
 	RTK_STA_STARTED,
 	RTK_STA_CONNECTING,
 	RTK_STA_CONNECTED,
+	RTK_STAAP_STARTED,
 	RTK_AP_CONNECTED,
 	RTK_AP_DISCONNECTED,
 	RTK_AP_STOPPED,
@@ -91,5 +92,5 @@ int rltk_wlan_send(int idx, void *pkt_addr, uint32_t len);
 int whc_host_send_zephyr(int idx, void *pkt_addr, uint32_t len);
 void wlan_int_enable(void);
 int wifi_get_setting_zephyr(u8 idx, char *ssid, u8 *ssid_len, char *bssid, int *channel,
-				 u8 *security);
+			    u8 *security);
 int wifi_start_ap_zephyr(u8 *ssid, u8 ssid_len, u8 *psk, u8 psk_len, u8 channel, u8 wpa3_en);
