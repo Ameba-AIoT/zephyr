@@ -504,6 +504,12 @@
 			reg = <0x40000000 0x80000>;
 			status = "disabled";
 		};
+
+		sdhc0: sdhc@40114000 {
+			compatible = "realtek,ameba-sdhc";
+			reg = <0x40114000 0x4000>;
+			status = "disabled";
+		};
 	};
 
 	bt: bt {

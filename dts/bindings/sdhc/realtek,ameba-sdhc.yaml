@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2025 Realtek Semiconductor Corporation
+#
+
+description: AMEBA SD Host controller
+
+compatible: "realtek,ameba-sdhc"
+
+include: [sdhc.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true

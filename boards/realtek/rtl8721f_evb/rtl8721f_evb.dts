@@ -153,6 +153,19 @@
 	status = "okay";
 };
 
+/* todo: need to change sdhc pinctrl*/
+&sdhc0 {
+	pinctrl-0 = <&adc_in4_pa15 &adc_in5_pa14>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		status = "okay";
+		disk-name = "SD";
+	};
+};
+
 //&ctc {
 //	pinctrl-0 = <&adc_in0_pb19 &adc_in1_pb18 &adc_in2_pb17 &adc_in3_pb16>;
 //	pinctrl-names = "default";
