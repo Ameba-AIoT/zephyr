@@ -87,7 +87,9 @@ static int hci_send(const struct device *dev, struct net_buf *buf)
 	ARG_UNUSED(dev);
 	uint8_t type;
 
-	switch (net_buf_pull_u8(buf)) {
+	enum bt_buf_type buf_type = bt_buf_type_from_h4(net_buf_pull_u8(buf), BT_BUF_OUT);
+
+	switch (buf_type) {
 	case BT_BUF_ACL_OUT:
 		type = HCI_ACL;
 		break;
