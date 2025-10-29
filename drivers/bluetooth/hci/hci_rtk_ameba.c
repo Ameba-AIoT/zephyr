@@ -53,8 +53,6 @@ static void zephyr_recv(struct hci_rx_packet_t *pkt)
 		goto end;
 	}
 
-	bt_buf_set_type(buf, type);
-
 	/* btsnoop_send(pkt->type, pkt->buf, pkt->len, true); */
 
 	net_buf_add_mem(buf, pkt->buf, pkt->len);
@@ -89,7 +87,7 @@ static int hci_send(const struct device *dev, struct net_buf *buf)
 	ARG_UNUSED(dev);
 	uint8_t type;
 
-	switch (bt_buf_get_type(buf)) {
+	switch (net_buf_pull_u8(buf)) {
 	case BT_BUF_ACL_OUT:
 		type = HCI_ACL;
 		break;
