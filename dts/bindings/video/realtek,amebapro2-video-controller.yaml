@@ -3,7 +3,7 @@
 
 description: Amebapro2 Video
 
-compatible: "realtek,amebapro2-video"
+compatible: "realtek,amebapro2-video-controller"
 
 include: [base.yaml]
 

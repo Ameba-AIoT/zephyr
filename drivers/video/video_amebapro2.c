@@ -8,7 +8,7 @@
  * @brief Driver for Realtek Ameba VIDEO
  */
 
-#define DT_DRV_COMPAT realtek_amebapro2_video
+#define DT_DRV_COMPAT realtek_amebapro2_video_channel
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/video.h>
@@ -24,6 +24,16 @@ struct video_amebapro2_data {
 	struct k_fifo fifo_out;
 	struct k_poll_signal *signal;
 	video_params_t params;
+};
+
+struct video_channel_config {
+	const struct device *parent_ctrl;
+	uint8_t channel_index;
+	uint16_t default_width;
+	uint16_t default_height;
+	uint8_t default_fps;
+	const char *label;
+	uint8_t stream_id;
 };
 
 #define CH_NUM 5
@@ -59,20 +69,6 @@ static const struct video_format_cap fmts[] = {
 	},
 	{0} /* End format (Sentinel) */
 };
-
-extern void VOE_WDT_IRQHandler(void);
-void voe_wdt_irq_setup(void)
-{
-	IRQ_CONNECT(WDT_VOE_IRQn, WDT_VOE_IRQPri, VOE_WDT_IRQHandler, NULL, 0);
-	irq_enable(WDT_VOE_IRQn);
-}
-
-extern void VOE_IRQHandler(void);
-void voe_video_irq_setup(void)
-{
-	IRQ_CONNECT(VOE_IRQn, VOE_IRQPri, VOE_IRQHandler, NULL, 0);
-	irq_enable(VOE_IRQn);
-}
 
 bool is_h264_key_frame(uint8_t *ptr)
 {
@@ -495,65 +491,47 @@ static DEVICE_API(video, ameba_video_driver_api) = {
 #endif
 };
 
-static struct video_amebapro2_data video_data = {.fmt.width = 1920,
-						 .fmt.height = 1080,
-						 .fmt.pitch = 0,
-						 .fmt.pixelformat = VIDEO_PIX_FMT_H265,
-						 .params.stream_id = 0,
-						 .params.type = VIDEO_HEVC,
-						 .params.width = 1920,
-						 .params.height = 1080,
-						 .params.fps = 30,
-						 .params.bps = 1 * 1024 * 1024,
-						 .params.rc_mode = 2,
-						 .params.direct_output = 0};
-
-int video_init_flag;
-static void video_task(void *param)
-{
-	video_buf_calc(v_buf_cfg.v1_enable, v_buf_cfg.v1_width, v_buf_cfg.v1_height,
-		       v_buf_cfg.v2_bps, v_buf_cfg.v1_snapshot, v_buf_cfg.v2_enable,
-		       v_buf_cfg.v2_width, v_buf_cfg.v2_height, v_buf_cfg.v2_bps,
-		       v_buf_cfg.v2_snapshot, v_buf_cfg.v3_enable, v_buf_cfg.v3_width,
-		       v_buf_cfg.v3_height, v_buf_cfg.v3_bps, v_buf_cfg.v3_snapshot,
-		       v_buf_cfg.v4_enable, v_buf_cfg.v4_width, v_buf_cfg.v4_height);
-	extern const unsigned char iq_data[];
-	extern const unsigned char sensor_data[];
-
-	video_init((int)iq_data, (int)sensor_data);
-	LOG_INF("%s finish\r\n", __func__);
-	video_init_flag = 1;
-}
-
-static void video_thread_init(void)
-{
-	rtos_task_create(NULL, "video", video_task, NULL, 16 * 1024, 3);
-}
-
-static int video_amebapro2_init(const struct device *dev)
+static int video_amebapro2_channel_init(const struct device *dev)
 {
 	struct video_amebapro2_data *data = dev->data;
-	int threshold_cnt = 0;
+	const struct video_channel_config *config = dev->config;
 
 	data->dev = dev;
 	k_fifo_init(&data->fifo_in);
 	k_fifo_init(&data->fifo_out);
 
-	video_thread_init();
-
-	while (1) {
-		if (video_init_flag) {
-			break;
-		} else if (threshold_cnt >= 10) {
-			LOG_INF("%s fail\r\n", __func__);
-			return -1;
-		}
-		threshold_cnt++;
-		rtos_time_delay_ms(100);
+	data->params.width = config->default_width;
+	data->params.height = config->default_height;
+	data->params.stream_id = config->stream_id;
+	data->params.bps = 1 * 1024 * 1024;
+	data->params.fps = config->default_fps;
+	data->params.type = VIDEO_HEVC;
+	data->fmt.height = config->default_height;
+	data->fmt.width = config->default_width;
+	if (config->stream_id == 0x00) {
+		data->fmt.pixelformat = VIDEO_PIX_FMT_H265;
+	} else {
+		data->fmt.pixelformat = VIDEO_PIX_FMT_H264;
 	}
-	LOG_INF("%s finish\r\n", __func__);
+
 	return 0;
 }
 
-DEVICE_DT_INST_DEFINE(0, video_amebapro2_init, NULL, &video_data, NULL, POST_KERNEL,
-		      CONFIG_VIDEO_INIT_PRIORITY, &ameba_video_driver_api);
+#define VIDEO_CHANNEL_INIT(inst)                                                                   \
+	static struct video_amebapro2_data video_data_##inst;                                      \
+                                                                                                   \
+	static const struct video_channel_config video_config_##inst = {                           \
+		.parent_ctrl = DEVICE_DT_GET(DT_INST_PARENT(inst)),                                \
+		.channel_index = DT_INST_REG_ADDR(inst),                                           \
+		.default_width = DT_INST_PROP_OR(inst, default_width, 1920),                       \
+		.default_height = DT_INST_PROP_OR(inst, default_height, 1080),                     \
+		.default_fps = DT_INST_PROP_OR(inst, default_fps, 30),                             \
+		.label = DT_INST_PROP(inst, label),                                                \
+		.stream_id = inst,                                                                 \
+	};                                                                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(inst, video_amebapro2_channel_init, NULL, &video_data_##inst,        \
+			      &video_config_##inst, POST_KERNEL, CONFIG_VIDEO_INIT_PRIORITY,       \
+			      &ameba_video_driver_api);
+
+DT_INST_FOREACH_STATUS_OKAY(VIDEO_CHANNEL_INIT)

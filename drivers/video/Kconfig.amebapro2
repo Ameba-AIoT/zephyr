@@ -5,7 +5,7 @@
 
 config VIDEO_AMEBAPRO2
 	bool "Realtek AmebaPro2 Video Driver"
-	depends on VIDEO && DT_HAS_REALTEK_AMEBAPRO2_VIDEO_ENABLED
+	depends on VIDEO && DT_HAS_REALTEK_AMEBAPRO2_VIDEO_CONTROLLER_ENABLED
 	default y
 	help
 		Enable support for the Realtek AmebaPro2 video driver.

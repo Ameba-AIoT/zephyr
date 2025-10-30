@@ -117,12 +117,54 @@
 			};
 		};
 
-		video0: video@40300000 {
-			compatible = "realtek,amebapro2-video";
+		video_controller: video-ctrl@40300000 {
+			compatible = "realtek,amebapro2-video-controller";
 			reg = <0x40300000 0x1000>;
 			interrupts = <15 0>;
 			status = "disabled";
-			label = "VIDEO_AMEBAPRO2";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			video_channel0: channel@0 {
+				compatible = "realtek,amebapro2-video-channel";
+				reg = <0>;
+				interrupts = <15 0>;
+				label = "video_0";
+				status = "disabled";
+			};
+
+			video_channel1: channel@1 {
+				compatible = "realtek,amebapro2-video-channel";
+				reg = <1>;
+				interrupts = <15 0>;
+				label = "video_1";
+				status = "disabled";
+			};
+
+			video_channel2: channel@2 {
+				compatible = "realtek,amebapro2-video-channel";
+				reg = <2>;
+				interrupts = <15 0>;
+				label = "video_2";
+				status = "disabled";
+			};
+
+			video_channel3: channel@3 {
+				compatible = "realtek,amebapro2-video-channel";
+				reg = <3>;
+				interrupts = <15 0>;
+				label = "video_3";
+				status = "disabled";
+			};
+
+			video_channel4: channel@4 {
+				compatible = "realtek,amebapro2-video-channel";
+				reg = <4>;
+				interrupts = <15 0>;
+				label = "video_4";
+				status = "disabled";
+			};
 		};
 
 		sdmmc: sdmmc-controller@40058000 {

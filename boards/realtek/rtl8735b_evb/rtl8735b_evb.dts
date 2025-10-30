@@ -87,8 +87,28 @@
 	status = "okay";
 };
 
-&video0 {
+&video_controller {
 	status = "okay";
+};
+
+&video_channel0 {
+	status = "okay";
+};
+
+&video_channel1 {
+	status = "okay";
+};
+
+&video_channel2 {
+	status = "disabled";
+};
+
+&video_channel3 {
+	status = "disabled";
+};
+
+&video_channel4 {
+	status = "disabled";
 };
 
 &sdmmc {
