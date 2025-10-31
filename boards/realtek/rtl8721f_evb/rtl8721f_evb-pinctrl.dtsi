@@ -108,7 +108,98 @@
 			bias-pull-up;
 		};
 	};
+	/* Select the corresponding pin group according to the PCB design. */
+	ethernet_default0: ethernet_default0 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 4, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 5, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 6, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 7, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 8, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 9, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 10, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 11, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('A', 12, AMEBA_EXT_CLK_OUT)>;
+			bias-pull-up;
+		};
+	};
 
+	mdio_default0: mdio_default0 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 12, AMEBA_RMII_MDC)>,
+					 <AMEBA_PINMUX('B', 3, AMEBA_RMII_MDIO)>;
+			bias-pull-up;
+		};
+	};
+
+	ethernet_default1: ethernet_default1 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 17, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 14, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 15, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 16, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 13, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 18, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 19, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 21, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 24, AMEBA_EXT_CLK_OUT)>;
+			bias-pull-up;
+		};
+	};
+
+	mdio_default1: mdio_default1 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 22, AMEBA_RMII_MDC)>,
+					 <AMEBA_PINMUX('B', 23, AMEBA_RMII_MDIO)>;
+			bias-pull-up;
+		};
+	};
+
+	ethernet_default2: ethernet_default2 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 25, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 26, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 27, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 28, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 29, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 30, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 31, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 0, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('A', 12, AMEBA_EXT_CLK_OUT)>;
+			bias-pull-up;
+		};
+	};
+
+	mdio_default2: mdio_default2 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('C', 1, AMEBA_RMII_MDC)>,
+					 <AMEBA_PINMUX('B', 24, AMEBA_RMII_MDIO)>;
+			bias-pull-up;
+		};
+	};
+
+	ethernet_default3: ethernet_default3 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 17, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 5, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 2, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 3, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 4, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 18, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 6, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('C', 7, AMEBA_RMII)>,
+					 <AMEBA_PINMUX('B', 19, AMEBA_EXT_CLK_OUT)>;
+			bias-pull-up;
+		};
+	};
+
+	mdio_default3: mdio_default3 {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 25, AMEBA_RMII_MDC)>,
+					 <AMEBA_PINMUX('A', 26, AMEBA_RMII_MDIO)>;
+			bias-pull-up;
+		};
+	};
 	//ledc_default: ledc_default {
 	//	group1 {
 	//		pinmux = <AMEBA_PINMUX('B', 18, AMEBA_LEDC)>;

@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2025 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&mac {
+	status = "okay";
+	pinctrl-0 = <&ethernet_default2>;
+	pinctrl-names = "default";
+	phy-connection-type = "rmii";
+	phy-handle = <&phy>;
+};
+
+&mdio {
+	status = "okay";
+	pinctrl-0 = <&mdio_default2>;
+	pinctrl-names = "default";
+
+	phy: ethernet-phy@1 {
+		compatible = "realtek,rtl8201fr";
+		reg = <0x1>;
+		reset-gpios = <&gpioa 3 (GPIO_PULL_DOWN)>;
+		status = "okay";
+	};
+};
