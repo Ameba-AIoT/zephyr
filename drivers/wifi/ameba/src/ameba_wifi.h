@@ -37,6 +37,7 @@ struct ameba_wifi_runtime {
 	struct rtk_wifi_status status;
 	scan_result_cb_t scan_cb;
 	uint8_t state;
+	uint8_t dhcp_init;
 };
 
 typedef enum {

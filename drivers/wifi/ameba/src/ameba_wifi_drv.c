@@ -307,7 +307,13 @@ static void ameba_wifi_handle_connect_event(void)
 {
 	/* TODOD check IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4) */
 	if (1) {
-		net_dhcpv4_start(ameba_wifi_iface[STA_WLAN_INDEX]);
+		if (ameba_data.dhcp_init == 0) {
+			net_dhcpv4_start(ameba_wifi_iface[STA_WLAN_INDEX]);
+			ameba_data.dhcp_init = 1;
+		} else {
+			net_dhcpv4_restart(ameba_wifi_iface[STA_WLAN_INDEX]);
+		}
+
 	} else {
 		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], 0);
 	}
@@ -379,6 +385,8 @@ static int ameba_wifi_disconnect(const struct device *dev)
 	struct ameba_wifi_runtime *data = dev->data;
 
 	ret = wifi_disconnect();
+	net_dhcpv4_stop(ameba_wifi_iface[STA_WLAN_INDEX]);
+
 	data->state = RTK_STA_STOPPED;
 	return ret;
 }
