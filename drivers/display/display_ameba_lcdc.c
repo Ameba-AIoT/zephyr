@@ -138,7 +138,11 @@ static int lcdc_ameba_write(const struct device *dev, const uint16_t x, const ui
 	if ((x == 0) && (y == 0) && (desc->width == config->lcdc_panel.ImgWidth) &&
 	    (desc->height == config->lcdc_panel.ImgHeight) && (desc->pitch == desc->width)) {
 		/* Use buf as ltdc frame buffer directly if it length same as ltdc frame buffer. */
+		if (desc->frame_incomplete) {
+			return 0;
+		}
 		pend_buf = buf;
+		sys_cache_data_flush_and_invd_all();
 	} else {
 		if (CONFIG_AMEBA_LCDC_FB_NUM == 0) {
 			LOG_ERR("Partial write requires internal frame buffer");
@@ -183,11 +187,7 @@ static int lcdc_ameba_write(const struct device *dev, const uint16_t x, const ui
 
 	data->pend_buf = pend_buf;
 
-	LCDC_ClearINT(LCDC, LCDC_BIT_LCD_LIN_INTS);
-	LCDC_INTConfig(LCDC, LCDC_BIT_LCD_LIN_INTEN, ENABLE);
 	k_sem_take(&data->sem, K_FOREVER);
-
-	LCDC_INTConfig(LCDC, LCDC_BIT_LCD_LIN_INTEN, DISABLE);
 
 	return 0;
 }
@@ -307,7 +307,7 @@ static int lcdc_ameba_init(const struct device *dev)
 {
 	const struct lcdc_ameba_config *cfg = dev->config;
 	struct lcdc_ameba_data *data = dev->data;
-	uint32_t line_num = cfg->lcdc_panel.ImgHeight / 2;
+	uint32_t line_num = cfg->lcdc_panel.ImgHeight * 5 / 6;
 	int err;
 
 	/* DCache_Disable(); */
@@ -360,7 +360,7 @@ static int lcdc_ameba_init(const struct device *dev)
 	LCDC_DMAImgCfg(LCDC, (uint32_t)data->frame_buffer);
 
 	LCDC_LineINTPosConfig(LCDC, line_num);
-	LCDC_INTConfig(LCDC, LCDC_BIT_DMA_UN_INTEN, ENABLE); /* LCDC_BIT_LCD_LIN_INTEN */
+	LCDC_INTConfig(LCDC, LCDC_BIT_DMA_UN_INTEN | LCDC_BIT_LCD_LIN_INTEN, ENABLE);
 
 	/* Set default pixel format obtained from device tree */
 	/* lcdc_ameba_set_pixel_format(dev, data->pixel_format); */

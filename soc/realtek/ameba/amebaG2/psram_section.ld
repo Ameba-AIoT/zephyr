@@ -11,6 +11,8 @@ GROUP_START(PSRAM)
     . = ALIGN(32);
     _psram_bss_start = ABSOLUTE(.);
     *(.psram.only.data*)
+    *(.lvgl_heap)
+    *(.lvgl_buf)
     . = ALIGN(32);
     _psram_bss_end = ABSOLUTE(.);
     _psram_heap_start = ABSOLUTE(.);

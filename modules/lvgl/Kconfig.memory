@@ -74,6 +74,15 @@ config LV_Z_FULL_REFRESH
 	  controllers that require a framebuffer to be present in system memory,
 	  since the controller can render the LVGL framebuffer directly
 
+config LV_Z_DIRECT_MODE
+	bool "Force direct mode"
+	depends on !LV_Z_FULL_REFRESH
+	help
+	  Force direct mode of display on update. Using this method the
+	  buffer(s) always contain the whole display image. If two buffers
+	  are used, the rendered areas are automatically copied to the
+	  other buffer after flushing.
+
 config LV_Z_VDB_ALIGN
 	int "Rending buffer alignment"
 	default 4

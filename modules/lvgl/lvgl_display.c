@@ -27,9 +27,20 @@ void lvgl_flush_thread_entry(void *arg1, void *arg2, void *arg3)
 		k_msgq_get(&flush_queue, &flush, K_FOREVER);
 		data = (struct lvgl_disp_data *)lv_display_get_user_data(flush.display);
 
+#ifdef CONFIG_LV_Z_DIRECT_MODE
+		if (lv_display_flush_is_last(flush.display)) {
+			flush.x = 0;
+			flush.y = 0;
+			flush.desc.width = LV_HOR_RES;
+			flush.desc.height = LV_VER_RES;
+			flush.desc.pitch = LV_HOR_RES;
+			flush.desc.frame_incomplete = !lv_display_flush_is_last(flush.display);
+			display_write(data->display_dev, flush.x, flush.y, &flush.desc, flush.buf);
+		}
+#else
 		flush.desc.frame_incomplete = !lv_display_flush_is_last(flush.display);
 		display_write(data->display_dev, flush.x, flush.y, &flush.desc, flush.buf);
-
+#endif
 		k_sem_give(&flush_complete);
 	}
 }
@@ -137,8 +148,21 @@ void lvgl_flush_display(struct lvgl_display_flush *request)
 	struct lvgl_disp_data *data =
 		(struct lvgl_disp_data *)lv_display_get_user_data(request->display);
 
+#ifdef CONFIG_LV_Z_DIRECT_MODE
+	if (lv_display_flush_is_last(request->display)) {
+		request->x = 0;
+		request->y = 0;
+		request->desc.width = LV_HOR_RES;
+		request->desc.height = LV_VER_RES;
+		request->desc.pitch = LV_HOR_RES;
+		request->desc.frame_incomplete = !lv_display_flush_is_last(request->display);
+		display_write(data->display_dev, request->x, request->y, &request->desc,
+			      request->buf);
+	}
+#else
 	request->desc.frame_incomplete = !lv_display_flush_is_last(request->display);
 	display_write(data->display_dev, request->x, request->y, &request->desc, request->buf);
+#endif
 	lv_display_flush_ready(request->display);
 #endif
 }
