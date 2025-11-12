@@ -67,12 +67,13 @@ extern "C" {
 #define AMEBA_A2C0_CLK  38
 #define AMEBA_A2C1_CLK  39
 #define AMEBA_GMAC_CLK  40
+#define AMEBA_PPE_CLK   41
 
 /* misc clocks */
-#define AMEBA_BTON_CLK 41
-#define AMEBA_PKE_CLK  42
+#define AMEBA_BTON_CLK 42
+#define AMEBA_PKE_CLK  43
 
-#define AMEBA_CLK_MAX 43 /* clk idx max */
+#define AMEBA_CLK_MAX 44 /* clk idx max */
 
 #define AMEBA_NUMERICAL_PERIPH(name, n)                                                            \
 	[AMEBA_##name##n##_CLK] = {                                                                \
@@ -148,6 +149,7 @@ extern "C" {
 #define AMEBA_BTON_PERIPHS    AMEBA_SINGLE_PERIPH(BTON)       /* AMEBA_BTON_CLK */
 #define AMEBA_SPORT_PERIPHS   AMEBA_SINGLE_PERIPH(SPORT)      /* AMEBA_SPORT_CLK */
 #define AMEBA_GMAC_PERIPHS    AMEBA_SINGLE_PERIPH(GMAC)       /* AMEBA_GMAC_CLK */
+#define AMEBA_PPE_PERIPHS     AMEBA_SINGLE_PERIPH(PPE)        /* AMEBA_PPE_CLK */
 
 #define AMEBA_CORE_PERIPHS                                                                         \
 	AMEBA_RTC_PERIPHS                                                                          \
@@ -172,6 +174,7 @@ extern "C" {
 	AMEBA_LCDC_PERIPHS                                                                         \
 	AMEBA_A2C_PERIPHS                                                                          \
 	AMEBA_GMAC_PERIPHS                                                                         \
+	AMEBA_PPE_PERIPHS                                                                          \
 	AMEBA_BTON_PERIPHS
 
 #ifdef __cplusplus

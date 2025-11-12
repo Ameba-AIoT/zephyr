@@ -1,0 +1,23 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config AMEBA_PPE
+	bool "AMEBA Pixel Processing Engine"
+	default n
+	depends on DT_HAS_REALTEK_AMEBA_PPE_ENABLED
+	help
+	  Enables the Realtek Ameba Pixel Processing Engine driver.
+
+if AMEBA_PPE
+
+config AMEBA_PPE_INIT_PRIORITY
+	int "AMEBA Pixel Processing Engine driver init priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  Ameba Pixel Processing Engine driver driver initialization priority.
+
+module = AMEBA_PPE
+module-str = ameba_ppe
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # AMEBA_PPE

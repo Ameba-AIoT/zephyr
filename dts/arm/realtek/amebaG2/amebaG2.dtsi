@@ -516,6 +516,14 @@
 			reg = <0x40114000 0x4000>;
 			status = "disabled";
 		};
+
+		ppe: ppe@40126000 {
+			compatible = "realtek,ameba-ppe";
+			reg = <0x40126000 0x200>;
+			clocks = <&rcc AMEBA_PPE_CLK>;
+			interrupts = <51 0>;
+			status = "disabled";
+		};
 	};
 
 	bt: bt {
