@@ -95,3 +95,4 @@ void wlan_int_enable(void);
 int wifi_get_setting_zephyr(u8 idx, char *ssid, u8 *ssid_len, char *bssid, int *channel,
 			    u8 *security);
 int wifi_start_ap_zephyr(u8 *ssid, u8 ssid_len, u8 *psk, u8 psk_len, u8 channel, u8 wpa3_en);
+void ameba_wifi_handle_connect_event(void);
