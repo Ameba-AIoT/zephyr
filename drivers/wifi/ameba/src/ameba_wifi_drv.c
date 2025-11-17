@@ -22,6 +22,9 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 #include "ameba_wifi.h"
 #include "diag.h"
 
+#ifdef CONFIG_AMEBAGREEN2
+#include <zephyr/settings/settings.h>
+#endif
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
 static struct net_if *ameba_wifi_iface[2];
@@ -161,7 +164,7 @@ int ameba_event_send_internal(int32_t event_id, void *event_data, size_t event_d
 static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 {
 	const int pkt_len = net_pkt_get_len(pkt);
-	int ret, idx;
+	int ret = 0, idx;
 
 	struct net_if *iface = net_pkt_iface(pkt);
 
@@ -172,9 +175,9 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 	}
 
 #if defined(CONFIG_WHC_HOST)
-	ret = whc_host_send_zephyr(idx, pkt, pkt_len);
+	whc_host_send_zephyr(idx, pkt, pkt_len);
 #else
-	ret = rltk_wlan_send(idx, pkt, pkt_len);
+	rltk_wlan_send(idx, pkt, pkt_len);
 #endif
 
 	return ret;
@@ -303,8 +306,10 @@ out:
 	return 0;
 }
 
-static void ameba_wifi_handle_connect_event(void)
+void ameba_wifi_handle_connect_event(void)
 {
+	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
+
 	/* TODOD check IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4) */
 	if (1) {
 		if (ameba_data.dhcp_init == 0) {
@@ -326,6 +331,7 @@ static void ameba_wifi_handle_disconnect_event(void)
 	if (ameba_data.state == RTK_STA_CONNECTED) {
 		if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
 			net_dhcpv4_stop(ameba_wifi_iface[STA_WLAN_INDEX]);
+			ameba_data.dhcp_init = 0;
 		}
 		wifi_mgmt_raise_disconnect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], 0);
 	} else {
@@ -560,6 +566,12 @@ static void ameba_wifi_init(struct net_if *iface)
 	eth_ctx->eth_if_type = L2_ETH_IF_TYPE_WIFI;
 	ameba_wifi_iface[if_init_idx] = iface;
 	dev_data->state = RTK_STA_STOPPED;
+
+#ifdef CONFIG_AMEBAGREEN2
+	if (settings_subsys_init()) {
+		LOG_ERR("setting subsys fail");
+	}
+#endif
 
 	if (if_init_idx == STA_WLAN_INDEX) {
 		wlan_int_enable();
