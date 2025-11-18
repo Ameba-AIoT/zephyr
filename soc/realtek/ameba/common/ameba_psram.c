@@ -10,9 +10,10 @@
 #include <ameba_psram.h>
 #include <zephyr/multi_heap/shared_multi_heap.h>
 
-extern int _psram_bss_start;
-extern int _psram_bss_end;
-extern int _psram_heap_start;
+extern char _psram_bss_start[];
+extern char _psram_bss_end[];
+extern char _psram_heap_start[];
+extern char _psram_heap_end[];
 
 #ifdef CONFIG_PSRAM_HEAP_SHARED_MULTI
 static struct shared_multi_heap_region smh_psram = {
@@ -26,6 +27,37 @@ static struct shared_multi_heap_region smh_psram = {
 static struct k_heap ameba_psram_heap;
 struct k_heap *g_ameba_psram_heap = &ameba_psram_heap;
 static uint8_t PSRAM_ONLY_DATA_SECTION psram_heap_area[CONFIG_AMEBA_PSRAM_HEAP_SIZE];
+#endif
+
+#ifdef CONFIG_PSRAM_HEAP_STD
+#if defined(CONFIG_NEWLIB_LIBC) || defined(CONFIG_PICOLIBC)
+static char *g_current_ptr;
+
+void *_sbrk(intptr_t count)
+{
+	void *ret, *ptr;
+
+	if (unlikely(g_current_ptr == NULL)) {
+		g_current_ptr = (char *)_psram_heap_start;
+	}
+
+	ptr = g_current_ptr + count;
+
+	if ((char *)ptr < (char *)_psram_heap_end) {
+		ret = g_current_ptr;
+		g_current_ptr = ptr;
+
+#ifdef CONFIG_NEWLIB_LIBC_HEAP_LISTENER
+		heap_listener_notify_resize(HEAP_ID_LIBC, ret, ptr);
+#endif
+	} else {
+		ret = (void *)-1;
+	}
+
+	return ret;
+}
+
+#endif
 #endif
 
 void ameba_init_psram(void)
