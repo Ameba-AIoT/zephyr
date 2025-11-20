@@ -21,6 +21,10 @@ choice
 	prompt "PSRAM Heap Allocate type"
 	depends on AMEBA_PSRAM
 	default PSRAM_HEAP_NONE
+	config PSRAM_HEAP_STD
+		depends on NEWLIB_LIBC || PICOLIBC
+		bool "PSRAM HEAP WITH STD MALLOC"
+		select NEWLIB_LIBC_CUSTOM_SBRK
 	config PSRAM_HEAP_SHARED_MULTI
 		bool "SHARED MULTI HEAP"
 		select SHARED_MULTI_HEAP

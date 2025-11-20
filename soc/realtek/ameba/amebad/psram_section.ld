@@ -16,4 +16,7 @@ GROUP_START(PSRAM)
     _psram_heap_start = ABSOLUTE(.);
   } GROUP_LINK_IN(PSRAM)
 GROUP_END(PSRAM)
+
+__psram_region_end = ORIGIN(PSRAM) + CONFIG_AMEBA_PSRAM_SIZE;
+PROVIDE(_psram_heap_end = __psram_region_end);
 #endif
