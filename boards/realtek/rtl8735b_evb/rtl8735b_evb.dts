@@ -114,3 +114,7 @@
 &sdmmc {
 	status = "okay";
 };
+
+&dmic {
+	status = "okay";
+};
