@@ -26,6 +26,9 @@
 	};
 };
 
+zephyr_lcdc: &lcdc_dpi {
+	status = "okay";
+};
 
 &zephyr_lcdc {
 	status = "okay";
