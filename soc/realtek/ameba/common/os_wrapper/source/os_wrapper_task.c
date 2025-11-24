@@ -149,12 +149,19 @@ int rtos_task_priority_set(rtos_task_t p_handle, uint16_t priority)
 {
 	int switch_priority = RTOS_TASK_MAX_PRIORITIES - priority;
 
+	if (p_handle == NULL) {
+		p_handle = k_current_get();
+	}
+
 	k_thread_priority_set(p_handle, switch_priority);
 	return RTK_SUCCESS;
 }
 
 uint32_t rtos_task_priority_get(rtos_task_t p_handle)
 {
+	if (p_handle == NULL) {
+		p_handle = k_current_get();
+	}
 	int priority = k_thread_priority_get(p_handle);
 
 	return RTOS_TASK_MAX_PRIORITIES - priority;
