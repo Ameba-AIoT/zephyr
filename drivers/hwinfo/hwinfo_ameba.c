@@ -37,27 +37,17 @@ int z_impl_hwinfo_get_reset_cause(uint32_t *cause)
 {
 	uint32_t reason = BOOT_Reason();
 
-	switch (reason) {
-	case AON_BIT_RSTF_KM0_SYS:
-	case AON_BIT_RSTF_KM4_SYS:
+	if (IS_SYS_RESET(reason)) {
 		*cause = RESET_SOFTWARE;
-		break;
-	case AON_BIT_RSTF_IWDG:
-	case AON_BIT_RSTF_WDG0:
-	case AON_BIT_RSTF_WDG1:
-	case AON_BIT_RSTF_WDG2:
+	} else if (IS_WDG_RESET(reason)) {
 		*cause = RESET_WATCHDOG;
-		break;
-	case AON_BIT_RSTF_DSLP:
+	} else if ((reason & AON_BIT_RSTF_DSLP) != 0) {
 		*cause = RESET_LOW_POWER_WAKE;
-		break;
-	case AON_BIT_RSTF_BOR:
+		return 0;
+	} else if ((reason & AON_BIT_RSTF_BOR) != 0) {
 		*cause = RESET_BROWNOUT;
-		break;
-	default:
+	} else {
 		*cause = RESET_POR;
-		break;
 	}
-
 	return 0;
 }
