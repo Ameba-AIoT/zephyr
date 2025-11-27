@@ -481,10 +481,11 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
 	data->status.ssid[params->ssid_length] = '\0';
 
-	if (params->sae_password_length) {
+	if (params->security >= WIFI_SECURITY_TYPE_SAE &&
+	    params->security <= WIFI_SECURITY_TYPE_SAE_AUTO) {
 		ret = wifi_start_ap_zephyr((u8 *)params->ssid, params->ssid_length,
-					   (u8 *)params->sae_password, params->sae_password_length,
-					   params->channel, 1);
+					   (u8 *)params->psk, params->psk_length, params->channel,
+					   1);
 	} else {
 		ret = wifi_start_ap_zephyr((u8 *)params->ssid, params->ssid_length,
 					   (u8 *)params->psk, params->psk_length, params->channel,
