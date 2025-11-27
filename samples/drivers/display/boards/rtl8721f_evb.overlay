@@ -22,3 +22,8 @@
 &ppe {
 	status = "okay";
 };
+
+&mjpeg {
+	status = "okay";
+};
+

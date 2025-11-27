@@ -524,6 +524,14 @@
 			interrupts = <51 0>;
 			status = "disabled";
 		};
+
+		mjpeg: mjpeg@40108000 {
+			compatible = "realtek,ameba-mjpeg";
+			reg = <0x40108000 0x100>;
+			clocks = <&rcc AMEBA_MJPEG_CLK>;
+			interrupts = <50 0>;
+			status = "disabled";
+		};
 	};
 
 	bt: bt {

@@ -1,0 +1,23 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config AMEBA_MJPEG
+	bool "AMEBA Motion Joint Photographic Experts Group"
+	default n
+	depends on DT_HAS_REALTEK_AMEBA_MJPEG_ENABLED
+	help
+	  Enables the Realtek Ameba Motion Joint Photographic Experts Group driver.
+
+if AMEBA_MJPEG
+
+config AMEBA_MJPEG_INIT_PRIORITY
+	int "AMEBA Motion Joint Photographic Experts Group driver init priority"
+	default KERNEL_INIT_PRIORITY_DEVICE
+	help
+	  Ameba Motion Joint Photographic Experts Group driver initialization priority.
+
+module = AMEBA_MJPEG
+module-str = ameba_mjpeg
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # AMEBA_MJPEG

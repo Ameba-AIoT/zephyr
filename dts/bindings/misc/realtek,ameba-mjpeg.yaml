@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2025 Realtek Semiconductor Corporation
+#
+
+description: AMEBA Motion Joint Photographic Experts Group
+
+compatible: "realtek,ameba-mjpeg"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: true
+  interrupts:
+    required: true
+  clocks:
+    required: true
