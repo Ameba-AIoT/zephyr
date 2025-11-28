@@ -56,3 +56,11 @@
 &loguart {
 	status = "okay";
 };
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};

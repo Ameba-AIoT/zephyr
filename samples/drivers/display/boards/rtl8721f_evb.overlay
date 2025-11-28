@@ -22,15 +22,3 @@
 &ppe {
 	status = "okay";
 };
-
-&gpioa {
-	status = "okay";
-};
-
-&gpiob {
-	status = "okay";
-};
-
-&gpioc {
-	status = "okay";
-};

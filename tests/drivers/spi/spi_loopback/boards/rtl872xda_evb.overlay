@@ -15,4 +15,11 @@
 		reg = <0>;
 		spi-max-frequency = <16000000>;
 	};
+
+};
+
+&spi1 {
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+	status = "okay";
 };

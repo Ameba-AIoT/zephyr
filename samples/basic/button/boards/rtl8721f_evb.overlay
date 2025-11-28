@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2025 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		sw0 = &button0;
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			gpios = < &gpioa 25 (GPIO_PULL_UP | GPIO_ACTIVE_HIGH)>;
+		};
+	};
+};

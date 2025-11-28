@@ -33,3 +33,12 @@
 	status = "okay";
 };
 
+&spi0 {
+	pinctrl-0 = <&spi0_default>;
+	pinctrl-names = "default";
+};
+
+&spi1 {
+	pinctrl-0 = <&spi1_default>;
+	pinctrl-names = "default";
+};

@@ -73,7 +73,6 @@
 		pinctrl: pinctrl@41008800 {
 			compatible = "realtek,ameba-pinctrl";
 			reg = <0x41008800 0x200>;
-			status = "disabled";
 		};
 
 		loguart: serial@4100f000 {
