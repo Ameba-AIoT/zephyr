@@ -471,11 +471,36 @@ static int ameba_wifi_scan(const struct device *dev, struct wifi_scan_params *pa
 	return ret;
 }
 
-/* zephyr wifi todo, remove to driver later */
+static void configure_ap_mode(struct net_if *iface)
+{
+	struct in_addr ipaddr, netmask, gateway;
+
+	if (net_addr_pton(AF_INET, "192.168.43.1", &ipaddr) < 0) {
+		LOG_ERR("Invalid IP address\n");
+		return;
+	}
+
+	if (net_addr_pton(AF_INET, "255.255.255.0", &netmask) < 0) {
+		LOG_ERR("Invalid netmask\n");
+		return;
+	}
+
+	if (net_addr_pton(AF_INET, "192.168.43.1", &gateway) < 0) {
+		LOG_ERR("Invalid gateway\n");
+		return;
+	}
+
+	net_if_ipv4_addr_add(iface, &ipaddr, NET_ADDR_MANUAL, 0);
+	net_if_ipv4_set_netmask_by_addr(iface, &ipaddr, &netmask);
+	net_if_ipv4_set_gw(iface, &gateway);
+}
+
 static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_req_params *params)
 {
 	struct ameba_wifi_runtime *data = dev->data;
 	int ret = 0;
+
+	configure_ap_mode(ameba_wifi_iface[1]);
 
 	/* Build Wi-Fi configuration for AP mode */
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
@@ -533,30 +558,6 @@ static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status 
 	return 0;
 }
 
-static void configure_ap_mode(struct net_if *iface)
-{
-	struct in_addr ipaddr, netmask, gateway;
-
-	if (net_addr_pton(AF_INET, "192.168.43.1", &ipaddr) < 0) {
-		LOG_ERR("Invalid IP address\n");
-		return;
-	}
-
-	if (net_addr_pton(AF_INET, "255.255.255.0", &netmask) < 0) {
-		LOG_ERR("Invalid netmask\n");
-		return;
-	}
-
-	if (net_addr_pton(AF_INET, "192.168.43.1", &gateway) < 0) {
-		LOG_ERR("Invalid gateway\n");
-		return;
-	}
-
-	net_if_ipv4_addr_add(iface, &ipaddr, NET_ADDR_MANUAL, 0);
-	net_if_ipv4_set_netmask_by_addr(iface, &ipaddr, &netmask);
-	net_if_ipv4_set_gw(iface, &gateway);
-}
-
 static void ameba_wifi_init(struct net_if *iface)
 {
 	const char *iface_name[2] = {"wlan0", "wlan1"};
@@ -579,11 +580,6 @@ static void ameba_wifi_init(struct net_if *iface)
 		wifi_init();
 	}
 
-#if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
-	if (if_init_idx == SOFTAP_WLAN_INDEX) {
-		configure_ap_mode(iface);
-	}
-#endif
 	/* Start interface when we are actually connected with Wi-Fi network */
 	wifi_get_mac_address(if_init_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_init_idx], 1);
 
