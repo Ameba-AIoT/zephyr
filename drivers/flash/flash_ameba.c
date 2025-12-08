@@ -78,10 +78,26 @@ static int flash_ameba_write(const struct device *dev, off_t address, const void
 			     size_t length)
 {
 	int ret = 0;
+	uint8_t ram_buf[CONFIG_FLASH_AMEBA_BUF_SIZE];
+	size_t single_write_len = 0;
+	size_t offset = 0;
+	size_t rest_len = length - offset;
 
 	flash_ameba_sem_take(dev);
 
-	FLASH_WriteStream(address, length, (u8 *)buffer);
+	if (IS_FLASH_ADDR((u32)buffer)) {
+		while (rest_len > 0) {
+			single_write_len = rest_len < CONFIG_FLASH_AMEBA_BUF_SIZE
+						   ? rest_len
+						   : CONFIG_FLASH_AMEBA_BUF_SIZE;
+			_memcpy(ram_buf, (void *)((uint8_t *)buffer + offset), single_write_len);
+			FLASH_WriteStream(address + offset, single_write_len, ram_buf);
+			offset += single_write_len;
+			rest_len = length - offset;
+		}
+	} else {
+		FLASH_WriteStream(address, length, (u8 *)buffer);
+	}
 
 	flash_ameba_sem_give(dev);
 	return ret;
