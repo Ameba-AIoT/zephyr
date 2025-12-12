@@ -147,7 +147,7 @@ static int configure_hsfll(const struct device *dev, bool on)
 	if (on) {
 		int ret;
 
-		ret = clock_control_get_rate(dev, NULL, &spec.frequency);
+		ret = clock_control_get_rate(config->auxpll, NULL, &spec.frequency);
 		if (ret < 0) {
 			return ret;
 		}
@@ -171,7 +171,7 @@ static int can_nrf_init(const struct device *dev)
 		return ret;
 	}
 
-	ret = clock_control_on(config->auxpll, NULL);
+	ret = nrf_clock_control_request_sync(config->auxpll, NULL, K_FOREVER);
 	if (ret < 0) {
 		return ret;
 	}

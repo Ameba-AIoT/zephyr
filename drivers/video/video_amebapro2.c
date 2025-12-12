@@ -15,15 +15,33 @@
 #include <zephyr/drivers/video-controls.h>
 #include <zephyr/logging/log.h>
 #include <video_api.h>
+
+#include "video_ctrls.h"
+#include "video_device.h"
+
 LOG_MODULE_REGISTER(video_amebapro2, CONFIG_VIDEO_LOG_LEVEL);
 
+struct amebapro2_ctrls {
+	struct video_ctrl gop;
+	struct video_ctrl pre_init_parm;
+	struct video_ctrl snapshot;
+	struct video_ctrl ispfps;
+	struct video_ctrl bps;
+	struct video_ctrl force_i;
+	struct video_ctrl rc_params;
+	struct video_ctrl params;
+	struct video_ctrl fps;
+};
+
 struct video_amebapro2_data {
+	struct amebapro2_ctrls ctrls;
 	const struct device *dev;
 	struct video_format fmt;
 	struct k_fifo fifo_in;
 	struct k_fifo fifo_out;
 	struct k_poll_signal *signal;
 	video_params_t params;
+	struct k_mutex ctrl_lock;
 };
 
 struct video_channel_config {
@@ -189,15 +207,10 @@ static void video_output_cb(void *param1, void *param2, uint32_t arg)
 	}
 }
 
-static int video_amebapro2_set_fmt(const struct device *dev, enum video_endpoint_id ep,
-				   struct video_format *fmt)
+static int video_amebapro2_set_fmt(const struct device *dev, struct video_format *fmt)
 {
 	struct video_amebapro2_data *data = dev->data;
 	int i = 0;
-
-	if (ep != VIDEO_EP_OUT && ep != VIDEO_EP_ALL) {
-		return -EINVAL;
-	}
 
 	for (i = 0; i < ARRAY_SIZE(fmts); ++i) {
 		if (fmt->pixelformat == fmts[i].pixelformat && fmt->width >= fmts[i].width_min &&
@@ -226,21 +239,17 @@ static int video_amebapro2_set_fmt(const struct device *dev, enum video_endpoint
 	return 0;
 }
 
-static int video_amebapro2_get_fmt(const struct device *dev, enum video_endpoint_id ep,
-				   struct video_format *fmt)
+static int video_amebapro2_get_fmt(const struct device *dev, struct video_format *fmt)
 {
 	struct video_amebapro2_data *data = dev->data;
-
-	if (ep != VIDEO_EP_OUT && ep != VIDEO_EP_ALL) {
-		return -EINVAL;
-	}
 
 	*fmt = data->fmt;
 
 	return 0;
 }
 
-static int video_amebapro2_set_stream(const struct device *dev, bool enable)
+static int video_amebapro2_set_stream(const struct device *dev, bool enable,
+				      enum video_buf_type type)
 {
 	struct video_amebapro2_data *data = dev->data;
 	int ret = 0;
@@ -256,14 +265,9 @@ static int video_amebapro2_set_stream(const struct device *dev, bool enable)
 	return ret;
 }
 
-static int video_amebapro2_enqueue(const struct device *dev, enum video_endpoint_id ep,
-				   struct video_buffer *vbuf)
+static int video_amebapro2_enqueue(const struct device *dev, struct video_buffer *vbuf)
 {
 	struct video_amebapro2_data *data = dev->data;
-
-	if (ep != VIDEO_EP_OUT && ep != VIDEO_EP_ALL) {
-		return -EINVAL;
-	}
 
 	if (vbuf->size != 0) {
 		int codec_type = video_get_codec_type(data->params.type);
@@ -281,14 +285,10 @@ static int video_amebapro2_enqueue(const struct device *dev, enum video_endpoint
 	return 0;
 }
 
-static int video_amebapro2_dequeue(const struct device *dev, enum video_endpoint_id ep,
-				   struct video_buffer **vbuf, k_timeout_t timeout)
+static int video_amebapro2_dequeue(const struct device *dev, struct video_buffer **vbuf,
+				   k_timeout_t timeout)
 {
 	struct video_amebapro2_data *data = dev->data;
-
-	if (ep != VIDEO_EP_OUT && ep != VIDEO_EP_ALL) {
-		return -EINVAL;
-	}
 
 	*vbuf = k_fifo_get(&data->fifo_out, timeout);
 	if (*vbuf == NULL) {
@@ -298,7 +298,7 @@ static int video_amebapro2_dequeue(const struct device *dev, enum video_endpoint
 	return 0;
 }
 
-static int video_amebapro2_flush(const struct device *dev, enum video_endpoint_id ep, bool cancel)
+static int video_amebapro2_flush(const struct device *dev, bool cancel)
 {
 	struct video_amebapro2_data *data = dev->data;
 	struct video_buffer *vbuf;
@@ -326,79 +326,172 @@ static int video_amebapro2_flush(const struct device *dev, enum video_endpoint_i
 	return 0;
 }
 
-static int video_amebapro2_get_caps(const struct device *dev, enum video_endpoint_id ep,
-				    struct video_caps *caps)
+static int video_amebapro2_get_caps(const struct device *dev, struct video_caps *caps)
 {
 	caps->format_caps = fmts;
 	return 0;
 }
 
-static inline int video_amebapro2_set_ctrl(const struct device *dev, unsigned int cid, void *value)
+static int amebapro2_init_controls(const struct device *dev)
 {
 	struct video_amebapro2_data *data = dev->data;
+	struct amebapro2_ctrls *ctrls = &data->ctrls;
+	int ret;
+
+	ret = video_init_ctrl(&ctrls->gop, dev, VIDEO_CID_VENDOR_GOP,
+			      (struct video_ctrl_range){.min = 0, .max = 120, .step = 1, .def = 1});
+	if (ret) {
+		LOG_WRN("__func__ gop %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->params, dev, VIDEO_CID_VENDOR_SET_PARAMS,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 0});
+	if (ret) {
+		LOG_WRN("__func__ params %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->rc_params, dev, VIDEO_CID_VENDOR_SET_RCPARAM,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 0});
+	if (ret) {
+		LOG_WRN("__func__ rc_params %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->force_i, dev, VIDEO_CID_VENDOR_FORCE_IFRAME,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 0});
+	if (ret) {
+		LOG_WRN("__func__ force_i %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->bps, dev, VIDEO_CID_VENDOR_BPS,
+		(struct video_ctrl_range){
+			.min = 0, .max = INT32_MAX, .step = 1, .def = 2 * 1023 * 1024});
+	if (ret) {
+		LOG_WRN("__func__ bps %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->ispfps, dev, VIDEO_CID_VENDOR_ISPFPS,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 30});
+	if (ret) {
+		LOG_WRN("__func__ ispfps %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->pre_init_parm, dev, VIDEO_CID_VENDOR_PRE_INIT_PARM,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 0});
+	if (ret) {
+		LOG_WRN("__func__ pre_init_parm %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->snapshot, dev, VIDEO_CID_VENDOR_SNAPSHOT,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 0});
+	if (ret) {
+		LOG_WRN("__func__ snapshot %d\r\n", ret);
+		return ret;
+	}
+
+	ret = video_init_ctrl(
+		&ctrls->fps, dev, VIDEO_CID_VENDOR_FPS,
+		(struct video_ctrl_range){.min = 0, .max = INT32_MAX, .step = 1, .def = 30});
+	if (ret) {
+		LOG_WRN("__func__ fps %d\r\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+static inline int video_amebapro2_set_ctrl(const struct device *dev, uint32_t id)
+{
+	struct video_amebapro2_data *data = dev->data;
+	struct amebapro2_ctrls *ctrls = &data->ctrls;
 	int ret = 0;
 
-	switch (cid) {
-	case VIDEO_CID_VENDOR_SET_PARAMS: {
-		memcpy(&data->params, (void *)value, sizeof(video_params_t));
+	k_mutex_lock(&data->ctrl_lock, K_FOREVER);
+	switch (id) {
+	case VIDEO_CID_VENDOR_SET_PARAMS:
+		memcpy(&data->params, (void *)ctrls->params.val, sizeof(video_params_t));
+		LOG_INF("VIDEO_CID_VENDOR_SET_PARAMS %x %d\r\n", ctrls->params.val, ret);
 		break;
-	}
-	case VIDEO_CID_VENDOR_SET_RCPARAM: {
-		ret = video_ctrl(data->params.stream_id, VIDEO_SET_RCPARAM, (int)value);
-	} break;
-	case VIDEO_CID_VENDOR_STREAMID: {
-		data->params.stream_id = *(int *)value;
-	} break;
+	case VIDEO_CID_VENDOR_SET_RCPARAM:
+		ret = video_ctrl(data->params.stream_id, VIDEO_SET_RCPARAM, ctrls->rc_params.val);
+		LOG_INF("VIDEO_CID_VENDOR_SET_RCPARAM %x %d\r\n", ctrls->rc_params.val, ret);
+		break;
 	case VIDEO_CID_VENDOR_FORCE_IFRAME:
-		ret = video_ctrl(data->params.stream_id, VIDEO_FORCE_IFRAME, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_FORCE_IFRAME, ctrls->force_i.val);
 		ch_forcei[data->params.stream_id] = 1;
+		LOG_INF("VIDEO_CID_VENDOR_FORCE_IFRAME %x %d\r\n", ctrls->force_i.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_BPS:
-		ret = video_ctrl(data->params.stream_id, VIDEO_BPS, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_BPS, ctrls->bps.val);
+		LOG_INF("VIDEO_CID_VENDOR_BPS %d %d\r\n", ctrls->bps.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_GOP:
-		ret = video_ctrl(data->params.stream_id, VIDEO_GOP, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_GOP, ctrls->gop.val);
+		LOG_INF("VIDEO_CID_VENDOR_GOP %d %d\r\n", ctrls->gop.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_FPS:
-		ret = video_ctrl(data->params.stream_id, VIDEO_FPS, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_FPS, ctrls->fps.val);
+		LOG_INF("VIDEO_CID_VENDOR_FPS %d %d\r\n", ctrls->fps.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_ISPFPS:
-		ret = video_ctrl(data->params.stream_id, VIDEO_ISPFPS, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_ISPFPS, ctrls->ispfps.val);
+		LOG_INF("VIDEO_CID_VENDOR_ISPFPS %d %d\r\n", ctrls->ispfps.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_SNAPSHOT:
-		ret = video_ctrl(data->params.stream_id, VIDEO_JPEG_OUTPUT, *(int *)value);
+		ret = video_ctrl(data->params.stream_id, VIDEO_JPEG_OUTPUT, ctrls->snapshot.val);
+		LOG_INF("VIDEO_CID_VENDOR_SNAPSHOT %d %d\r\n", ctrls->snapshot.val, ret);
 		break;
 	case VIDEO_CID_VENDOR_PRE_INIT_PARM:
-		video_pre_init_setup_parameters((video_pre_init_params_t *)value);
+		video_pre_init_setup_parameters((void *)ctrls->pre_init_parm.val);
+		LOG_INF("VIDEO_CID_VENDOR_PRE_INIT_PARM %d %d\r\n", ctrls->pre_init_parm.val, ret);
 		break;
 	default:
-		return -ENOTSUP;
+		ret = -ENOTSUP;
 	}
-
-	return 0;
+	k_mutex_unlock(&data->ctrl_lock);
+	return ret;
 }
 
-static inline int video_amebapro2_get_ctrl(const struct device *dev, unsigned int cid, void *value)
+static inline int video_amebapro2_get_ctrl(const struct device *dev, uint32_t id)
 {
 	struct video_amebapro2_data *data = dev->data;
+	struct amebapro2_ctrls *ctrls = &data->ctrls;
+	int ret = 0;
 
-	switch (cid) {
-	case VIDEO_CID_VENDOR_GET_PARAMS: {
-		memcpy((void *)value, &data->params, sizeof(video_params_t));
-	} break;
-	case VIDEO_CID_VENDOR_GET_PRE_INIT_PARM:
-		memcpy((void *)value, (video_pre_init_params_t *)video_get_pre_init_setup_params(),
+	switch (id) {
+	case VIDEO_CID_VENDOR_SET_PARAMS:
+		memcpy((void *)ctrls->params.val, &data->params, sizeof(video_params_t));
+		LOG_INF("VIDEO_CID_VENDOR_SET_PARAMS %x %d\r\n", ctrls->params.val, ret);
+		break;
+	case VIDEO_CID_VENDOR_PRE_INIT_PARM:
+		memcpy((void *)ctrls->pre_init_parm.val,
+		       (video_pre_init_params_t *)video_get_pre_init_setup_params(),
 		       sizeof(video_pre_init_params_t));
+		LOG_INF("VIDEO_CID_VENDOR_PRE_INIT_PARM %x %d\r\n", ctrls->rc_params.val, ret);
+		break;
+	case VIDEO_CID_VENDOR_GOP:
+		LOG_INF("VIDEO_CID_VENDOR_GOP %x %d\r\n", ctrls->gop.val, ret);
 		break;
 	default:
-		return -ENOTSUP;
+		ret = -ENOTSUP;
 	}
-
-	return 0;
+	return ret;
 }
 
-static int video_amebapro2_set_frmival(const struct device *dev, enum video_endpoint_id ep,
-				       struct video_frmival *frmival)
+static int video_amebapro2_set_frmival(const struct device *dev, struct video_frmival *frmival)
 {
 	struct video_amebapro2_data *data = dev->data;
 
@@ -414,8 +507,7 @@ static int video_amebapro2_set_frmival(const struct device *dev, enum video_endp
 	return 0;
 }
 
-static int video_amebapro2_get_frmival(const struct device *dev, enum video_endpoint_id ep,
-				       struct video_frmival *frmival)
+static int video_amebapro2_get_frmival(const struct device *dev, struct video_frmival *frmival)
 {
 	struct video_amebapro2_data *data = dev->data;
 
@@ -425,14 +517,9 @@ static int video_amebapro2_get_frmival(const struct device *dev, enum video_endp
 	return 0;
 }
 
-static int video_amebapro2_enum_frmival(const struct device *dev, enum video_endpoint_id ep,
-					struct video_frmival_enum *fie)
+static int video_amebapro2_enum_frmival(const struct device *dev, struct video_frmival_enum *fie)
 {
 	int i = 0;
-
-	if (ep != VIDEO_EP_OUT || fie->index) {
-		return -EINVAL;
-	}
 
 	while (fmts[i].pixelformat && (fmts[i].pixelformat != fie->format->pixelformat)) {
 		i++;
@@ -458,8 +545,7 @@ static int video_amebapro2_enum_frmival(const struct device *dev, enum video_end
 }
 
 #ifdef CONFIG_POLL
-static int video_amebapro2_set_signal(const struct device *dev, enum video_endpoint_id ep,
-				      struct k_poll_signal *signal)
+static int video_amebapro2_set_signal(const struct device *dev, struct k_poll_signal *signal)
 {
 	struct video_amebapro2_data *data = dev->data;
 
@@ -482,7 +568,7 @@ static DEVICE_API(video, ameba_video_driver_api) = {
 	.dequeue = video_amebapro2_dequeue,
 	.get_caps = video_amebapro2_get_caps,
 	.set_ctrl = video_amebapro2_set_ctrl,
-	.get_ctrl = video_amebapro2_get_ctrl,
+	.get_volatile_ctrl = video_amebapro2_get_ctrl,
 	.set_frmival = video_amebapro2_set_frmival,
 	.get_frmival = video_amebapro2_get_frmival,
 	.enum_frmival = video_amebapro2_enum_frmival,
@@ -499,7 +585,7 @@ static int video_amebapro2_channel_init(const struct device *dev)
 	data->dev = dev;
 	k_fifo_init(&data->fifo_in);
 	k_fifo_init(&data->fifo_out);
-
+	k_mutex_init(&data->ctrl_lock);
 	data->params.width = config->default_width;
 	data->params.height = config->default_height;
 	data->params.stream_id = config->stream_id;
@@ -513,6 +599,8 @@ static int video_amebapro2_channel_init(const struct device *dev)
 	} else {
 		data->fmt.pixelformat = VIDEO_PIX_FMT_H264;
 	}
+
+	amebapro2_init_controls(dev);
 
 	return 0;
 }
@@ -532,6 +620,7 @@ static int video_amebapro2_channel_init(const struct device *dev)
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(inst, video_amebapro2_channel_init, NULL, &video_data_##inst,        \
 			      &video_config_##inst, POST_KERNEL, CONFIG_VIDEO_INIT_PRIORITY,       \
-			      &ameba_video_driver_api);
+			      &ameba_video_driver_api);                                            \
+	VIDEO_DEVICE_DEFINE(amebapro2_##inst, DEVICE_DT_INST_GET(inst), NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(VIDEO_CHANNEL_INIT)

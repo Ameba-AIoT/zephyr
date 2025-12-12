@@ -113,6 +113,7 @@
 
 &sdmmc {
 	status = "okay";
+	disk-name = "SD";
 };
 
 &dmic {

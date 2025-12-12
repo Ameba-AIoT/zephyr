@@ -175,7 +175,7 @@ static void video_task(void *param, void *param1, void *param2)
 		goto EXIT;
 	}
 
-	if (video_get_caps(video, VIDEO_EP_OUT, &caps)) {
+	if (video_get_caps(video, &caps)) {
 		LOG_ERR("Unable to retrieve video capabilities");
 		goto EXIT;
 	}
@@ -192,12 +192,12 @@ static void video_task(void *param, void *param1, void *param2)
 		i++;
 	}
 
-	if (video_get_format(video, VIDEO_EP_OUT, &fmt)) {
+	if (video_get_format(video, &fmt)) {
 		LOG_ERR("Unable to retrieve video format");
 		goto EXIT;
 	}
 
-	if (video_set_format(video, VIDEO_EP_OUT, &fmt)) {
+	if (video_set_format(video, &fmt)) {
 		LOG_ERR("Unable to retrieve video format");
 		return;
 	}
@@ -208,12 +208,12 @@ static void video_task(void *param, void *param1, void *param2)
 
 	memset(buffers, 0, sizeof(buffers));
 	for (i = 0; i < ARRAY_SIZE(buffers); i++) {
-		video_enqueue(video, VIDEO_EP_OUT, &buffers[i]);
+		video_enqueue(video, &buffers[i]);
 	}
 
 	video_channel = video_get_channel(ctx->name);
 
-	if (video_stream_start(video)) {
+	if (video_stream_start(video, VIDEO_BUF_TYPE_OUTPUT)) {
 		LOG_ERR("Unable to start capture (interface)");
 		goto EXIT;
 	}
@@ -244,7 +244,7 @@ static void video_task(void *param, void *param1, void *param2)
 	while (1) {
 		int err;
 
-		err = video_dequeue(video, VIDEO_EP_OUT, &vbuf, K_MSEC(500));
+		err = video_dequeue(video, &vbuf, K_MSEC(500));
 		if (err) {
 			LOG_ERR("Unable to dequeue video buf");
 			goto EXIT;
@@ -274,7 +274,7 @@ static void video_task(void *param, void *param1, void *param2)
 			}
 		}
 
-		err = video_enqueue(video, VIDEO_EP_OUT, vbuf);
+		err = video_enqueue(video, vbuf);
 		if (err) {
 			LOG_ERR("Unable to requeue video buf");
 			goto EXIT;
@@ -376,7 +376,7 @@ static int cmd_video_stop(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	if (ctxs.vthread[video_index].video_status == VIDEO_OPEN) {
-		video_stream_stop(video);
+		video_stream_stop(video, VIDEO_BUF_TYPE_OUTPUT);
 		shell_print(shell, "Video stopped");
 	} else {
 		shell_print(shell, "Video is close status\r\n");
@@ -392,9 +392,10 @@ static int cmd_video_ctrl(const struct shell *shell, size_t argc, char **argv)
 	int val = strtol(argv[2], NULL, 0);
 	const char *dev_name = NULL;
 	int video_index = 0;
+	struct video_control control;
 
 	if (argc != 4) {
-		shell_error(shell, "Usage: video cmd <operatrion> <value>");
+		shell_error(shell, "Usage: video cmd <operatrion> <value> video_0/video_1");
 		return -EINVAL;
 	}
 
@@ -427,20 +428,30 @@ static int cmd_video_ctrl(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	if (strcasecmp(subcmd, "gop") == 0) {
-		shell_print(shell, "GOP command received with value: %d (0x%x)", val, val);
-		ret = video_set_ctrl(video, VIDEO_CID_VENDOR_GOP, &val);
+		shell_print(shell, "GOP command received with value: %d (0x%x) %x", val, val);
+		control.id = VIDEO_CID_VENDOR_GOP;
+		control.val = val;
+		ret = video_set_ctrl(video, &control);
 	} else if (strcasecmp(subcmd, "fps") == 0) {
+		control.id = VIDEO_CID_VENDOR_FPS;
+		control.val = val;
 		shell_print(shell, "FPS command received with value: %d (0x%x)", val, val);
-		ret = video_set_ctrl(video, VIDEO_CID_VENDOR_FPS, &val);
+		ret = video_set_ctrl(video, &control);
 	} else if (strcasecmp(subcmd, "ispfps") == 0) {
+		control.id = VIDEO_CID_VENDOR_ISPFPS;
+		control.val = val;
 		shell_print(shell, "ISPFPS command received with value: %d (0x%x)", val, val);
-		ret = video_set_ctrl(video, VIDEO_CID_VENDOR_ISPFPS, &val);
+		ret = video_set_ctrl(video, &control);
 	} else if (strcasecmp(subcmd, "bps") == 0) {
+		control.id = VIDEO_CID_VENDOR_BPS;
+		control.val = val;
 		shell_print(shell, "BSP command received with value: %d (0x%x)", val, val);
-		ret = video_set_ctrl(video, VIDEO_CID_VENDOR_BPS, &val);
+		ret = video_set_ctrl(video, &control);
 	} else if (strcasecmp(subcmd, "forcei") == 0) {
+		control.id = VIDEO_CID_VENDOR_FORCE_IFRAME;
+		control.val = val;
 		shell_print(shell, "forcei command received with value: %d (0x%x)", val, val);
-		ret = video_set_ctrl(video, VIDEO_CID_VENDOR_FORCE_IFRAME, &val);
+		ret = video_set_ctrl(video, &control);
 	} else {
 		shell_error(shell, "Unknown cmd: %s", subcmd);
 		return -EINVAL;
