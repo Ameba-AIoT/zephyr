@@ -428,7 +428,7 @@ static int cmd_video_ctrl(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	if (strcasecmp(subcmd, "gop") == 0) {
-		shell_print(shell, "GOP command received with value: %d (0x%x) %x", val, val);
+		shell_print(shell, "GOP command received with value: %d (0x%x)", val, val);
 		control.id = VIDEO_CID_VENDOR_GOP;
 		control.val = val;
 		ret = video_set_ctrl(video, &control);
