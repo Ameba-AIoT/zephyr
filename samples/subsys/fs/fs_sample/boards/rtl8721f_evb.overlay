@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2022 Nordic Semiconductor ASA
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+
+&sdhc0 {
+	pinctrl-0 = <&sdhc0_default>;
+	pinctrl-names = "default";
+	cd-gpios = <&gpiob 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	status = "okay";
+	mmc {
+		compatible = "zephyr,sdmmc-disk";
+		status = "okay";
+		disk-name = "SD";
+	};
+};

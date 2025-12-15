@@ -12,3 +12,27 @@ include: [sdhc.yaml, pinctrl-device.yaml]
 properties:
   reg:
     required: true
+
+  clocks:
+    required: true
+
+  interrupts:
+    required: true
+
+  cd-gpios:
+    type: phandle-array
+    description: Card detect pin.
+
+  pinctrl-0:
+    required: true
+
+  pinctrl-names:
+    required: true
+
+  bus-width:
+    type: int
+    default: 4
+    description: SD bus width in bits
+    enum:
+      - 1
+      - 4

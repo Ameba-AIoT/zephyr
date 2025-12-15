@@ -513,7 +513,11 @@
 
 		sdhc0: sdhc@40114000 {
 			compatible = "realtek,ameba-sdhc";
-			reg = <0x40114000 0x4000>;
+			reg = <0x40114000 0xD00>;
+			clocks = <&rcc AMEBA_SDH_CLK>;
+			interrupts = <58 0>;
+			max-bus-freq = <52000000>; // 52MHz for mmc card
+			min-bus-freq = <400000>; // 400KHz
 			status = "disabled";
 		};
 
