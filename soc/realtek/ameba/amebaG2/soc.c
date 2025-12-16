@@ -63,11 +63,13 @@ void soc_early_init_hook(void)
 
 	XTAL_INIT();
 
-	if ((SYSCFG_RLVersion()) >= SYSCFG_CUT_VERSION_B) {
+	if ((EFUSE_GetChipVersion()) >= SYSCFG_CUT_VERSION_B) {
 		if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) {
 			OSC4M_Init();
 			OSC4M_Calibration(30000);
 		}
+	} else {
+		assert_param(FALSE);
 	}
 
 	SOC_OSC131_Enable();
@@ -76,12 +78,6 @@ void soc_early_init_hook(void)
 	ipc_table_init(IPCAP_DEV);
 	IRQ_CONNECT(IPC_CPU0_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCAP_DEV, 0);
 	irq_enable(IPC_CPU0_IRQ);
-
-#ifdef CONFIG_AMEBAGREEN2_A_CUT
-	assert_param(EFUSE_GetChipVersion() == SYSCFG_CUT_VERSION_A);
-#else
-	assert_param(EFUSE_GetChipVersion() != SYSCFG_CUT_VERSION_A);
-#endif
 
 #ifdef CONFIG_AMEBA_PSRAM
 	ameba_init_psram();
