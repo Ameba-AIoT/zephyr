@@ -17,7 +17,7 @@
 #if defined(__IAR_SYSTEMS_ICC__) || defined(__GNUC__) || defined(__CC_ARM) ||                      \
 	(defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050))
 /* SET pack mode 1-alignment for the following area. */
-#pragma pack(1)
+#pragma pack(push, 1)
 #endif
 
 struct rtk_wifi_status {
@@ -96,3 +96,8 @@ int wifi_get_setting_zephyr(u8 idx, char *ssid, u8 *ssid_len, char *bssid, int *
 			    u8 *security);
 int wifi_start_ap_zephyr(u8 *ssid, u8 ssid_len, u8 *psk, u8 psk_len, u8 channel, u8 wpa3_en);
 void ameba_wifi_handle_connect_event(void);
+
+#if defined(__IAR_SYSTEMS_ICC__) || defined(__GNUC__) || defined(__CC_ARM) ||                      \
+	(defined(__ARMCC_VERSION) && (__ARMCC_VERSION >= 6010050))
+#pragma pack(pop)
+#endif

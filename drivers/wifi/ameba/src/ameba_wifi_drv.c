@@ -19,12 +19,16 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 #include <zephyr/net/wifi_mgmt.h>
 #include <zephyr/device.h>
 #include <soc.h>
-#include "ameba_wifi.h"
 #include "diag.h"
 
 #ifdef CONFIG_AMEBAGREEN2
 #include <zephyr/settings/settings.h>
 #endif
+
+#include "ameba_wifi.h"
+#include <zephyr/net/wifi_nm.h>
+#include <zephyr/net/conn_mgr/connectivity_wifi_mgmt.h>
+
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
 static struct net_if *ameba_wifi_iface[2];
@@ -506,6 +510,10 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	memcpy(data->status.ssid, params->ssid, params->ssid_length);
 	data->status.ssid[params->ssid_length] = '\0';
 
+	if (params->channel == WIFI_CHANNEL_ANY) {
+		params->channel = 0;
+	}
+
 	if (params->security >= WIFI_SECURITY_TYPE_SAE &&
 	    params->security <= WIFI_SECURITY_TYPE_SAE_AUTO) {
 		ret = wifi_start_ap_zephyr((u8 *)params->ssid, params->ssid_length,
@@ -564,7 +572,9 @@ static void ameba_wifi_init(struct net_if *iface)
 	const struct device *dev = net_if_get_device(iface);
 	struct ameba_wifi_runtime *dev_data = dev->data;
 	struct ethernet_context *eth_ctx = net_if_l2_data(iface);
-
+#if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
+	struct wifi_nm_instance *nm = wifi_nm_get_instance("rtk_wifi_nm");
+#endif
 	eth_ctx->eth_if_type = L2_ETH_IF_TYPE_WIFI;
 	ameba_wifi_iface[if_init_idx] = iface;
 	dev_data->state = RTK_STA_STOPPED;
@@ -595,6 +605,15 @@ static void ameba_wifi_init(struct net_if *iface)
 
 	/* separate ap and sta */
 	net_if_set_name(iface, iface_name[if_init_idx]);
+
+#if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
+	nm->mgd_ifaces[if_init_idx].iface = NULL;
+	if (if_init_idx == STA_WLAN_INDEX) {
+		wifi_nm_register_mgd_type_iface(nm, WIFI_TYPE_STA, iface);
+	} else {
+		wifi_nm_register_mgd_type_iface(nm, WIFI_TYPE_SAP, iface);
+	}
+#endif
 
 	if_init_idx++;
 }
@@ -649,6 +668,8 @@ NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
 			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
 
 #if defined(CONFIG_RTK_WIFI_AP_STA_MODE)
+DEFINE_WIFI_NM_INSTANCE(rtk_wifi_nm, &ameba_wifi_mgmt);
+CONNECTIVITY_WIFI_MGMT_BIND(Z_DEVICE_DT_DEV_ID(DT_DRV_INST(0)));
 
 NET_DEVICE_DT_INST_DEFINE(1, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
 			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
