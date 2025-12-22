@@ -4,7 +4,15 @@
 zephyr_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_include_directories(.)
 
-zephyr_sources(soc.c)
+if(CONFIG_MCUBOOT OR CONFIG_BOOTLOADER_MCUBOOT)
+  zephyr_linker_sources_ifdef(CONFIG_MCUBOOT ROM_START SORT_KEY 0x0 loader_section.ld)
+  zephyr_sources(
+    soc_loader.c
+    ../common/loader.c
+  )
+else()
+  zephyr_sources(soc.c)
+endif()
 
 zephyr_linker_sources(SECTIONS boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
@@ -19,6 +27,14 @@ set(PYTHON_SCRIPT_ARGS
 
 if(CONFIG_BT_COEXIST)
     list(APPEND PYTHON_SCRIPT_ARGS --bt-coexist)
+endif()
+
+if(CONFIG_MCUBOOT OR CONFIG_BOOTLOADER_MCUBOOT)
+    list(APPEND PYTHON_SCRIPT_ARGS --mcuboot)
+endif()
+
+if(CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION)
+    list(APPEND PYTHON_SCRIPT_ARGS --sign-version "${CONFIG_MCUBOOT_IMGTOOL_SIGN_VERSION}")
 endif()
 
 #  west sign
