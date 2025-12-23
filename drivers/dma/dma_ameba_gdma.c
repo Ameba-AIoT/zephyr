@@ -127,17 +127,17 @@ static inline int dma_ameba_reload_type_get(struct dma_config *config_dma)
 static inline void dma_ameba_cache_handle(const struct device *dev, uint32_t channel)
 {
 	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
-	uint32_t cache_line_mask = sys_cache_data_line_size_get() - 1;
 	uint32_t temp_chnl_dir = data->channel_status[channel].chnl_direction;
 	uint32_t temp_block_size = data->channel_status[channel].block_size;
 	uint32_t *temp_src_addr = (uint32_t *)(data->channel_status[channel].src_addr);
 	uint32_t *temp_dst_addr = (uint32_t *)(data->channel_status[channel].dst_addr);
 
-	if (((u32)temp_src_addr & cache_line_mask) || ((u32)temp_dst_addr & cache_line_mask)) {
+	if (((u32)temp_src_addr & (CONFIG_DCACHE_LINE_SIZE - 1)) ||
+	    ((u32)temp_dst_addr & (CONFIG_DCACHE_LINE_SIZE - 1))) {
 		LOG_WRN("The transfer address and cache line must be aligned, src: %x; dst: %x; "
 			"cache line size= %d\n",
 
-			(u32)temp_src_addr, (u32)temp_dst_addr, cache_line_mask + 1);
+			(u32)temp_src_addr, (u32)temp_dst_addr, CONFIG_DCACHE_LINE_SIZE);
 	}
 	/* If the source or destination is memory, data consistency needs to be ensured. */
 	if (temp_chnl_dir == MEMORY_TO_MEMORY) {
@@ -222,7 +222,6 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 {
 	struct dma_ameba_config *config = (struct dma_ameba_config *)dev->config;
 	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
-	uint32_t cache_line_mask = ~(sys_cache_data_line_size_get() - 1);
 	int err = 0;
 	uint32_t isr_type = 0;
 
@@ -253,9 +252,9 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	 */
 	if (data->channel_status[channel].chnl_direction == MEMORY_TO_MEMORY ||
 	    data->channel_status[channel].chnl_direction == PERIPHERAL_TO_MEMORY) {
-		sys_cache_data_flush_range(
-			(void *)(data->channel_status[channel].dst_addr & cache_line_mask),
-			data->channel_status[channel].block_size);
+		sys_cache_data_flush_range((void *)(data->channel_status[channel].dst_addr &
+						    (~(CONFIG_DCACHE_LINE_SIZE - 1))),
+					   data->channel_status[channel].block_size);
 	}
 	/*3.config dma transfer if there are multiple DMA configuration blocks*/
 	if (data->channel_status[channel].cur_dma_blk_cfg->next_block != NULL) {
