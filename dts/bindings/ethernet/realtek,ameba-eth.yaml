@@ -5,10 +5,15 @@ description: AMEBA Ethernet
 
 compatible: "realtek,ameba-eth"
 
-include:
-  - name: ethernet-controller.yaml
+include: [pinctrl-device.yaml, ethernet-controller.yaml]
 
 properties:
+  pinctrl-names:
+    required: true
+
+  phy-connection-type:
+    required: true
+
   phy-handle:
     required: true
 

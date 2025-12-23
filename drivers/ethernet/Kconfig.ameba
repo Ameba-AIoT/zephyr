@@ -7,6 +7,7 @@ menuconfig ETH_AMEBA
 	default y
 	depends on DT_HAS_REALTEK_AMEBA_ETH_ENABLED
 	select MDIO
+	select PINCTRL
 	help
 	  Enable AMEBA Ethernet driver.
 
