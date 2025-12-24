@@ -7,3 +7,23 @@ config MDIO_AMEBA
 	depends on DT_HAS_REALTEK_AMEBA_MDIO_ENABLED
 	help
 	  Enable AMEBA MCU Family MDIO driver.
+
+if MDIO_AMEBA
+
+choice ETH_AMEBA_CLK_DIRECTION
+	prompt "Ameba Phy Clock Source"
+	default ETH_AMEBA_MAC_TO_PHY_50M
+
+config ETH_AMEBA_MAC_TO_PHY_50M
+	bool "MAC TO PHY 50MHZ"
+
+config ETH_AMEBA_MAC_TO_PHY_25M
+	bool "MAC TO PHY 25MHZ"
+
+
+config ETH_AMEBA_PHY_INTERNAL_XTAL
+	bool "PHY INTERNAL XTAL"
+
+endchoice
+
+endif

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT realtek_ameba_eth
+#define DT_DRV_COMPAT realtek_ameba_mac
 
 #include <ameba_soc.h>
 
@@ -271,49 +271,6 @@ static int emac_config_apll_clock(void)
 }
 #endif /* DT_INST_NODE_HAS_PROP(0, ref_clk_output_gpios) */
 #endif /* ETH_TODO */
-void eth_ameba_set_clock(void)
-{
-	uint32_t clk_source;
-	uint32_t pll_clk;
-	uint32_t div_value;
-
-	clk_source = RCC_PeriphClockSourceGet(GMAC);
-
-	switch (clk_source) {
-	case CKSL_GMAC_EXT50M:
-		return;
-
-	case CKSL_GMAC_USB_PLL:
-		RCC_PeriphClockDividerFENSet(USB_PLL_GMAC, ENABLE);
-		/*Brought about by SOC clock structure or other configurations, DD is known*/
-		RCC_PeriphClockDividerFENSet(SYS_PLL_GMAC, ENABLE);
-		pll_clk = USB_PLL_ClkGet();
-		break;
-
-	case CKSL_GMAC_SYS_PLL:
-		RCC_PeriphClockDividerFENSet(SYS_PLL_GMAC, ENABLE);
-
-		RCC_PeriphClockDividerFENSet(USB_PLL_GMAC, ENABLE);
-		pll_clk = SYS_PLL_ClkGet();
-		break;
-
-	default:
-		LOG_ERR("Error: Unknown GMAC CLK Source 0x%x\n", clk_source);
-		return;
-	}
-
-	if (pll_clk == 0) {
-		LOG_ERR("Error: PLL Clock is 0\n");
-		return;
-	}
-	div_value = pll_clk / 50000000;
-
-	if (clk_source == CKSL_GMAC_USB_PLL) {
-		RCC_PeriphClockDividerSet(USB_PLL_GMAC, div_value);
-	} else if (clk_source == CKSL_GMAC_SYS_PLL) {
-		RCC_PeriphClockDividerSet(SYS_PLL_GMAC, div_value);
-	}
-}
 
 static void phy_link_state_changed(const struct device *phy_dev, struct phy_link_state *state,
 				   void *user_data)
@@ -403,11 +360,6 @@ int eth_ameba_initialize(const struct device *dev)
 
 	Ethernet_ReadPhyReg(eth_ameba_phy_addr, FEPHY_REG_ADDR_3, &tmp);
 	LOG_DBG("page0 reg3=0x%x\n", tmp);
-
-	Ethernet_WritePhyReg(eth_ameba_phy_addr, FEPHY_REG_ADDR_31, FEPHY_REG_ADDR_7);
-
-	Ethernet_ReadPhyReg(eth_ameba_phy_addr, RTL8201FR_PAGE7_REG_RMII_MODE_SET, &tmp);
-	LOG_DBG("page7 reg16=0x%x\n", tmp);
 
 	/* descriptor */
 	memset(dev_data->dma->eth_ameba_rx_descriptors, 0,
@@ -633,8 +585,6 @@ static void eth_ameba_iface_init(struct net_if *iface)
 	}
 }
 
-PINCTRL_DT_INST_DEFINE(0);
-
 static const struct ethernet_api eth_ameba_api = {
 	.iface_api.init = eth_ameba_iface_init,
 	.get_capabilities = eth_ameba_caps,
@@ -653,12 +603,14 @@ static const struct ethernet_api eth_ameba_api = {
 
 #define ETH_AMEBA_ETH_INIT(inst)                                                                   \
                                                                                                    \
+	PINCTRL_DT_INST_DEFINE(inst);                                                              \
 	ETH_AMEBA_ETH_IRQ_INST(inst)                                                               \
                                                                                                    \
 	static const struct eth_ameba_dev_config eth_ameba_cfg_##inst = {                          \
 		.base = (ETHERNET_TypeDef *)DT_REG_ADDR(DT_INST_PARENT(inst)),                     \
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(inst)),                             \
-		.clock_subsys = (clock_control_subsys_t *)DT_INST_CLOCKS_CELL(inst, idx),          \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(inst))),                  \
+		.clock_subsys =                                                                    \
+			(clock_control_subsys_t *)DT_CLOCKS_CELL(DT_INST_PARENT(inst), idx),       \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),                                      \
 		.config_irq = config_eth_ameba_eth_##inst##_irq,                                   \
 	};                                                                                         \

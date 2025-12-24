@@ -459,11 +459,12 @@
 		};
 
 		ethernet@4011a000 {
+			compatible = "realtek,ameba-ethernet";
 			reg = <0x4011a000 0x1440>;
+			clocks = <&rcc AMEBA_GMAC_CLK>;
 
 			mac: ethernet {
-				compatible = "realtek,ameba-eth";
-				clocks = <&rcc AMEBA_GMAC_CLK>;
+				compatible = "realtek,ameba-mac";
 				interrupts = <48 0>;
 				status = "disabled";
 			};

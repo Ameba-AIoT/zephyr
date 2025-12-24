@@ -1,0 +1,36 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  ref-clk-output-gpios:
+    Specify the GPIO pin for Reference Clock output. This GPIO will be configured
+    to output ref clk, commonly used for PHY (Ethernet) applications.
+
+    Format:
+      <&gpio_controller gpio_pin (flags)>
+
+    - gpio_controller: GPIO controller phandle
+    - gpio_pin:        Pin number (e.g., 3/5/12, depends on chip)
+    - flags:           Pin flags, e.g., GPIO_ACTIVE_HIGH, GPIO_PULL_UP
+
+  Example:
+    ref-clk-output-gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;
+
+compatible: "realtek,ameba-mac"
+
+include: [pinctrl-device.yaml, ethernet-controller.yaml]
+
+properties:
+  pinctrl-names:
+    required: true
+
+  phy-connection-type:
+    required: true
+
+  phy-handle:
+    required: true
+
+  ref-clk-output-gpios:
+    type: phandle-array
+    description: |
+      GPIO to output RMII Clock.

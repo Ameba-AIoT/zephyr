@@ -5,7 +5,7 @@
 menuconfig ETH_AMEBA
 	bool "AMEBA Ethernet driver"
 	default y
-	depends on DT_HAS_REALTEK_AMEBA_ETH_ENABLED
+	depends on DT_HAS_REALTEK_AMEBA_MAC_ENABLED
 	select MDIO
 	select PINCTRL
 	help

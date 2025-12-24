@@ -21,9 +21,11 @@ LOG_MODULE_REGISTER(mdio_ameba, CONFIG_MDIO_LOG_LEVEL);
 
 #define DT_DRV_COMPAT realtek_ameba_mdio
 
-#define ADIN1100_REG_VALUE_MASK GENMASK(15, 0)
-
-#define MDIO_AMEBA_TODO 0
+#if defined(CONFIG_ETH_AMEBA_MAC_TO_PHY_50M)
+#define ETH_CLK_DBG_SEL_VAL 0xB
+#elif defined(CONFIG_ETH_AMEBA_MAC_TO_PHY_25M)
+#define ETH_CLK_DBG_SEL_VAL 0xC
+#endif
 
 struct mdio_ameba_data {
 	struct k_sem sem;
@@ -36,22 +38,62 @@ struct mdio_ameba_config {
 	const struct pinctrl_dev_config *pincfg;
 };
 
-static void mido_ameba_clock_config(void)
+static void mdio_ameba_phy_clock_dir_config(void)
 {
-	uint32_t temp = 0;
-
-	RCC_PeriphClockCmd(APBPeriph_GMAC, APBPeriph_GMAC_CLOCK, ENABLE);
-	Pinmux_Config(_PA_12, PINMUX_FUNCTION_EXT_CLK_OUT);
-
+#if defined(CONFIG_ETH_AMEBA_MAC_TO_PHY_50M) || defined(CONFIG_ETH_AMEBA_MAC_TO_PHY_25M)
 	/*phy uses external clk*/
-	temp = sys_read32(PINMUX_REG_BASE + REG_PINMUX_SUB_CTRL);
+	uint32_t temp = sys_read32(PINMUX_REG_BASE + REG_PINMUX_SUB_CTRL);
 	temp |= PAD_BIT_DBG_CLK_FORCE;
 	temp &= ~PAD_MASK_DBG_CLK0_SEL;
-	temp |= PAD_DBG_CLK0_SEL(0xB);
+	temp |= PAD_DBG_CLK0_SEL(ETH_CLK_DBG_SEL_VAL);
 	sys_write32(temp, PINMUX_REG_BASE + REG_PINMUX_SUB_CTRL);
 
-	extern void eth_ameba_set_clock(void);
-	eth_ameba_set_clock();
+	Pinmux_Config(_PA_12, PINMUX_FUNCTION_EXT_CLK_OUT);
+#endif
+}
+
+void mdio_ameba_clock_source_config(void)
+{
+	uint32_t clk_source;
+	uint32_t pll_clk;
+	uint32_t div_value;
+
+	clk_source = RCC_PeriphClockSourceGet(GMAC);
+
+	switch (clk_source) {
+	case CKSL_GMAC_EXT50M:
+		return;
+
+	case CKSL_GMAC_USB_PLL:
+		RCC_PeriphClockDividerFENSet(USB_PLL_GMAC, ENABLE);
+		/*Brought about by SOC clock structure or other configurations, DD is known*/
+		RCC_PeriphClockDividerFENSet(SYS_PLL_GMAC, ENABLE);
+		pll_clk = USB_PLL_ClkGet();
+		break;
+
+	case CKSL_GMAC_SYS_PLL:
+		RCC_PeriphClockDividerFENSet(SYS_PLL_GMAC, ENABLE);
+
+		RCC_PeriphClockDividerFENSet(USB_PLL_GMAC, ENABLE);
+		pll_clk = SYS_PLL_ClkGet();
+		break;
+
+	default:
+		LOG_ERR("Error: Unknown GMAC CLK Source 0x%x\n", clk_source);
+		return;
+	}
+
+	if (pll_clk == 0) {
+		LOG_ERR("Error: PLL Clock is 0\n");
+		return;
+	}
+	div_value = pll_clk / 50000000;
+
+	if (clk_source == CKSL_GMAC_USB_PLL) {
+		RCC_PeriphClockDividerSet(USB_PLL_GMAC, div_value);
+	} else if (clk_source == CKSL_GMAC_SYS_PLL) {
+		RCC_PeriphClockDividerSet(SYS_PLL_GMAC, div_value);
+	}
 }
 
 static int mdio_ameba_polling(ETHERNET_TypeDef *heth)
@@ -119,14 +161,27 @@ exit:
 
 static int mdio_ameba_init(const struct device *dev)
 {
+	const struct mdio_ameba_config *const dev_cfg = dev->config;
 	struct mdio_ameba_data *const dev_data = dev->data;
-	const struct mdio_ameba_config *const config = dev->config;
 	int ret;
 
-	mido_ameba_clock_config();
+	mdio_ameba_clock_source_config();
 
-	/*config pin*/
-	ret = pinctrl_apply_state(config->pincfg, PINCTRL_STATE_DEFAULT);
+	const struct device *clock_dev = dev_cfg->clock_dev;
+
+	clock_control_subsys_t clock_subsys = (clock_control_subsys_t)dev_cfg->clock_subsys;
+
+	/* clock is shared, so do not bail out if already enabled */
+	ret = clock_control_on(clock_dev, clock_subsys);
+	if (ret < 0) {
+		LOG_ERR("Cannot enable mac clock\n");
+		return ret;
+	}
+
+	mdio_ameba_phy_clock_dir_config();
+
+	/*config MDC/MDIO pin*/
+	ret = pinctrl_apply_state(dev_cfg->pincfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		return ret;
 	}
@@ -145,6 +200,9 @@ static DEVICE_API(mdio, mdio_ameba_api) = {
 	PINCTRL_DT_INST_DEFINE(inst);                                                              \
                                                                                                    \
 	static const struct mdio_ameba_config mdio_ameba_config_##inst = {                         \
+		.clock_dev = DEVICE_DT_GET(DT_CLOCKS_CTLR(DT_INST_PARENT(inst))),                  \
+		.clock_subsys =                                                                    \
+			(clock_control_subsys_t *)DT_CLOCKS_CELL(DT_INST_PARENT(inst), idx),       \
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(inst),                                    \
 	};                                                                                         \
 	static struct mdio_ameba_data mdio_ameba_data_##inst = {                                   \
