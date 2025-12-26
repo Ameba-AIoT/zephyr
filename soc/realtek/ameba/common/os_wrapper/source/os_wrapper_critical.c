@@ -38,8 +38,9 @@ void rtos_critical_enter(uint32_t component_id)
 	ulCriticalNesting++;
 }
 
-void rtos_critical_exit(void)
+void rtos_critical_exit(uint32_t component_id)
 {
+	UNUSED(component_id);
 	ulCriticalNesting--;
 	if (ulCriticalNesting == 0) {
 		irq_unlock(key);
