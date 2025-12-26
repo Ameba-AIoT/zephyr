@@ -16,7 +16,7 @@ int rtos_critical_is_in_interrupt(void);
 /**
  * @brief  Internally handles interrupt status (PRIMASK/CPSR) save
  */
-void rtos_critical_enter(void);
+void rtos_critical_enter(uint32_t component_id);
 
 /**
  * @brief  Internally handles interrupt status(PRIMASK/CPSR) restore

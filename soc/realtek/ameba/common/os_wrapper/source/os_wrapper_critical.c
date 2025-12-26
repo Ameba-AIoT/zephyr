@@ -29,8 +29,9 @@ int rtos_critical_is_in_interrupt(void)
  * Zephyr does not have concept of Critical section
  * disable and enable irq to avoid interrupt and context switch
  */
-void rtos_critical_enter(void)
+void rtos_critical_enter(uint32_t component_id)
 {
+	UNUSED(component_id);
 	if (ulCriticalNesting == 0) {
 		key = irq_lock();
 	}
