@@ -35,7 +35,8 @@ LOG_MODULE_REGISTER(eth_ameba, CONFIG_ETHERNET_LOG_LEVEL);
 
 #define ETH_AMEBA_CAPS                                                                             \
 	(ETHERNET_LINK_10BASE | ETHERNET_LINK_100BASE | ETHERNET_HW_VLAN |                         \
-	 ETHERNET_HW_VLAN_TAG_STRIP | ETHERNET_PRIORITY_QUEUES | ETHERNET_PROMISC_MODE)
+	 ETHERNET_HW_TX_CHKSUM_OFFLOAD | ETHERNET_HW_VLAN_TAG_STRIP | ETHERNET_PRIORITY_QUEUES |   \
+	 ETHERNET_PROMISC_MODE)
 
 uint8_t tx_descriptors[CONFIG_ETH_TX_DES_NUM][sizeof(ETH_TxDescTypeDef)] __nocache __aligned(32);
 
@@ -410,6 +411,9 @@ int eth_ameba_initialize(const struct device *dev)
 	eth_ameba_dev->ETH_ETHER_IO_CMD = RXFTH(dev_data->eth_ameba_init->ETH_RxThreshold) |
 					  TSH(dev_data->eth_ameba_init->ETH_TxThreshold) |
 					  BIT_SHORTDESFORMAT;
+	/* Set Rx/Tx buffer size */
+	dev_data->eth_ameba_init->ETH_RxBufSize = NET_ETH_MAX_FRAME_SIZE;
+	dev_data->eth_ameba_init->ETH_TxBufSize = NET_ETH_MAX_FRAME_SIZE;
 
 	dev_data->eth_ameba_init->ETH_TxDescNum = CONFIG_ETH_TX_DES_NUM;
 	dev_data->eth_ameba_init->ETH_RxDescNum = CONFIG_ETH_RX_DES_NUM;
@@ -430,7 +434,8 @@ int eth_ameba_initialize(const struct device *dev)
 		dev_data->eth_ameba_init->ETH_RxDesc[i].dw3 = 0;
 	}
 	for (int i = 0; i < CONFIG_ETH_TX_DES_NUM; i++) {
-		dev_data->eth_ameba_init->ETH_TxDesc[i].dw1 = 0;
+		dev_data->eth_ameba_init->ETH_TxDesc[i].dw1 =
+			FEMAC_TX_DSC_BIT_IPCS | FEMAC_TX_DSC_BIT_L4CS;
 		dev_data->eth_ameba_init->ETH_TxDesc[i].addr = (u32)dev_data->dma->tx_buf[i];
 		dev_data->eth_ameba_init->ETH_TxDesc[i].dw2 = 0;
 		dev_data->eth_ameba_init->ETH_TxDesc[i].dw3 = 0;
@@ -467,17 +472,6 @@ int eth_ameba_initialize(const struct device *dev)
 	eth_ameba_dev->ETH_IO_CMD1 |= BIT_RXRING1;
 
 #if ETH_TODO
-	/* Configure ISR */
-	res = esp_intr_alloc(
-		DT_IRQ_BY_IDX(DT_NODELABEL(eth), 0, irq),
-		RTK_PRIO_TO_FLAGS(DT_IRQ_BY_IDX(DT_NODELABEL(eth), 0, priority)) |
-			RTK_INT_FLAGS_CHECK(DT_IRQ_BY_IDX(DT_NODELABEL(eth), 0, flags)) |
-			RTK_INTR_FLAG_IRAM,
-		eth_ameba_isr, (void *)dev, NULL);
-	if (res != 0) {
-		goto err;
-	}
-
 	/* Configure phy for Media-Independent Interface (MII) or
 	 * Reduced Media-Independent Interface (RMII) mode
 	 */
@@ -527,31 +521,6 @@ int eth_ameba_initialize(const struct device *dev)
 		res = -ETIMEDOUT;
 		goto err;
 	}
-
-	/* Set dma_burst_len as ETH_DMA_BURST_LEN_32 by default */
-	emac_hal_dma_config_t dma_config = {.dma_burst_len = 0};
-
-	emac_hal_reset_desc_chain(&dev_data->hal);
-	emac_hal_init_mac_default(&dev_data->hal);
-	emac_hal_init_dma_default(&dev_data->hal, &dma_config);
-
-	res = generate_mac_addr(dev_data->mac_addr);
-	if (res != 0) {
-		goto err;
-	}
-	emac_hal_set_address(&dev_data->hal, dev_data->mac_addr);
-
-	k_tid_t tid = k_thread_create(&dev_data->rx_thread, dev_data->rx_thread_stack,
-				      K_KERNEL_STACK_SIZEOF(dev_data->rx_thread_stack),
-				      eth_ameba_rx_thread, (void *)dev, NULL, NULL,
-				      CONFIG_ETH_RTK32_RX_THREAD_PRIORITY, K_ESSENTIAL, K_NO_WAIT);
-	if (IS_ENABLED(CONFIG_THREAD_NAME)) {
-		k_thread_name_set(tid, "ameba_eth");
-	}
-
-	emac_hal_start(&dev_data->hal);
-
-	return 0;
 #endif
 err:
 	return res;
@@ -626,7 +595,7 @@ static const struct ethernet_api eth_ameba_api = {
 		.dma = &eth_ameba_dma_data_##inst,                                                 \
 	};                                                                                         \
                                                                                                    \
-	ETH_NET_DEVICE_DT_INST_DEFINE(0, eth_ameba_initialize, NULL, &eth_ameba_dev_##inst,        \
+	ETH_NET_DEVICE_DT_INST_DEFINE(inst, eth_ameba_initialize, NULL, &eth_ameba_dev_##inst,     \
 				      &eth_ameba_cfg_##inst, CONFIG_ETH_INIT_PRIORITY,             \
 				      &eth_ameba_api, NET_ETH_MTU);
 
