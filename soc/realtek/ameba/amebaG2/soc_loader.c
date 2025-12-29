@@ -26,6 +26,8 @@ extern void BOOT_ROM_Copy(void *__restrict dst0, const void *__restrict src0, si
 extern void Peripheral_Reset(void);
 extern void BOOT_Log_Init(void);
 
+extern MCM_MemTypeDef meminfo;
+
 static const u32 ImagePattern[2] = {
 	0x35393138,
 	0x31313738,
@@ -152,10 +154,30 @@ void __ameba_mcuboot_soc_early_init_hook(void)
 	if (BOOT_Reason() & (AON_BIT_RSTF_WARM_KM4NS | AON_BIT_RSTF_WARM_KM4TZ)) {
 		Peripheral_Reset();
 	}
+
+	BOOT_VerCheck();
+
+	BOOT_SOC_ClkSet();
+
 	BOOT_Log_Init();
 	BOOT_RccConfig();
 	BOOT_RSIP_MMU_Config();
 	BOOT_ResetMask_Config();
+
+	meminfo = ChipInfo_MCMInfo();
+	int ret = BOOT_PSRAM_Init();
+
+	if (ret == -1) {
+		/* psram initial fail or non-psram chip，close psram LDO(mem_ldo 1.8V)*/
+		LDO_MemSetInNormal(MLDO_OFF);
+#ifdef CONFIG_PSRAM_USED
+		assert_param(0); /*Code Can only XIP When No Psram*/
+#endif
+	} else {
+		LDO_MemSetInNormal(MLDO_NORMAL);
+		LDO_MemSetInSleep(MLDO_SLEEP);
+	}
+
 	Boot_Copy_NP_Image();
 	FIH_CALL(BOOT_RAM_TZCfg, fih_rc);
 	if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {

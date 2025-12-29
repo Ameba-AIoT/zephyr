@@ -18,3 +18,4 @@ __km4tz_boot_text_start__ = ABSOLUTE(.);
 KEEP(*(SORT_BY_NAME(.image1.entry.data*)))
 KEEP(*(.image1.validate.rodata*))
 *(.image1.export.symb)
+*(.non.dram.text)
