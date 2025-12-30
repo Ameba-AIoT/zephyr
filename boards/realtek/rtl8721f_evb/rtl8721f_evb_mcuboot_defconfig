@@ -1,0 +1,5 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations in this file only work for device rtl8721f_evb variants mcuboot
+# Configurations here would overwrite configurations in Kconfig.defconfig

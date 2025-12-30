@@ -1,24 +1,6 @@
 # Copyright (c) 2024 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-CONFIG_RUNTIME_NMI=y
-
-CONFIG_CORTEX_M_SYSTICK=y
-
-# Enable hardware stack protection
-CONFIG_HW_STACK_PROTECTION=y
-
-# enable rcc
-CONFIG_CLOCK_CONTROL=y
-
-# enable uart
-CONFIG_SERIAL=y
-
-# enable console for stdout
-CONFIG_CONSOLE=y
-CONFIG_UART_CONSOLE=y
-
-# enable GPIO
-CONFIG_GPIO=y
-
-CONFIG_NOCACHE_MEMORY=y
+# Configurations in this file only work for plain device rtl8721f_evb
+# Configurations here would overwrite configurations in Kconfig.defconfig
+# Configurations for all rtl8721f_evb variants(like mcuboot) are supposed to be set in Kconfig.defconfig

@@ -4,26 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/dts-v1/;
 
-#include <realtek/amebaG2/amebaG2.dtsi>
-#include "rtl8721f_evb-pinctrl.dtsi"
-#include <zephyr/dt-bindings/display/panel.h>
-
-/ {
-	model = "RealTek AmebaG2 RTL8721F EVB";
-	compatible = "realtek,rtl8721f_evb";
-
-	chosen {
-		zephyr,console = &loguart;
-		zephyr,shell-uart = &loguart;
-		zephyr,sram = &sram0;
-		zephyr,flash = &flash0;
-		zephyr,entropy = &trng;
-		zephyr,flash-controller = &spic;
-		zephyr,bt-hci = &bt;
-	};
-};
+#include "rtl8721f_evb_common.dts"
 
 /* 4MB flash */
 &flash0 {
@@ -52,24 +34,4 @@
 			reg = <0x00250000 0x00006000>;
 		};
 	};
-};
-
-&loguart {
-	status = "okay";
-};
-
-&gpioa {
-	status = "okay";
-};
-
-&gpiob {
-	status = "okay";
-};
-
-&gpioc {
-	status = "okay";
-};
-
-&bt {
-	status = "okay";
 };

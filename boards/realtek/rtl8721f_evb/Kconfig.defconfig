@@ -1,0 +1,36 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations here work for all rtl8721f_evb variants(like mcuboot)
+
+config RUNTIME_NMI
+	default y
+
+config CORTEX_M_SYSTICK
+	default y
+
+# Enable hardware stack protection
+config HW_STACK_PROTECTION
+	default y
+
+# enable rcc
+config CLOCK_CONTROL
+	default y
+
+# enable uart
+config SERIAL
+	default y
+
+# enable console for stdout
+config CONSOLE
+	default y
+
+config UART_CONSOLE
+	default y
+
+# enable GPIO
+config GPIO
+	default y
+
+config NOCACHE_MEMORY
+	default y
