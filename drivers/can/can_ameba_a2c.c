@@ -18,12 +18,14 @@
 LOG_MODULE_REGISTER(can_ameba_a2c, CONFIG_CAN_LOG_LEVEL);
 
 #define A2C_TODO 0
+static u32 can_ameba_a2c_ram_buffer_map[] = {0x0,  0x6,  0xc,  0x12, 0x18, 0x1e, 0x24, 0x2a, 0x30,
+					     0x36, 0x3c, 0x42, 0x48, 0x4e, 0x54, 0x5a, 0x60};
 
 #define CAN_AMEBA_A2C_TIMING_MIN                                                                   \
 	{                                                                                          \
 		.sjw = 1,                                                                          \
-		.prop_seg = 1,                                                                     \
-		.phase_seg1 = 1,                                                                   \
+		.prop_seg = 2,                                                                     \
+		.phase_seg1 = 2,                                                                   \
 		.phase_seg2 = 2,                                                                   \
 		.prescaler = 1,                                                                    \
 	}
@@ -31,10 +33,10 @@ LOG_MODULE_REGISTER(can_ameba_a2c, CONFIG_CAN_LOG_LEVEL);
 #define CAN_AMEBA_A2C_TIMING_MAX                                                                   \
 	{                                                                                          \
 		.sjw = 4,                                                                          \
-		.prop_seg = 1,                                                                     \
-		.phase_seg1 = 16,                                                                  \
-		.phase_seg2 = 16,                                                                  \
-		.prescaler = 256,                                                                  \
+		.prop_seg = 6,                                                                     \
+		.phase_seg1 = 8,                                                                   \
+		.phase_seg2 = 8,                                                                   \
+		.prescaler = 32,                                                                   \
 	}
 
 /*
@@ -66,8 +68,23 @@ struct can_ameba_a2c_data {
 
 	ATOMIC_DEFINE(rx_allocs, CONFIG_CAN_MAX_FILTER);
 	struct can_ameba_a2c_rx_filter filters[CONFIG_CAN_MAX_FILTER];
+	struct k_sem tx_idle;
+	can_tx_callback_t tx_callback;
+	void *tx_user_data;
 	enum can_state state;
 };
+
+static void can_ameba_a2c_tx_done(const struct device *dev, int status)
+{
+	struct can_ameba_a2c_data *a2c_data = dev->data;
+
+	if (a2c_data->tx_callback) {
+		a2c_data->tx_callback(dev, status, a2c_data->tx_user_data);
+		a2c_data->tx_callback = NULL;
+	}
+
+	k_sem_give(&a2c_data->tx_idle);
+}
 
 static void can_ameba_a2c_status_reset(A2C_TypeDef *a2c)
 {
@@ -106,20 +123,13 @@ static int can_ameba_a2c_start(const struct device *dev)
 
 	CAN_STATS_RESET(dev);
 
-	/*1.Bus off*/
+	/* 1.Bus off */
 	A2C_BusCmd(a2c_config->base, DISABLE);
 
-	/*2.clear Tec&Rec count/error status/msg buffer status*/
-	LOG_INF("reg = %x\n", (u32)a2c_config->base);
+	/* 2.Clear Tec&Rec count/error status/msg buffer status */
 	can_ameba_a2c_status_reset(a2c_config->base);
-	/*3.Enable irq*/
-	A2C_INTConfig(a2c_config->base,
-		      A2C_TX_INT | A2C_RX_INT | A2C_ERR_INT | A2C_WKUP_INT | A2C_BUSOFF_INT |
-			      A2C_RAM_MOVE_DONE_INT,
-		      ENABLE);
-	/*4.Enable A2C*/
-	A2C_Cmd(a2c_config->base, ENABLE);
-	/*5.Bus On*/
+
+	/* 3.Bus On */
 	A2C_BusCmd(a2c_config->base, ENABLE);
 
 	a2c_data->common.started = true;
@@ -134,7 +144,6 @@ static int can_ameba_a2c_stop(const struct device *dev)
 {
 	const struct can_ameba_a2c_config *a2c_config = dev->config;
 	struct can_ameba_a2c_data *a2c_data = dev->data;
-	A2C_TypeDef *a2c = a2c_config->base;
 
 	int ret = 0;
 
@@ -144,26 +153,16 @@ static int can_ameba_a2c_stop(const struct device *dev)
 		ret = -EALREADY;
 		goto unlock;
 	}
-
-	/*1.mask irq*/
-	A2C_INTConfig(a2c_config->base,
-		      A2C_TX_INT | A2C_RX_INT | A2C_ERR_INT | A2C_WKUP_INT | A2C_BUSOFF_INT |
-			      A2C_RAM_MOVE_DONE_INT,
-		      DISABLE);
-	/*2.clear irq flags/Tec&Rec count/error status/msg buffer status*/
+	/* 1.Clear irq flags/Tec&Rec count/error status/msg buffer status */
 	A2C_ClearAllINT(a2c_config->base);
-	LOG_INF("reg = %x\n", (u32)a2c_config->base);
-	can_ameba_a2c_status_reset(a2c_config->base);
 
-	/*3.exit test mode*/
-	a2c->A2C_CTL &= ~A2C_BIT_TEST_MODE_EN;
-	/*4.close bus*/
+	/* 2.Close bus */
 	A2C_BusCmd(a2c_config->base, DISABLE);
-	/*5.disable a2c*/
-	A2C_Cmd(a2c_config->base, DISABLE);
 
-	/*update status*/
+	/* 3.Update status */
 	a2c_data->common.started = false;
+
+	can_ameba_a2c_tx_done(dev, -ENETDOWN);
 
 unlock:
 	k_mutex_unlock(&a2c_data->inst_mutex);
@@ -192,9 +191,9 @@ static int can_ameba_a2c_set_mode(const struct device *dev, can_mode_t mode)
 
 	k_mutex_lock(&data->inst_mutex, K_FOREVER);
 
-	/*set work Mode*/
+	/* set work Mode */
 	if ((mode & CAN_MODE_NORMAL) != 0) {
-		/*Normal mode*/
+		/* Normal mode */
 		a2c->A2C_CTL &= ~A2C_BIT_TEST_MODE_EN;
 
 	} else {
@@ -203,15 +202,15 @@ static int can_ameba_a2c_set_mode(const struct device *dev, can_mode_t mode)
 
 		/* Loopback mode */
 		if ((mode & CAN_MODE_LOOPBACK) != 0) {
-			a2c->A2C_TEST |= A2C_TEST_CFG(A2C_INT_LOOPBACK_MODE);
+			a2c->A2C_TEST |= A2C_TEST_CFG(A2C_EXT_LOOPBACK_MODE);
 		}
-		/**/
+		/* Silence mode*/
 		if ((mode & CAN_MODE_LISTENONLY) != 0) {
 			a2c->A2C_TEST |= A2C_TEST_CFG(A2C_SILENCE_MODE);
 		}
 	}
 
-	/*auto reply*/
+	/* auto reply */
 	if ((mode & CAN_MODE_ONE_SHOT) != 0) {
 		/* No automatic retransmission */
 		a2c->A2C_CTL &= ~A2C_BIT_AUTO_RE_TX_EN;
@@ -219,7 +218,7 @@ static int can_ameba_a2c_set_mode(const struct device *dev, can_mode_t mode)
 		a2c->A2C_CTL |= A2C_BIT_AUTO_RE_TX_EN;
 	}
 
-	/*tri-sample*/
+	/* tri-sample */
 	if ((mode & CAN_MODE_3_SAMPLES) != 0) {
 		a2c->A2C_CTL |= A2C_BIT_TRI_SAMPLE;
 	} else {
@@ -237,8 +236,9 @@ static int can_ameba_a2c_send(const struct device *dev, const struct can_frame *
 			      k_timeout_t timeout, can_tx_callback_t callback, void *user_data)
 {
 	const struct can_ameba_a2c_config *a2c_config = dev->config;
-	A2C_TypeDef *a2c = a2c_config->base;
 	struct can_ameba_a2c_data *a2c_data = dev->data;
+	A2C_TypeDef *a2c = a2c_config->base;
+	u32 a2c_ram_cmd, a2c_ram_arb, a2c_ram_cs;
 
 	LOG_DBG("Sending %d bytes on %s. "
 		"Id: 0x%x, "
@@ -248,6 +248,11 @@ static int can_ameba_a2c_send(const struct device *dev, const struct can_frame *
 		(frame->flags & CAN_FRAME_IDE) != 0 ? "extended" : "standard",
 		(frame->flags & CAN_FRAME_RTR) != 0 ? "yes" : "no");
 
+	if ((frame->flags & (CAN_FRAME_FDF | CAN_FRAME_BRS | CAN_FRAME_ESI)) != 0) {
+		LOG_ERR("CAN-FD Not Available");
+		return -ENOTSUP;
+	}
+
 	if (frame->dlc > CAN_MAX_DLC) {
 		LOG_ERR("TX frame DLC %u exceeds maximum (%d)", frame->dlc, CAN_MAX_DLC);
 		return -EINVAL;
@@ -256,33 +261,60 @@ static int can_ameba_a2c_send(const struct device *dev, const struct can_frame *
 	if (!a2c_data->common.started) {
 		return -ENETDOWN;
 	}
-	/*return if bus off */
+
 	if (a2c_data->state == CAN_STATE_BUS_OFF) {
 		LOG_DBG("transmit failed, bus-off");
 		return -ENETUNREACH;
 	}
 
+	if (k_sem_take(&a2c_data->tx_idle, timeout) != 0) {
+		return -EAGAIN;
+	}
 	k_mutex_lock(&a2c_data->inst_mutex, K_FOREVER);
-	/*1.Enable access*/
-	a2c->A2C_RAM_CMD |= (A2C_BIT_RAM_BUFFER_EN | A2C_BIT_RAM_ACC_ARB | A2C_BIT_RAM_ACC_CS |
-			     A2C_BIT_RAM_ACC_MASK | A2C_BIT_RAM_ACC_DATA_MASK | A2C_BIT_RAM_DIR);
 
-	/*2.fill tx msg*/
-	a2c->A2C_RAM_CMD &= ~A2C_MASK_RAM_ACC_NUM;
-	a2c->A2C_RAM_CS &= ~(A2C_MASK_RAM_DLC | A2C_BIT_RAM_AUTOREPLY | A2C_BIT_RAM_EDL |
-			     A2C_BIT_RAM_BRS | A2C_BIT_RAM_ESI);
-	a2c->A2C_RAM_CS |= A2C_RAM_DLC(frame->dlc);
-	a2c->A2C_RAM_CS |= A2C_BIT_RAM_RXTX; /*0 for rx, 1 for tx*/
+	/* 1.register tx callback */
+	a2c_data->tx_callback = callback;
+	a2c_data->tx_user_data = user_data;
+
+	/* 2.Enable msg buffer access */
+	a2c_ram_cmd = (A2C_BIT_RAM_BUFFER_EN | A2C_BIT_RAM_ACC_ARB | A2C_BIT_RAM_ACC_CS |
+		       A2C_BIT_RAM_ACC_MASK | A2C_BIT_RAM_ACC_DATA_MASK | A2C_BIT_RAM_DIR);
+	a2c_ram_cmd |= A2C_RAM_ACC_NUM(0);
+	a2c->A2C_RAM_CMD = a2c_ram_cmd;
+
+	/* 3.Config Frame ARB reg */
+	a2c_ram_arb = a2c->A2C_RAM_ARB;
+	a2c_ram_arb &= (~(A2C_BIT_RAM_RTR | A2C_BIT_RAM_IDE | A2C_MASK_RAM_ID));
+	/* 4.RTR/IDE */
+	if (frame->flags & CAN_FRAME_RTR) {
+		a2c_ram_arb |= A2C_BIT_RAM_RTR;
+	}
+	/* 5.Extern or stadard frame */
+	if (frame->flags & CAN_FRAME_IDE) {
+		a2c_ram_arb |= frame->id | A2C_BIT_RAM_IDE;
+	} else {
+		a2c_ram_arb |= (frame->id & 0x7FF) << 18;
+	}
+	a2c->A2C_RAM_ARB = a2c_ram_arb;
+
+	/* 6.fill tx msg */
+	a2c_ram_cs = a2c->A2C_RAM_CS;
+	a2c_ram_cs &= (~(A2C_MASK_RAM_DLC | A2C_BIT_RAM_AUTOREPLY | A2C_BIT_RAM_EDL |
+			 A2C_BIT_RAM_BRS | A2C_BIT_RAM_ESI));
+	a2c_ram_cs |= A2C_RAM_DLC(frame->dlc);
+	/* 0 for rx, 1 for tx */
+	a2c_ram_cs |= A2C_BIT_RAM_RXTX;
+	a2c->A2C_RAM_CS = a2c_ram_cs;
 
 	if ((frame->flags & CAN_FRAME_RTR) == 0) {
-		for (u32 i = 0; i < CAN_MAX_DLEN / 4; i++) {
-			a2c->A2C_RAM_FDDATA_x[i] = frame->data_32[CAN_MAX_DLEN / 4 - i - 1];
-		}
+		LOG_DBG("data[0] = %x, data[1] =%x", frame->data_32[0], frame->data_32[1]);
+		a2c->A2C_RAM_FDDATA_x[15] = frame->data_32[0];
+		a2c->A2C_RAM_FDDATA_x[14] = frame->data_32[1];
 	}
-
-	/*3. send msg*/
+	/* 7.send msg */
 	a2c->A2C_RAM_CMD |= A2C_BIT_RAM_START;
-
+	LOG_DBG("TX Settings: ARB = %x, CMD = %x, MSK = %x", a2c->A2C_RAM_ARB, a2c->A2C_RAM_CMD,
+		a2c->A2C_RAM_MASK);
 	k_mutex_unlock(&a2c_data->inst_mutex);
 
 	return 0;
@@ -301,7 +333,7 @@ static int can_ameba_a2c_set_timing(const struct device *dev, const struct can_t
 	k_mutex_lock(&a2c_data->inst_mutex, K_FOREVER);
 
 	a2c->A2C_BIT_TIMING &= ~(A2C_MASK_BRP | A2C_MASK_SJW | A2C_MASK_TSEG2 | A2C_MASK_TSEG1);
-	a2c->A2C_BIT_TIMING |= A2C_BRP(timing->prescaler - 1) | A2C_SJW(timing->sjw - 1) |
+	a2c->A2C_BIT_TIMING |= A2C_BRP(timing->prescaler - 1) | A2C_SJW(timing->sjw) |
 			       A2C_TSEG1(timing->phase_seg1 - 1) |
 			       A2C_TSEG2(timing->phase_seg2 - 1);
 
@@ -322,45 +354,84 @@ static int can_ameba_a2c_get_core_clock(const struct device *dev, uint32_t *rate
 
 	return 0;
 }
-
-static void can_ameba_a2c_check_rx_msg(A2C_TypeDef *A2Cx)
+void can_ameba_a2c_read_msg(A2C_TypeDef *A2Cx, struct can_frame *frame, uint8_t msg_idx)
 {
-	u32 i;
-	u32 status = 0;
-	A2C_RxMsgTypeDef RxMsg;
+	u32 a2c_ram_arb, a2c_ram_cmd, a2c_ram_cs;
 
-	_memset(&RxMsg, 0, sizeof(A2C_RxMsgTypeDef));
+	/* Enable msg buffer access*/
+	a2c_ram_cmd = (A2C_BIT_RAM_BUFFER_EN | A2C_BIT_RAM_ACC_ARB | A2C_BIT_RAM_ACC_CS |
+		       A2C_BIT_RAM_ACC_MASK | A2C_BIT_RAM_ACC_DATA_MASK);
+	a2c_ram_cmd |= msg_idx;
+	/* Read frame into register from ram message buffer */
+	a2c_ram_cmd |= A2C_BIT_RAM_START;
+	A2Cx->A2C_RAM_CMD = a2c_ram_cmd;
 
-	for (i = A2C_MESSAGE_BUFFER_SIZE; i > 0; i--) {
-		RxMsg.MsgBufferIdx = i - 1;
-		if (A2C_MsgBufRxDoneStatusGet(A2Cx, RxMsg.MsgBufferIdx)) {
-			A2C_MsgBufRxDoneStatusClear(A2Cx, RxMsg.MsgBufferIdx);
-			A2C_ReadMsg(A2Cx, &RxMsg);
-			/*  can_ameba_a2c_dump_rx_msg(&RxMsg); */
+	/* Read frame flags and ID */
+	a2c_ram_arb = A2Cx->A2C_RAM_ARB;
+	if (a2c_ram_arb & A2C_BIT_RAM_RTR) {
+		frame->flags |= CAN_FRAME_RTR;
+	}
 
-			if (RxMsg.StdId != 0x0 && RxMsg.StdId != 0x55) {
-				status = 1;
-			}
-			if (RxMsg.IDE != A2C_STANDARD_FRAME) {
-				status = 1;
-			}
-			if (RxMsg.RTR != A2C_DATA_FRAME) {
-				status = 1;
-			}
-			if (RxMsg.DLC != 8) {
-				status = 1;
-			}
+	if (a2c_ram_arb & A2C_BIT_RAM_IDE) {
+		frame->flags |= CAN_FRAME_IDE;
+		frame->id = A2C_GET_RAM_ID(a2c_ram_arb);
+	} else {
+		frame->id = A2C_GET_RAM_ID(a2c_ram_arb) >> 18;
+	}
+	/* Read data length of frame*/
+	a2c_ram_cs = A2Cx->A2C_RAM_CS;
+#if defined(CONFIG_CAN_RX_TIMESTAMP)
+	frame->timestamp = A2C_GET_RAM_TIMESTAMP(a2c_ram_cs);
+#endif
 
-			for (i = 0; i < 8; i++) {
-				if (RxMsg.Data[i] != i) {
-					status = 1;
-					break;
+	if (frame->flags & CAN_FRAME_RTR) {
+		frame->dlc = 0;
+	} else {
+		frame->dlc = A2C_GET_RAM_DLC(a2c_ram_cs);
+	}
+
+	/* Get Data: can2.0 8 bytes, can fd 64 bytes */
+	if ((frame->flags & CAN_FRAME_RTR) == 0) {
+		frame->data_32[0] = A2Cx->A2C_RAM_FDDATA_x[15];
+		frame->data_32[1] = A2Cx->A2C_RAM_FDDATA_x[14];
+	}
+}
+
+static void can_ameba_a2c_rx_msg(const struct device *dev)
+{
+	const struct can_ameba_a2c_config *a2c_config = dev->config;
+	struct can_ameba_a2c_data *a2c_data = dev->data;
+	A2C_TypeDef *a2c = a2c_config->base;
+	struct can_frame frame;
+	can_rx_callback_t callback;
+
+	for (int msg_buf_idx = A2C_MESSAGE_BUFFER_SIZE - 1; msg_buf_idx >= 0; msg_buf_idx--) {
+		memset(&frame, 0, sizeof(struct can_frame));
+		if (A2C_MsgBufRxDoneStatusGet(a2c, msg_buf_idx)) {
+			A2C_MsgBufRxDoneStatusClear(a2c, msg_buf_idx);
+			can_ameba_a2c_read_msg(a2c, &frame, msg_buf_idx);
+
+#ifndef CONFIG_CAN_ACCEPT_RTR
+			if ((frame.flags & CAN_FRAME_RTR) == 0U) {
+#endif /* !CONFIG_CAN_ACCEPT_RTR */
+				for (int i = 0; i < ARRAY_SIZE(a2c_data->filters); i++) {
+					if (!atomic_test_bit(a2c_data->rx_allocs, i)) {
+						continue;
+					}
+					if (!can_frame_matches_filter(
+						    &frame, &a2c_data->filters[i].filter)) {
+						continue;
+					}
+
+					callback = a2c_data->filters[i].callback;
+					if (callback != NULL) {
+						callback(dev, &frame,
+							 a2c_data->filters[i].user_data);
+					}
 				}
+#ifndef CONFIG_CAN_ACCEPT_RTR
 			}
-			if (status == 1) {
-				status = 0;
-				LOG_INF("ERROR\n");
-			}
+#endif /* !CONFIG_CAN_ACCEPT_RTR */
 		}
 	}
 }
@@ -374,46 +445,47 @@ static void can_ameba_a2c_isr(void *arg)
 	u32 IntStatus, ErrStatus, TxErCnt, RxErCnt, ErrPassive, ErrBusoff, ErrWarning;
 
 	IntStatus = A2C_GetINTStatus(a2c);
-	/*ram move done interrupt */
+	/* ram move done interrupt */
 	if (IntStatus & A2C_RAM_MOVE_DONE_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_RAM_MOVE_DONE_INT_FLAG);
+		LOG_DBG("RAM MOVE DONE INT");
 	}
 
-	/*tx interrupt*/
+	/* tx interrupt */
 	if (IntStatus & A2C_TX_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_TX_INT_FLAG);
+		can_ameba_a2c_tx_done(dev, 0);
 	}
 
-	/*rx interrupt*/
+	/* rx interrupt */
 	if (IntStatus & A2C_RX_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_RX_INT_FLAG);
-
+		LOG_DBG("RX INT");
 		/* get current error status */
 		TxErCnt = A2C_TXErrCntGet(a2c);
 		RxErCnt = A2C_RXErrCntGet(a2c);
 		ErrPassive = (a2c->A2C_ERR_CNT_STS & A2C_BIT_ERROR_PASSIVE) >> 28;
 		ErrBusoff = (a2c->A2C_ERR_CNT_STS & A2C_BIT_ERROR_BUSOFF) >> 29;
 		ErrWarning = (a2c->A2C_ERR_CNT_STS & A2C_BIT_ERROR_WARNING) >> 30;
-
-		can_ameba_a2c_check_rx_msg(a2c);
+		can_ameba_a2c_rx_msg(dev);
 	}
 
 	/* bus off interrupt */
 	if (IntStatus & A2C_BUSOFF_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_BUSOFF_INT_FLAG);
-		LOG_INF("A2C: bus off\n");
+		LOG_DBG("A2C: bus off");
 	}
 
 	/* wakeup interrupt */
 	if (IntStatus & A2C_WKUP_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_WAKEUP_INT_FLAG);
-		LOG_INF("A2C: wake up\n");
+		LOG_DBG("A2C: wake up");
 	}
 
 	/* error interrupt */
 	if (IntStatus & A2C_ERR_INT) {
 		A2C_ClearINT(a2c, A2C_BIT_ERROR_INT_FLAG);
-		LOG_INF("A2C: Clear rx Status = %x\n", A2C_GetINTStatus(a2c));
+		LOG_ERR("A2C: Clear rx Status = %x", A2C_GetINTStatus(a2c));
 
 		ErrStatus = A2C_GetErrStatus(a2c);
 		TxErCnt = A2C_TXErrCntGet(a2c);
@@ -424,39 +496,39 @@ static void can_ameba_a2c_isr(void *arg)
 
 		if (ErrStatus & A2C_BIT_ERROR_BIT0) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_BIT0);
-			LOG_INF("bit 0 error: tx = 0, but rx = 1\n");
+			LOG_ERR("bit 0 error: tx = 0, but rx = 1");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_BIT1) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_BIT1);
-			LOG_INF("bit 1 error: tx = 1, but rx = 0\n");
+			LOG_ERR("bit 1 error: tx = 1, but rx = 0");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_FORM) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_FORM);
-			LOG_INF("form error\n");
+			LOG_ERR("form error");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_CRC) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_CRC);
-			LOG_INF("CRC error\n");
+			LOG_ERR("CRC error");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_STUFF) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_STUFF);
-			LOG_INF("stuff error\n");
+			LOG_ERR("stuff error");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_ACK) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_ACK);
-			LOG_INF("ACK error\n");
+			LOG_ERR("ACK error");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_TX) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_TX);
-			LOG_INF("tx error\n");
+			LOG_ERR("tx error");
 		}
 		if (ErrStatus & A2C_BIT_ERROR_RX) {
 			A2C_ClearErrStatus(a2c, A2C_BIT_ERROR_RX);
-			LOG_INF("rx error\n");
+			LOG_ERR("rx error");
 		}
 
-		LOG_INF("ErrStatus = %x, TEC = %d, REC = %d, ErrPassive = %d, ErrBusoff = %d, "
-			"ErrWarning = %d\n",
+		LOG_ERR("ErrStatus = %x, TEC = %d, REC = %d, ErrPassive = %d, ErrBusoff = %d, "
+			"ErrWarning = %d",
 			ErrStatus, TxErCnt, RxErCnt, ErrPassive, ErrBusoff, ErrWarning);
 	}
 }
@@ -464,7 +536,10 @@ static void can_ameba_a2c_isr(void *arg)
 static int can_ameba_a2c_add_rx_filter(const struct device *dev, can_rx_callback_t callback,
 				       void *user_data, const struct can_filter *filter)
 {
+	const struct can_ameba_a2c_config *a2c_config = dev->config;
 	struct can_ameba_a2c_data *a2c_data = dev->data;
+	A2C_TypeDef *a2c = a2c_config->base;
+	uint32_t a2c_ram_cmd, a2c_ram_arb;
 	int filter_id = -ENOSPC;
 	int i;
 
@@ -474,20 +549,58 @@ static int can_ameba_a2c_add_rx_filter(const struct device *dev, can_rx_callback
 			break;
 		}
 	}
+	k_mutex_lock(&a2c_data->inst_mutex, K_FOREVER);
 
 	if (filter_id >= 0) {
 		a2c_data->filters[filter_id].filter = *filter;
 		a2c_data->filters[filter_id].user_data = user_data;
 		a2c_data->filters[filter_id].callback = callback;
-	}
 
+		/* Enable Msg Buffer access*/
+		a2c_ram_cmd = (A2C_BIT_RAM_BUFFER_EN | A2C_BIT_RAM_ACC_ARB | A2C_BIT_RAM_ACC_CS |
+			       A2C_BIT_RAM_ACC_MASK | A2C_BIT_RAM_ACC_DATA_MASK | A2C_BIT_RAM_DIR);
+		a2c_ram_cmd &= ~A2C_MASK_RAM_ACC_NUM;
+		a2c_ram_cmd |= A2C_RAM_ACC_NUM(A2C_MESSAGE_BUFFER_SIZE - filter_id - 1);
+
+		/*Config frame header*/
+		if (filter->flags & CAN_FILTER_IDE) {
+			a2c_ram_arb = A2C_RAM_ID(filter->id) | A2C_BIT_RAM_IDE;
+		} else {
+			a2c_ram_arb = A2C_RAM_ID((filter->id & 0x7FF) << 18);
+		}
+
+		if (filter->flags & CAN_FRAME_RTR) {
+			a2c_ram_arb |= A2C_BIT_RAM_RTR;
+		}
+
+		a2c->A2C_RAM_ARB = a2c_ram_arb;
+
+		/* Enable the current buffer to receive data */
+		a2c->A2C_RAM_CS &= ~A2C_BIT_RAM_RXTX;
+
+		/* Set the mask ID to block unwanted data frames */
+		if (filter->flags & CAN_FILTER_IDE) {
+			a2c->A2C_RAM_MASK = A2C_BIT_RAM_IDE_MASK | A2C_RAM_ID_MASK(filter->mask);
+		} else {
+			a2c->A2C_RAM_MASK = A2C_RAM_ID_MASK(filter->mask << 18);
+		}
+
+		/* Write RX setting into the ram message buffer */
+		a2c_ram_cmd |= A2C_BIT_RAM_START;
+		a2c->A2C_RAM_CMD = a2c_ram_cmd;
+		LOG_DBG("RX Settings: ARB = %x, CMD = %x, MSK = %x", a2c->A2C_RAM_ARB,
+			a2c->A2C_RAM_CMD, a2c->A2C_RAM_MASK);
+	}
+	k_mutex_unlock(&a2c_data->inst_mutex);
 	return filter_id;
 }
 
 static void can_ameba_a2c_remove_rx_filter(const struct device *dev, int filter_id)
 {
+	const struct can_ameba_a2c_config *a2c_config = dev->config;
 	struct can_ameba_a2c_data *a2c_data = dev->data;
-
+	A2C_TypeDef *a2c = a2c_config->base;
+	uint32_t a2c_ram_cmd;
 	if (filter_id < 0 || filter_id >= ARRAY_SIZE(a2c_data->filters)) {
 		LOG_ERR("filter ID %d out of bounds", filter_id);
 		return;
@@ -497,6 +610,20 @@ static void can_ameba_a2c_remove_rx_filter(const struct device *dev, int filter_
 		a2c_data->filters[filter_id].callback = NULL;
 		a2c_data->filters[filter_id].user_data = NULL;
 		a2c_data->filters[filter_id].filter = (struct can_filter){0};
+
+		/* Enable msg buf[x] access */
+		a2c_ram_cmd = A2C_RAM_ACC_NUM(A2C_MESSAGE_BUFFER_SIZE - filter_id - 1);
+
+		/* Reset RAM ARB/CS/MASK/ reg */
+		a2c->A2C_RAM_ARB = 0;
+		a2c->A2C_RAM_CS = 0;
+		a2c->A2C_RAM_MASK = 0;
+
+		/* Write RX setting into the ram message buffer */
+		a2c_ram_cmd |= A2C_BIT_RAM_START;
+		a2c->A2C_RAM_CMD = a2c_ram_cmd;
+		LOG_DBG("ARB = %x, CMD = %x, MSK = %x", a2c->A2C_RAM_ARB, a2c->A2C_RAM_CMD,
+			a2c->A2C_RAM_MASK);
 	}
 }
 
@@ -544,6 +671,8 @@ static int can_ameba_a2c_init(const struct device *dev)
 {
 	const struct can_ameba_a2c_config *a2c_config = dev->config;
 	struct can_ameba_a2c_data *a2c_data = dev->data;
+	A2C_TypeDef *a2c = a2c_config->base;
+	A2C_InitTypeDef A2C_InitStruct;
 	int err = 0;
 
 	if (!device_is_ready(a2c_config->clock_dev)) {
@@ -566,9 +695,19 @@ static int can_ameba_a2c_init(const struct device *dev)
 	RCC_PeriphClockDividerFENSet(SYS_PLL_A2C, DISABLE);
 	RCC_PeriphClockSourceSet(A2C, XTAL);
 
-	/*register isr*/
+	/* Config basic parameters */
+	A2C_StructInit(&A2C_InitStruct);
+	A2C_Init(a2c, &A2C_InitStruct);
+
+	/* Initialize message buffer addr */
+	A2C_RamBufferMapConfig(a2c_config->base, can_ameba_a2c_ram_buffer_map);
+
+	k_sem_init(&a2c_data->tx_idle, 1, 1);
+	/* Enable Interrupt */
 	a2c_config->config_irq();
 
+	/* Enable A2C */
+	A2C_Cmd(a2c, ENABLE);
 	k_mutex_init(&a2c_data->inst_mutex);
 
 	return err;
@@ -605,6 +744,10 @@ DEVICE_API(can, can_ameba_a2c_driver_api) = {
 			      A2C_TX_INT | A2C_RX_INT | A2C_ERR_INT | A2C_WKUP_INT |               \
 				      A2C_BUSOFF_INT | A2C_RAM_MOVE_DONE_INT,                      \
 			      ENABLE);                                                             \
+		A2C_TxMsgBufINTConfig((A2C_TypeDef *)DT_INST_REG_ADDR(inst),                       \
+				      A2C_MB_TXINT_EN(0xFFFF), ENABLE);                            \
+		A2C_RxMsgBufINTConfig((A2C_TypeDef *)DT_INST_REG_ADDR(inst),                       \
+				      A2C_MB_RXINT_EN(0xFFFF), ENABLE);                            \
 	}
 
 #define CAN_AMEBA_A2C_INIT(inst)                                                                   \
