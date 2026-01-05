@@ -9,5 +9,6 @@ if SOC_FAMILY_REALTEK_AMEBA
 
 rsource "*/Kconfig"
 rsource "common/Kconfig.psram"
+rsource "common/Kconfig.mcuboot"
 
 endif # SOC_FAMILY_REALTEK_AMEBA
