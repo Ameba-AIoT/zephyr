@@ -315,6 +315,8 @@ static int can_ameba_a2c_send(const struct device *dev, const struct can_frame *
 	a2c->A2C_RAM_CMD |= A2C_BIT_RAM_START;
 	LOG_DBG("TX Settings: ARB = %x, CMD = %x, MSK = %x", a2c->A2C_RAM_ARB, a2c->A2C_RAM_CMD,
 		a2c->A2C_RAM_MASK);
+	while (a2c->A2C_RAM_CMD & A2C_BIT_RAM_START) {
+	}
 	k_mutex_unlock(&a2c_data->inst_mutex);
 
 	return 0;
@@ -590,6 +592,8 @@ static int can_ameba_a2c_add_rx_filter(const struct device *dev, can_rx_callback
 		a2c->A2C_RAM_CMD = a2c_ram_cmd;
 		LOG_DBG("RX Settings: ARB = %x, CMD = %x, MSK = %x", a2c->A2C_RAM_ARB,
 			a2c->A2C_RAM_CMD, a2c->A2C_RAM_MASK);
+		while (a2c->A2C_RAM_CMD & A2C_BIT_RAM_START) {
+		}
 	}
 	k_mutex_unlock(&a2c_data->inst_mutex);
 	return filter_id;
