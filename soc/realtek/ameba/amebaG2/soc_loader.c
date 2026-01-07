@@ -95,19 +95,6 @@ void Boot_Copy_NP_Image(void)
 
 LOG_MODULE_REGISTER(loader, CONFIG_SOC_LOG_LEVEL);
 
-void BOOT_Enable_NP(void)
-{
-	/* Let NP run */
-	/* if access addr in [start, end], access[19:10] + offset == destination addr[19:10] */
-	HAL_WRITE32(CPU_MMU_BASE_S, REG_CMMU_REMAP0BAR_CPU1, 0x20001000);
-	HAL_WRITE32(CPU_MMU_BASE_S, REG_CMMU_REMAP0EAR_CPU1, 0x200023FF);
-	HAL_WRITE32(CPU_MMU_BASE_S, REG_CMMU_REMAP0OR_CPU1, 0x00002000 | CMMU_BIT_REMAP_EN0_CPU1);
-
-	/* Let NP run */
-	HAL_WRITE32(SYSTEM_CTRL_BASE, REG_LSYS_BOOT_CFG,
-		    HAL_READ32(SYSTEM_CTRL_BASE, REG_LSYS_BOOT_CFG) | LSYS_BIT_BOOT_CPU1_RUN);
-}
-
 u32 SOC_OSC131_Enable(void)
 {
 	u32 temp;
@@ -184,6 +171,7 @@ void __ameba_mcuboot_soc_early_init_hook(void)
 		LOG_ERR("Boot tz config failed");
 		FIH_PANIC;
 	}
+	BOOT_Enable_NP();
 }
 #else
 void __ameba_app_soc_early_init_hook(void)
@@ -217,6 +205,5 @@ void __ameba_app_soc_early_init_hook(void)
 #ifdef CONFIG_AMEBA_PSRAM
 	ameba_init_psram();
 #endif
-	BOOT_Enable_NP();
 }
 #endif
