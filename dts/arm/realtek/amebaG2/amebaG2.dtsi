@@ -112,6 +112,9 @@
 			clocks = <&rcc AMEBA_UART0_CLK>;
 			interrupts = <20 0>;
 			current-speed = <115200>;
+			dmas = <&dma 2 1 0xa>,
+				   <&dma 3 0 0x214A1>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
@@ -121,6 +124,9 @@
 			clocks = <&rcc AMEBA_UART1_CLK>;
 			interrupts = <21 0>;
 			current-speed = <115200>;
+			dmas = <&dma 2 3 0xa>,
+				   <&dma 3 2 0x214A1>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
@@ -130,6 +136,9 @@
 			clocks = <&rcc AMEBA_UART2_CLK>;
 			interrupts = <22 0>;
 			current-speed = <115200>;
+			dmas = <&dma 2 5 0xa>,
+				   <&dma 3 4 0x214A1>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
@@ -139,6 +148,9 @@
 			clocks = <&rcc AMEBA_UART3_CLK>;
 			interrupts = <23 0>;
 			current-speed = <115200>;
+			dmas = <&dma 2 25 0xa>,
+				   <&dma 3 24 0x214A1>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
