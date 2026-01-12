@@ -429,6 +429,7 @@ class DeviceHandler(Handler):
         # Clear serial leftover.
         ser.reset_input_buffer()
 
+        buffer = b""
         with open(self.log, "wb") as log_out_fp:
             while ser.isOpen():
                 if halt_event.is_set():
@@ -455,10 +456,19 @@ class DeviceHandler(Handler):
                     logger.debug("Serial port is already closed, stop reading.")
                     break
 
+                raw_data = None
                 serial_line = None
                 # SerialException may happen during the serial device power off/on process.
                 with contextlib.suppress(TypeError, serial.SerialException):
-                    serial_line = ser.readline()
+                    # serial_line = ser.readline()
+                    raw_data = ser.read(ser.in_waiting)
+
+                if raw_data:
+                    buffer += raw_data
+                    last_newline_pos = buffer.rfind(b'\n')
+                    if last_newline_pos != -1:
+                        serial_line = buffer[:last_newline_pos + 1]
+                        buffer = buffer[last_newline_pos + 1:]
 
                 # Just because ser_fileno has data doesn't mean an entire line
                 # is available yet.
