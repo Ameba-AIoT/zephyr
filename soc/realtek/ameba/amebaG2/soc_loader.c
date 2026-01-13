@@ -36,19 +36,23 @@ static const u32 ImagePattern[2] = {
 void BOOT_RSIP_MMU_Config(void)
 {
 	/* FIXME: Hard code address */
+
+	/* NOTE: Mapping start address should take mcuboot header(0x200) into consideration to make
+	 * actual code start at 0x02000000
+	 */
+	RSIP_MMU_Config(MMU_ID1, 0x02000000 - 0x200, 0x04000000,
+			0x08000000 + DT_REG_ADDR(IMG_NS_PATITION));
+	RSIP_MMU_Cmd(MMU_ID1, ENABLE);
+
+	/* NOTE: Make sure code start from 0x04000000 which is determined by km4tz code address */
 	/* KM4TZ's code start address is determing by:
 	 * CONFIG_FLASH_BASE_ADDRESS(NOTE: in app but mcuboot: 0x02000000) +
 	 * DT_REG_ADDR(IMG_TZ_PATITION)
 	 */
-	RSIP_MMU_Config(MMU_ID2, 0x02000000 + DT_REG_ADDR(IMG_TZ_PATITION), 0x04000000 - 0x200,
+	RSIP_MMU_Config(MMU_ID2, 0x04000000 + DT_REG_ADDR(IMG_TZ_PATITION), 0x06000000,
 			0x08000000 + DT_REG_ADDR(IMG_TZ_PATITION));
 	RSIP_MMU_Cmd(MMU_ID2, ENABLE);
 
-	/* NOTE: Make sure code start from 0x04000000 which id determined by km4tz code address */
-	/* NOTE: Mapping start address should include mcuboot header(0x200) */
-	RSIP_MMU_Config(MMU_ID1, 0x04000000 - 0x200, 0x06000000,
-			0x08000000 + DT_REG_ADDR(IMG_NS_PATITION));
-	RSIP_MMU_Cmd(MMU_ID1, ENABLE);
 	RSIP_MMU_Cache_Clean();
 }
 
@@ -143,12 +147,9 @@ void __ameba_mcuboot_soc_early_init_hook(void)
 	}
 
 	BOOT_VerCheck();
-
 	BOOT_SOC_ClkSet();
-
 	BOOT_Log_Init();
 	BOOT_RccConfig();
-	BOOT_RSIP_MMU_Config();
 	BOOT_ResetMask_Config();
 
 	meminfo = ChipInfo_MCMInfo();
@@ -164,6 +165,8 @@ void __ameba_mcuboot_soc_early_init_hook(void)
 		LDO_MemSetInNormal(MLDO_NORMAL);
 		LDO_MemSetInSleep(MLDO_SLEEP);
 	}
+
+	BOOT_RSIP_MMU_Config();
 
 	Boot_Copy_NP_Image();
 	FIH_CALL(BOOT_RAM_TZCfg, fih_rc);
