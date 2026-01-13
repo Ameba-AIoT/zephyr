@@ -9,7 +9,7 @@
 
 /* 4MB flash */
 &flash0 {
-	reg = <0x02000020 DT_SIZE_M(4)>;
+	reg = <0x04000020 DT_SIZE_M(4)>;
 
 	partitions {
 		compatible = "fixed-partitions";
