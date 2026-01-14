@@ -405,7 +405,7 @@
 			#size-cells = <1>;
 			status = "disabled";
 
-			flash0: flash@2000020 {
+			flash0: flash@4000020 {
 				compatible = "soc-nv-flash";
 				erase-block-size = <DT_SIZE_K(4)>;
 				write-block-size = <4>;
