@@ -77,10 +77,8 @@ int BOOT_RSIP_Load_Image(uint8_t id, uint8_t *iv, struct image_header *hdr)
 
 		while (true) {
 			rc = bootutil_tlv_iter_next(&it, &off, &len, &type);
-			if (rc < 0) {
+			if (rc != 0) {
 				goto end;
-			} else if (rc > 0) {
-				break;
 			}
 
 			if (type == CONFIG_AMEBA_RSIP_IV_TYPE_IN_TLV) {
@@ -92,7 +90,6 @@ int BOOT_RSIP_Load_Image(uint8_t id, uint8_t *iv, struct image_header *hdr)
 
 				rc = flash_area_read(fap, off, iv, len);
 				if (rc) {
-					rc = -1;
 					goto end;
 				}
 				rc = 0;

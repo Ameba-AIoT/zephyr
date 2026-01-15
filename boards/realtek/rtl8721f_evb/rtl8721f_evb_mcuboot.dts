@@ -55,43 +55,49 @@
 };
 
 /* 4MB flash */
-&flash0 {
-	reg = <FLASH_BASE DT_SIZE_M(4)>;
-	status = "okay";
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
+/delete-node/ &flash0;
+&spic {
+	flash0: flash@103FF000 {
+		compatible = "soc-nv-flash";
+		erase-block-size = <DT_SIZE_K(4)>;
+		write-block-size = <4>;
+		reg = <FLASH_BASE DT_SIZE_M(4)>;
+		status = "okay";
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
 
-		boot_partition: partition@0 {
-			label = "bootloader";
-			reg = <BOOT_SLOT_BASE BOOT_SLOT_SIZE>;
-			read-only;
-		};
+			boot_partition: partition@0 {
+				label = "bootloader";
+				reg = <BOOT_SLOT_BASE BOOT_SLOT_SIZE>;
+				read-only;
+			};
 
-		slot0_partition: partition@114000 {
-			label = "image-0";
-			reg = <IMG0_SLOT0_OFFSET IMG0_SLOT_SIZE>;
-		};
+			slot0_partition: partition@114000 {
+				label = "image-0";
+				reg = <IMG0_SLOT0_OFFSET IMG0_SLOT_SIZE>;
+			};
 
-		slot1_partition: partition@194000 {
-			label = "image-1";
-			reg = <IMG0_SLOT1_OFFSET IMG0_SLOT_SIZE>;
-		};
+			slot1_partition: partition@194000 {
+				label = "image-1";
+				reg = <IMG0_SLOT1_OFFSET IMG0_SLOT_SIZE>;
+			};
 
-		slot2_partition: partition@14000 {
-			label = "image-2";
-			reg = <IMG1_SLOT0_OFFSET IMG1_SLOT_SIZE>;
-		};
+			slot2_partition: partition@14000 {
+				label = "image-2";
+				reg = <IMG1_SLOT0_OFFSET IMG1_SLOT_SIZE>;
+			};
 
-		slot3_partition: partition@94000 {
-			label = "image-3";
-			reg = <IMG1_SLOT1_OFFSET IMG1_SLOT_SIZE>;
-		};
+			slot3_partition: partition@94000 {
+				label = "image-3";
+				reg = <IMG1_SLOT1_OFFSET IMG1_SLOT_SIZE>;
+			};
 
-		storage_partition: partition@250000 {
-			label = "storage";
-			reg = <0x00250000 0x00006000>;
+			storage_partition: partition@250000 {
+				label = "storage";
+				reg = <0x00250000 0x00006000>;
+			};
 		};
 	};
 };

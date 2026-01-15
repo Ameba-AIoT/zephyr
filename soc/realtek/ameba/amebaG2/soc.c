@@ -11,11 +11,17 @@
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
 
+#ifndef CONFIG_BOOTLOADER_MCUBOOT
+/* Load z_arm_reset to Img2EntryFun0 is only required by ameba bootloader.
+ * In mcuboot z_arm_reset is accessed througth flash layout
+ * (refer to bootloader/mcuboot/boot/zephyr/main.c)
+ */
 void z_arm_reset(void);
 
 IMAGE2_ENTRY_SECTION
 RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
 				    (uint32_t)RomVectorTable};
+#endif
 
 u32 SOC_OSC131_Enable(void)
 {
