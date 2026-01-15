@@ -6,16 +6,57 @@
 
 #include "rtl8721f_evb_common.dts"
 
+/**
+ * BOOT refers to mcuboot bootloader, at smallest physical address
+ * IMG0 refers to km4tz, is primary image, at bigger physical address
+ * IMG1 refers to km4ns, is secondary image, at smaller physical address
+ */
+#define FLASH_BASE_PHY 0x08000000
+
+/* FLASH_BASE: 0x10400020(rom jump addr) - 0x20(ameba header) - 0x1000(manifest) */
+#define FLASH_BASE 0x103FF000
+
+#define BOOT_SLOT_BASE 0x0
+#define BOOT_SLOT_SIZE DT_SIZE_K(80)  /* 0x14000 */
+
+#define IMG0_SLOT_SIZE DT_SIZE_K(512) /* 0x80000 */
+#define IMG1_SLOT_SIZE DT_SIZE_K(512) /* 0x80000 */
+
+/*WARNING: BETTER keep consistent with ameba_layout.ld::KM4TZ_IMG2_XIP exclude header 0x20*/
+#define IMG0_LOGIC_ADDR 0x04000000
+/*WARNING: MUST keep consistent with ameba_layout.ld::KM4NS_IMG2_XIP exclude header 0x20*/
+#define IMG1_LOGIC_ADDR 0x02000000
+
+/* For km4ns */
+#define IMG1_SLOT0_OFFSET (BOOT_SLOT_BASE    + BOOT_SLOT_SIZE) /* 0x00014000, slot2_partition */
+#define IMG1_SLOT1_OFFSET (IMG1_SLOT0_OFFSET + IMG1_SLOT_SIZE) /* 0x00084000, slot3_partition */
+
+#define IMG0_SLOT0_OFFSET (IMG1_SLOT1_OFFSET + IMG1_SLOT_SIZE) /* 0x00114000, slot0_partition */
+#define IMG0_SLOT1_OFFSET (IMG0_SLOT0_OFFSET + IMG0_SLOT_SIZE) /* 0x00194000, slot1_partition */
+
 /{
 	chosen {
 		zephyr,code-partition = &slot0_partition;
 		zephyr,uart-mcumgr = &uart2;
 	};
+
+	zephyr,user {
+		flash-base-phy = <FLASH_BASE_PHY>;
+		/* NOTE: km4tz's code addr is determined by CONFIG_FLASH_BASE_ADDRESS + slot_offset
+		 *       For example if want to make address start from 0x04000000,
+		 *       CONFIG_FLASH_BASE_ADDRESS should be set to 0x03EEC000(0x04000000 - 0x14000)
+		 *       primary_logic_addr_base will be used to init CONFIG_FLASH_BASE_ADDRESS in
+		 *       zephyr/boards/realtek/rtl8721f_evb/Kconfig.defconfig
+		 */
+		primary-logic-base = <(IMG0_LOGIC_ADDR - IMG0_SLOT0_OFFSET)>;
+		primary-logic-addr = <IMG0_LOGIC_ADDR>;
+		secondary-logic-addr = <IMG1_LOGIC_ADDR>;
+	};
 };
 
 /* 4MB flash */
 &flash0 {
-	reg = <0x103FF000 DT_SIZE_M(4)>;
+	reg = <FLASH_BASE DT_SIZE_M(4)>;
 	status = "okay";
 	partitions {
 		compatible = "fixed-partitions";
@@ -24,28 +65,28 @@
 
 		boot_partition: partition@0 {
 			label = "bootloader";
-			reg = <0x00000000 0x00014000>;
+			reg = <BOOT_SLOT_BASE BOOT_SLOT_SIZE>;
 			read-only;
 		};
 
 		slot0_partition: partition@114000 {
 			label = "image-0";
-			reg = <0x00114000 0x00080000>;
+			reg = <IMG0_SLOT0_OFFSET IMG0_SLOT_SIZE>;
 		};
 
 		slot1_partition: partition@194000 {
 			label = "image-1";
-			reg = <0x00194000 0x00080000>;
+			reg = <IMG0_SLOT1_OFFSET IMG0_SLOT_SIZE>;
 		};
 
 		slot2_partition: partition@14000 {
 			label = "image-2";
-			reg = <0x00014000 0x00080000>;
+			reg = <IMG1_SLOT0_OFFSET IMG1_SLOT_SIZE>;
 		};
 
 		slot3_partition: partition@94000 {
 			label = "image-3";
-			reg = <0x00094000 0x00080000>;
+			reg = <IMG1_SLOT1_OFFSET IMG1_SLOT_SIZE>;
 		};
 
 		storage_partition: partition@250000 {

@@ -3,6 +3,8 @@
 
 # Configurations here work for all rtl8721f_evb variants(like mcuboot)
 
+ZEPHYR_USER := zephyr,user
+
 config RUNTIME_NMI
 	default y
 
@@ -34,3 +36,11 @@ config GPIO
 
 config NOCACHE_MEMORY
 	default y
+
+if BOOTLOADER_MCUBOOT
+
+config FLASH_BASE_ADDRESS
+	hex
+	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),primary-logic-base)
+
+endif

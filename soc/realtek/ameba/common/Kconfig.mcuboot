@@ -1,8 +1,14 @@
 # Copyright (c) 2025 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
+AMEBA_RSIP_IV_TYPE_IN_TLV := 0x00A1
+
 config AMEBA_USING_MANIFEST_KEY
 	bool "Using key generated from manifest"
 	depends on !BOOT_SIGNATURE_TYPE_NONE
 	help
 		Use key from manifest to signature image for mcuboot
+
+config AMEBA_RSIP_IV_TYPE_IN_TLV
+	hex "Rsip iv type enum value in tlv"
+	default $(AMEBA_RSIP_IV_TYPE_IN_TLV)

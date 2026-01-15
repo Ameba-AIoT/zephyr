@@ -9,6 +9,9 @@
 #   - origin_secondary_image: origin image file path
 #   - output_path: for temperary file location
 #   - output_prefix: custom output prefix for binary file
+#   - ameba_soc_name: soc name like amebagreen2
+#   - ameba_image_name: soc name like km4ns, make sure dir "${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}"
+#                       has been created before include this file
 
 #NOTE: zephyr_secondary_image_tasks refer to main image in zephyr/cmake/mcuboot.cmake
 #      some mode like CONFIG_MCUBOOT_BOOTLOADER_MODE_RAM_LOAD is not support and test yet
@@ -20,6 +23,30 @@ function(zephyr_runner_file type path)
 endfunction()
 
 function(zephyr_secondary_image_tasks)
+  file(READ "${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/manifest_formatted.json" JSON_CONTENT)
+  string(JSON rsip_enable GET "${JSON_CONTENT}" "image2" "rsip_enable")
+  if(rsip_enable)
+    dt_prop(secondary_logic_addr PATH "/zephyr,user" PROPERTY "secondary-logic-addr")
+    set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
+      COMMAND ${CMAKE_COMMAND} -E copy
+          ${origin_secondary_image}
+          ${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}/${KERNEL_NAME}_cuted.bin
+      COMMAND
+        ${CMAKE_COMMAND} -E chdir "${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}/"
+        ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py rsip
+          --output-file ${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}/${KERNEL_NAME}_rsip_raw.bin
+          --input-file ${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}/${KERNEL_NAME}_cuted.bin
+          #WARNING: Pay attention to the offset here, which MUST be consistent with MMU config based on the real code addr
+          --address ${secondary_logic_addr}
+          --type image2
+    )
+
+    set(origin_secondary_image ${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/${ameba_image_name}/${KERNEL_NAME}_rsip_raw.bin)
+    file(READ "${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project/manifest_formatted.json" JSON_CONTENT)
+    string(JSON image2_iv GET "${JSON_CONTENT}" "image2" "rsip_iv")
+    set(CONFIG_MCUBOOT_EXTRA_IMGTOOL_ARGS "${CONFIG_MCUBOOT_EXTRA_IMGTOOL_ARGS} --custom-tlv ${CONFIG_AMEBA_RSIP_IV_TYPE_IN_TLV} 0x${image2_iv}")
+  endif()
+
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
     COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py pad
             --input-file ${origin_secondary_image}
