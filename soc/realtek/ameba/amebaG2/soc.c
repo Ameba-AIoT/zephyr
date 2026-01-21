@@ -64,6 +64,7 @@ void soc_early_init_hook(void)
 	Cache_Enable(DISABLE);
 	sys_cache_instr_enable();
 	sys_cache_data_enable();
+	memset((void *) __rom_bss_start_ns__, 0, (__rom_bss_end_ns__ - __rom_bss_start_ns__));
 
 	RBSS_UDELAY_DIV = 5;
 
