@@ -19,3 +19,6 @@ KEEP(*(SORT_BY_NAME(.image1.entry.data*)))
 KEEP(*(.image1.validate.rodata*))
 *(.image1.export.symb)
 *(.non.dram.text)
+
+/* This symbol is required in lib_chipinfo */
+__non_secure_psram_end__ = ABSOLUTE(DT_REG_ADDR(DT_NODELABEL(psram)) + DT_REG_SIZE(DT_NODELABEL(psram)));
