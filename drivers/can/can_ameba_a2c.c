@@ -336,7 +336,7 @@ static int can_ameba_a2c_set_timing(const struct device *dev, const struct can_t
 
 	a2c->A2C_BIT_TIMING &= ~(A2C_MASK_BRP | A2C_MASK_SJW | A2C_MASK_TSEG2 | A2C_MASK_TSEG1);
 	a2c->A2C_BIT_TIMING |= A2C_BRP(timing->prescaler - 1) | A2C_SJW(timing->sjw) |
-			       A2C_TSEG1(timing->phase_seg1 - 1) |
+			       A2C_TSEG1(timing->prop_seg + timing->phase_seg1 - 1) |
 			       A2C_TSEG2(timing->phase_seg2 - 1);
 
 	if ((a2c_data->common.mode & CAN_MODE_3_SAMPLES) != 0) {
