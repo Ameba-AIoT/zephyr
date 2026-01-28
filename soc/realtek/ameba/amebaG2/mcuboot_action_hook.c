@@ -58,7 +58,7 @@ int BOOT_RSIP_Load_Image(uint8_t id, uint8_t *iv, struct image_header *hdr)
 	}
 
 	rc = flash_area_read(fap, off, hdr, sizeof(*hdr));
-	if (rc) {
+	if (rc != 0) {
 		goto end;
 	}
 
@@ -67,11 +67,12 @@ int BOOT_RSIP_Load_Image(uint8_t id, uint8_t *iv, struct image_header *hdr)
 		struct image_tlv_iter it = {0};
 		uint16_t type;
 		uint16_t len;
-
+#if defined(MCUBOOT_SWAP_USING_OFFSET)
 		it.start_off = 0;
+#endif
 		rc = bootutil_tlv_iter_begin(&it, hdr, fap, IMAGE_TLV_ANY, false);
 
-		if (rc) {
+		if (rc != 0) {
 			goto end;
 		}
 
@@ -89,10 +90,6 @@ int BOOT_RSIP_Load_Image(uint8_t id, uint8_t *iv, struct image_header *hdr)
 				}
 
 				rc = flash_area_read(fap, off, iv, len);
-				if (rc) {
-					goto end;
-				}
-				rc = 0;
 				break;
 			}
 		}
@@ -104,15 +101,14 @@ end:
 
 void BOOT_RSIP_MMU_Config(void)
 {
-	/* FIXME: Hard code address in this function */
 	FIH_DECLARE(fih_rc, FIH_FAILURE);
 
 	struct image_header hdr_img0;
 	struct image_header hdr_img1;
 	uint8_t iv[8];
 
-	BOOT_RSIP_Load_Image(FLASH_AREA_IMAGE_PRIMARY(0), iv, &hdr_img0);
-	BOOT_RSIP_Load_Image(FLASH_AREA_IMAGE_PRIMARY(1), NULL, &hdr_img1);
+	BOOT_RSIP_Load_Image(FLASH_AREA_IMAGE_PRIMARY(0), iv, &hdr_img0);   /* km4tz */
+	BOOT_RSIP_Load_Image(FLASH_AREA_IMAGE_PRIMARY(1), NULL, &hdr_img1); /* km4ns */
 
 	if (SYSCFG_OTP_RSIPEn() == TRUE) {
 		RSIP_IV_Set(1, iv);
