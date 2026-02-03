@@ -68,3 +68,7 @@
 &bt {
 	status = "okay";
 };
+
+&spic {
+	status = "okay";
+};

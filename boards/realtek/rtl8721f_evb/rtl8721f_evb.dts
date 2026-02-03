@@ -7,6 +7,10 @@
 
 #include "rtl8721f_evb_common.dts"
 
+&spic {
+	status = "okay";
+};
+
 /* 4MB flash */
 &flash0 {
 	reg = <0x04000020 DT_SIZE_M(4)>;
