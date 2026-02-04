@@ -21,14 +21,13 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 #include <soc.h>
 #include "diag.h"
 
-#ifdef CONFIG_AMEBAGREEN2
+#if !defined(CONFIG_AMEBAD)
 #include <zephyr/settings/settings.h>
 #endif
 
 #include "ameba_wifi.h"
 #include <zephyr/net/wifi_nm.h>
 #include <zephyr/net/conn_mgr/connectivity_wifi_mgmt.h>
-
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
 static struct net_if *ameba_wifi_iface[2];
@@ -100,13 +99,8 @@ static void print_scan_result(struct rtw_scan_result *record)
 		   : (record->security == RTW_SECURITY_WPA3_AES_PSK)    ? "WPA3-SAE AES"
 		   : (record->security == RTW_SECURITY_WPA2_WPA3_MIXED) ? "WPA2/WPA3-SAE AES"
 		   : (record->security == (WPA3_SECURITY | ENTERPRISE_ENABLED)) ? "WPA3 Enterprise"
-		   :
-
-#ifdef CONFIG_OWE_SUPPORT
-		   (record->security == RTW_SECURITY_WPA3_OWE) ? "WPA3-OWE"
-							       :
-#endif
-							       "Unknown			  ");
+		   : (record->security == RTW_SECURITY_WPA3_OWE)                ? "WPA3-OWE"
+										: "Unknown");
 
 	DiagPrintf(" %s ", record->SSID.val);
 	if (record->bss_type == RTW_BSS_TYPE_WTN_HELPER) {
@@ -579,7 +573,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	ameba_wifi_iface[if_init_idx] = iface;
 	dev_data->state = RTK_STA_STOPPED;
 
-#ifdef CONFIG_AMEBAGREEN2
+#if !defined(CONFIG_AMEBAD)
 	if (settings_subsys_init()) {
 		LOG_ERR("setting subsys fail");
 	}
