@@ -29,7 +29,7 @@ endif()
 
 #  west sign
 
-file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/${CONFIG_SOC_SERIES}/bin/*.bin")
+file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/*.bin")
 
 if(BIN_FILES)
   if (CONFIG_BOOTLOADER_MCUBOOT)
@@ -61,7 +61,7 @@ if(BIN_FILES)
     set_target_properties(zephyr_property_target PROPERTIES ameba_image_name km4tz)
 
     # post process secondary image
-    set(origin_secondary_image ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
+    set(origin_secondary_image ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
     set(output_path ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
     set(output_prefix amebagreen2_km4ns)
     set(ameba_soc_name amebagreen2)
