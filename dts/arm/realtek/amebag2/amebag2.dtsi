@@ -8,7 +8,7 @@
 #include <freq.h>
 #include <arm/armv8.1-m.dtsi>
 
-#include <zephyr/dt-bindings/clock/amebaG2_clock.h>
+#include <zephyr/dt-bindings/clock/amebag2_clock.h>
 #include <zephyr/dt-bindings/dma/ameba_dma.h>
 #include <zephyr/dt-bindings/led/led.h>
 #include <zephyr/dt-bindings/adc/adc.h>

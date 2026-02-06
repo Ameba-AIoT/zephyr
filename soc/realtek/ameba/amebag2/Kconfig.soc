@@ -6,7 +6,7 @@ config SOC_SERIES_AMEBAG2
 	select SOC_FAMILY_REALTEK_AMEBA
 
 config SOC_SERIES
-	default "amebaG2" if SOC_SERIES_AMEBAG2
+	default "amebag2" if SOC_SERIES_AMEBAG2
 
 config SOC_RTL8721F
 	bool

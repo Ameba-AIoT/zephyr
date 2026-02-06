@@ -7,6 +7,6 @@ family:
       - name: amebad
         socs:
           - name: rtl872xd
-      - name: amebaG2
+      - name: amebag2
         socs:
           - name: rtl8721f

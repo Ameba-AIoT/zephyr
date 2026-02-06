@@ -36,8 +36,8 @@ if(BIN_FILES)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/km4tz)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/km4ns)
-    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebaG2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
-    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebaG2/ameba_layout.ld DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
+    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
+    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/ameba_layout.ld DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
     execute_process(COMMAND_ERROR_IS_FATAL ANY
       COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py helper manifest-fmt
               --output-file ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/manifest_formatted.json
@@ -81,7 +81,7 @@ if(BIN_FILES)
           set(algorithm secp256r1)
         endif()
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
-        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebaG2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
+        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
         execute_process(COMMAND_ERROR_IS_FATAL ANY
           COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
                   --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}

@@ -9,7 +9,7 @@
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
 #include <soc.h>
 #include <ameba_soc.h>
-#include <zephyr/dt-bindings/pinctrl/amebaG2-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/amebag2-pinctrl.h>
 
 #include <zephyr/drivers/display.h>
 #include <zephyr/drivers/gpio.h>

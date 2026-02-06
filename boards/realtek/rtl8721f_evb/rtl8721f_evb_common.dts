@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include <realtek/amebaG2/amebaG2.dtsi>
+#include <realtek/amebag2/amebag2.dtsi>
 #include "rtl8721f_evb-pinctrl.dtsi"
 #include <zephyr/dt-bindings/display/panel.h>
 
