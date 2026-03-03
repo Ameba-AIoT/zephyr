@@ -31,7 +31,7 @@ LOG_MODULE_REGISTER(ameba_wifi, CONFIG_WIFI_LOG_LEVEL);
 /* use global iface pointer to support any ethernet driver */
 /* necessary for wifi callback functions */
 static struct net_if *ameba_wifi_iface[2];
-static struct ameba_wifi_runtime ameba_data;
+static struct ameba_wifi_runtime ameba_data[2];
 
 extern void (*p_wifi_join_info_free)(u8 iface_type);
 
@@ -207,8 +207,8 @@ int eth_rtk_rx(uint8_t idx, void *buffer, uint16_t len)
 	}
 
 #if defined(CONFIG_NET_STATISTICS_WIFI)
-	ameba_data.stats.bytes.received += len;
-	ameba_data.stats.pkts.rx++;
+	ameba_data[idx].stats.bytes.received += len;
+	ameba_data[idx].stats.pkts.rx++;
 #endif
 
 	return 0;
@@ -217,7 +217,7 @@ pkt_unref:
 	net_pkt_unref(pkt);
 
 #if defined(CONFIG_NET_STATISTICS_WIFI)
-	ameba_data.stats.errors.rx++;
+	ameba_data[idx].stats.errors.rx++;
 #endif
 
 	return -EIO;
@@ -267,7 +267,7 @@ static int ameba_scan_done_cb(unsigned int scanned_AP_num, void *user_data)
 		goto out;
 	}
 
-	if (ameba_data.scan_cb) {
+	if (ameba_data[STA_WLAN_INDEX].scan_cb) {
 		for (i = 0; i < scanned_AP_num; i++) {
 			scanned_AP_info =
 				(struct rtw_scan_result *)(scan_buf +
@@ -298,8 +298,8 @@ out:
 		k_free(scan_buf);
 	}
 	/* report end of scan event, callback in mgmt.c to inform upper */
-	ameba_data.scan_cb(ameba_wifi_iface[STA_WLAN_INDEX], 0, NULL);
-	ameba_data.scan_cb = NULL;
+	ameba_data[STA_WLAN_INDEX].scan_cb(ameba_wifi_iface[STA_WLAN_INDEX], 0, NULL);
+	ameba_data[STA_WLAN_INDEX].scan_cb = NULL;
 
 	return 0;
 }
@@ -310,9 +310,9 @@ void ameba_wifi_handle_connect_event(void)
 
 	/* TODOD check IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4) */
 	if (1) {
-		if (ameba_data.dhcp_init == 0) {
+		if (ameba_data[STA_WLAN_INDEX].dhcp_init == 0) {
 			net_dhcpv4_start(ameba_wifi_iface[STA_WLAN_INDEX]);
-			ameba_data.dhcp_init = 1;
+			ameba_data[STA_WLAN_INDEX].dhcp_init = 1;
 		} else {
 			net_dhcpv4_restart(ameba_wifi_iface[STA_WLAN_INDEX]);
 		}
@@ -321,15 +321,15 @@ void ameba_wifi_handle_connect_event(void)
 		wifi_mgmt_raise_connect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], 0);
 	}
 
-	ameba_data.state = RTK_STA_CONNECTED;
+	ameba_data[STA_WLAN_INDEX].state = RTK_STA_CONNECTED;
 }
 
 static void ameba_wifi_handle_disconnect_event(void)
 {
-	if (ameba_data.state == RTK_STA_CONNECTED) {
+	if (ameba_data[STA_WLAN_INDEX].state == RTK_STA_CONNECTED) {
 		if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
 			net_dhcpv4_stop(ameba_wifi_iface[STA_WLAN_INDEX]);
-			ameba_data.dhcp_init = 0;
+			ameba_data[STA_WLAN_INDEX].dhcp_init = 0;
 		}
 		wifi_mgmt_raise_disconnect_result_event(ameba_wifi_iface[STA_WLAN_INDEX], 0);
 	} else {
@@ -350,11 +350,11 @@ static void ameba_wifi_event_task(void)
 
 		switch (evt.event_id) {
 		case RTK_WIFI_EVENT_STA_START:
-			ameba_data.state = RTK_STA_STARTED;
+			ameba_data[STA_WLAN_INDEX].state = RTK_STA_STARTED;
 			net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
 			break;
 		case RTK_WIFI_EVENT_STA_STOP:
-			ameba_data.state = RTK_STA_STOPPED;
+			ameba_data[STA_WLAN_INDEX].state = RTK_STA_STOPPED;
 			net_eth_carrier_off(ameba_wifi_iface[STA_WLAN_INDEX]);
 			break;
 		case RTK_WIFI_EVENT_STA_CONNECTED:
@@ -367,15 +367,15 @@ static void ameba_wifi_event_task(void)
 			/* ameba_scan_done_cb();*/
 			break;
 		case RTK_WIFI_EVENT_AP_STOP:
-			ameba_data.state = RTK_AP_STOPPED;
+			ameba_data[SOFTAP_WLAN_INDEX].state = RTK_AP_STOPPED;
 			net_eth_carrier_off(ameba_wifi_iface[SOFTAP_WLAN_INDEX]);
 			break;
 		case RTK_WIFI_EVENT_AP_STACONNECTED:
-			ameba_data.state = RTK_AP_CONNECTED;
+			ameba_data[SOFTAP_WLAN_INDEX].state = RTK_AP_CONNECTED;
 			s_con_cnt++;
 			break;
 		case RTK_WIFI_EVENT_AP_STADISCONNECTED:
-			ameba_data.state = RTK_AP_DISCONNECTED;
+			ameba_data[SOFTAP_WLAN_INDEX].state = RTK_AP_DISCONNECTED;
 			break;
 		default:
 			break;
@@ -426,8 +426,11 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 		psk_len = params->psk_length;
 	} else if (params->security == WIFI_SECURITY_TYPE_NONE) {
 		psk_len = 0;
+	} else if (params->security == WIFI_SECURITY_TYPE_SAE) {
+		psk = (u8 *)params->psk;
+		psk_len = params->psk_length;
 	} else {
-		LOG_ERR("Authentication method not supported");
+		LOG_ERR("Authentication method not supported %d", params->security);
 		data->state = RTK_STA_STARTED;
 		return -EIO;
 	}
@@ -525,7 +528,7 @@ static int ameba_wifi_ap_enable(const struct device *dev, struct wifi_connect_re
 	}
 
 	net_eth_carrier_on(ameba_wifi_iface[1]);
-
+	ameba_data[SOFTAP_WLAN_INDEX].state = RTK_STAAP_STARTED;
 	return 0;
 }
 
@@ -536,27 +539,56 @@ int ameba_wifi_ap_disable(const struct device *dev)
 	int ret = wifi_stop_ap();
 
 	net_eth_carrier_off(ameba_wifi_iface[1]);
+	ameba_data[SOFTAP_WLAN_INDEX].state = RTK_STA_STOPPED;
 
 	return ret;
 }
 
 static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status *status)
 {
-	int idx = 0;
+	struct ameba_wifi_runtime *data = dev->data;
+	uint8_t idx = data->if_idx;
+	uint32_t security_type;
+
+	if (idx == STA_WLAN_INDEX && data->state >= RTK_STA_CONNECTED) {
+		status->state = WIFI_STATE_COMPLETED;
+		status->iface_mode = WIFI_MODE_INFRA;
+	} else if (idx == SOFTAP_WLAN_INDEX && data->state >= RTK_STAAP_STARTED) {
+		status->state = WIFI_SAP_IFACE_ENABLED;
+		status->iface_mode = WIFI_MODE_AP;
+	} else {
+		return 0;
+	}
 
 	wifi_get_setting_zephyr(idx, status->ssid, (u8 *)&status->ssid_len, status->bssid,
-				&status->channel, NULL);
+				&status->channel, &security_type);
 
 	if (status->channel > 11) {
-		status->band = WIFI_FREQ_BAND_2_4_GHZ;
-	} else {
 		status->band = WIFI_FREQ_BAND_5_GHZ;
+	} else {
+		status->band = WIFI_FREQ_BAND_2_4_GHZ;
 	}
 
 	/* zephyr wifi todo, get iface */
 	status->link_mode = WIFI_LINK_MODE_UNKNOWN;
 	status->mfp = WIFI_MFP_DISABLE;
 
+	switch (security_type) {
+	case RTW_SECURITY_WPA_AES_PSK:
+	case RTW_SECURITY_WPA2_AES_PSK:
+		status->security = WIFI_SECURITY_TYPE_PSK;
+		break;
+	case RTW_SECURITY_WPA3_AES_PSK:
+	case RTW_SECURITY_WPA3_OWE:
+		status->security = WIFI_SECURITY_TYPE_SAE;
+		break;
+	case RTW_SECURITY_OPEN:
+		status->security = WIFI_SECURITY_TYPE_NONE;
+		break;
+	default:
+		LOG_ERR("unkonwn security type");
+		break;
+	}
 	return 0;
 }
 
@@ -572,7 +604,7 @@ static void ameba_wifi_init(struct net_if *iface)
 	eth_ctx->eth_if_type = L2_ETH_IF_TYPE_WIFI;
 	ameba_wifi_iface[if_init_idx] = iface;
 	dev_data->state = RTK_STA_STOPPED;
-
+	dev_data->if_idx = if_init_idx;
 #if !defined(CONFIG_AMEBAD)
 	if (settings_subsys_init()) {
 		LOG_ERR("setting subsys fail");
@@ -585,10 +617,10 @@ static void ameba_wifi_init(struct net_if *iface)
 	}
 
 	/* Start interface when we are actually connected with Wi-Fi network */
-	wifi_get_mac_address(if_init_idx, (struct _rtw_mac_t *)dev_data->mac_addr[if_init_idx], 1);
+	wifi_get_mac_address(if_init_idx, (struct _rtw_mac_t *)dev_data->mac_addr, 1);
 
 	/* Assign link local address. */
-	net_if_set_link_addr(iface, dev_data->mac_addr[if_init_idx], 6, NET_LINK_ETHERNET);
+	net_if_set_link_addr(iface, dev_data->mac_addr, 6, NET_LINK_ETHERNET);
 
 	ethernet_init(iface);
 	net_if_carrier_off(iface);
@@ -657,7 +689,7 @@ static const struct net_wifi_mgmt_offload rtk_api = {
 };
 
 /* inst replace by DT_DRV_COMPAT(inst) */
-NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
+NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data[STA_WLAN_INDEX], NULL,
 			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
 			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
 
@@ -665,7 +697,7 @@ NET_DEVICE_DT_INST_DEFINE(0, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
 DEFINE_WIFI_NM_INSTANCE(rtk_wifi_nm, &ameba_wifi_mgmt);
 CONNECTIVITY_WIFI_MGMT_BIND(Z_DEVICE_DT_DEV_ID(DT_DRV_INST(0)));
 
-NET_DEVICE_DT_INST_DEFINE(1, ameba_wifi_dev_init, NULL, &ameba_data, NULL,
+NET_DEVICE_DT_INST_DEFINE(1, ameba_wifi_dev_init, NULL, &ameba_data[SOFTAP_WLAN_INDEX], NULL,
 			  CONFIG_WIFI_INIT_PRIORITY, &rtk_api, ETHERNET_L2,
 			  NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
 

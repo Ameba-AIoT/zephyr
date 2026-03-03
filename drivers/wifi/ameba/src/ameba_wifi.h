@@ -29,13 +29,13 @@ struct rtk_wifi_status {
 };
 
 struct ameba_wifi_runtime {
-	uint8_t mac_addr[2][6];
-	uint8_t frame_buf[2][NET_ETH_MAX_FRAME_SIZE];
+	uint8_t mac_addr[6];
 #if defined(CONFIG_NET_STATISTICS_WIFI)
 	struct net_stats_wifi stats;
 #endif
 	struct rtk_wifi_status status;
 	scan_result_cb_t scan_cb;
+	uint8_t if_idx;
 	uint8_t state;
 	uint8_t dhcp_init;
 };
@@ -76,13 +76,13 @@ struct ameba_system_event {
 
 enum rtk_state_flag {
 	RTK_STA_STOPPED,
+	RTK_AP_STOPPED = 0,
 	RTK_STA_STARTED,
 	RTK_STA_CONNECTING,
 	RTK_STA_CONNECTED,
 	RTK_STAAP_STARTED,
 	RTK_AP_CONNECTED,
 	RTK_AP_DISCONNECTED,
-	RTK_AP_STOPPED,
 };
 
 void wifi_init(void);
@@ -93,7 +93,7 @@ int rltk_wlan_send(int idx, void *pkt_addr, uint32_t len);
 int whc_host_send_zephyr(int idx, void *pkt_addr, uint32_t len);
 void wlan_int_enable(void);
 int wifi_get_setting_zephyr(u8 idx, char *ssid, u8 *ssid_len, char *bssid, int *channel,
-			    u8 *security);
+			    u32 *security);
 int wifi_start_ap_zephyr(u8 *ssid, u8 ssid_len, u8 *psk, u8 psk_len, u8 channel, u8 wpa3_en);
 void ameba_wifi_handle_connect_event(void);
 
