@@ -120,7 +120,7 @@ void dhcpv4_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_event, str
 		if (if_addr) {
 			if (net_addr_ntop(AF_INET, &if_addr->address.in_addr, ip_addr_str,
 					  sizeof(ip_addr_str))) {
-				LOG_INF("DHCPv4 IP address: %s\n", ip_addr_str);
+				LOG_INF("DHCPv4 IP address: %s", ip_addr_str);
 			}
 		}
 	}
@@ -444,7 +444,7 @@ int ameba_wifi_connect(const struct device *dev, struct wifi_connect_req_params 
 	}
 
 	ameba_wifi_handle_connect_event();
-	LOG_INF("assoc success \r\n");
+	LOG_INF("assoc success");
 
 	return 0;
 }
@@ -477,17 +477,17 @@ static void configure_ap_mode(struct net_if *iface)
 	struct in_addr ipaddr, netmask, gateway;
 
 	if (net_addr_pton(AF_INET, "192.168.43.1", &ipaddr) < 0) {
-		LOG_ERR("Invalid IP address\n");
+		LOG_ERR("Invalid IP address");
 		return;
 	}
 
 	if (net_addr_pton(AF_INET, "255.255.255.0", &netmask) < 0) {
-		LOG_ERR("Invalid netmask\n");
+		LOG_ERR("Invalid netmask");
 		return;
 	}
 
 	if (net_addr_pton(AF_INET, "192.168.43.1", &gateway) < 0) {
-		LOG_ERR("Invalid gateway\n");
+		LOG_ERR("Invalid gateway");
 		return;
 	}
 
@@ -539,7 +539,7 @@ int ameba_wifi_ap_disable(const struct device *dev)
 	int ret = wifi_stop_ap();
 
 	net_eth_carrier_off(ameba_wifi_iface[1]);
-	ameba_data[SOFTAP_WLAN_INDEX].state = RTK_STA_STOPPED;
+	ameba_data[SOFTAP_WLAN_INDEX].state = RTK_AP_STOPPED;
 
 	return ret;
 }
@@ -569,7 +569,6 @@ static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status 
 		status->band = WIFI_FREQ_BAND_2_4_GHZ;
 	}
 
-	/* zephyr wifi todo, get iface */
 	status->link_mode = WIFI_LINK_MODE_UNKNOWN;
 	status->mfp = WIFI_MFP_DISABLE;
 
@@ -581,6 +580,7 @@ static int ameba_wifi_status(const struct device *dev, struct wifi_iface_status 
 	case RTW_SECURITY_WPA3_AES_PSK:
 	case RTW_SECURITY_WPA3_OWE:
 		status->security = WIFI_SECURITY_TYPE_SAE;
+		status->mfp = WIFI_MFP_REQUIRED;
 		break;
 	case RTW_SECURITY_OPEN:
 		status->security = WIFI_SECURITY_TYPE_NONE;
