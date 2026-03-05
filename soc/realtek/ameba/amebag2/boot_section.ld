@@ -8,6 +8,7 @@ SECTION_PROLOGUE(.ram_image2.entry,,SUBALIGN(32))
 {
 	__image2_entry_func__ = .;
 	KEEP(*(SORT(.image2.entry.data*)))
+	__image2_entry_func_end__ = .;
 	. = ALIGN(32);
 } GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 ASSERT(__image2_entry_func__ == ORIGIN(RAM), "put the entry function at the start of RAM")
@@ -26,3 +27,4 @@ SECTION_PROLOGUE(.psram_image2.text.data,,)
 
 	. = ALIGN (32);
 } GROUP_LINK_IN(ROMABLE_REGION)
+__image2_entry_func_load_start__ = LOADADDR(.ram_image2.entry);

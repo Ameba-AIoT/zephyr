@@ -11,17 +11,21 @@
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
 
-#ifndef CONFIG_BOOTLOADER_MCUBOOT
+extern void SOCPS_WakeFromPG_AP(void);
+extern void z_arm_reset(void);
+
 /* Load z_arm_reset to Img2EntryFun0 is only required by ameba bootloader.
  * In mcuboot z_arm_reset is accessed througth flash layout
  * (refer to bootloader/mcuboot/boot/zephyr/main.c)
  */
-void z_arm_reset(void);
-
 IMAGE2_ENTRY_SECTION
-RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
-				    (uint32_t)RomVectorTable};
+RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset,
+#ifdef CONFIG_PM
+				    SOCPS_WakeFromPG_AP, /* BOOT_RAM_WakeFromPG, */
+#else
+				    NULL,
 #endif
+				    (uint32_t)RomVectorTable};
 
 u32 SOC_OSC131_Enable(void)
 {
@@ -64,7 +68,16 @@ void soc_early_init_hook(void)
 	Cache_Enable(DISABLE);
 	sys_cache_instr_enable();
 	sys_cache_data_enable();
-	memset((void *) __rom_bss_start_ns__, 0, (__rom_bss_end_ns__ - __rom_bss_start_ns__));
+	memset((void *)__rom_bss_start_ns__, 0, (__rom_bss_end_ns__ - __rom_bss_start_ns__));
+
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+	/* Copy Img2EntryFun0 from flash to ram when using mcuboot. */
+	extern u8 __image2_entry_func_end__[];
+	extern u8 __image2_entry_func_load_start__[];
+
+	memcpy(&__image2_entry_func__, &__image2_entry_func_load_start__,
+	       __image2_entry_func_end__ - __image2_entry_func__);
+#endif
 
 	RBSS_UDELAY_DIV = 5;
 
@@ -88,5 +101,22 @@ void soc_early_init_hook(void)
 
 #ifdef CONFIG_AMEBA_PSRAM
 	ameba_init_psram();
+#endif
+
+#ifdef CONFIG_PM
+	/* PMC init */
+	SOCPS_SleepInit();
+	pmu_init_wakeup_timer();
+	pmu_set_sleep_type(SLEEP_PG);
+
+	/* Clear SENONPEND bit otherwise WFE would be wake up by pending interrupts.
+	 * The AP is designed to be wake up by sev from NP
+	 */
+	SCB->SCR &= ~SCB_SCR_SEVONPEND_Msk;
+
+	/* In zephyr, whether enter sleep is decided by policy like power-state, custom policy
+	 * instead of user api control, so keep OS lock released and no need to acuqire it again.
+	 */
+	pmu_release_wakelock(PMU_OS);
 #endif
 }

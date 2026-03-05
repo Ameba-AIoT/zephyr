@@ -25,6 +25,10 @@
 	};
 };
 
+&cpu0 {
+	cpu-power-states = <&pm_cg &pm_pg>;
+};
+
 &loguart {
 	status = "okay";
 };

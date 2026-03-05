@@ -32,6 +32,7 @@ LOG_MODULE_REGISTER(loader, CONFIG_MCUBOOT_LOG_LEVEL);
 _LONG_CALL_ void RCC_PeriphClockCmd(u32 APBPeriph, u32 APBPeriph_Clock, u8 NewState);
 extern void BOOT_ROM_Copy(void *__restrict dst0, const void *__restrict src0, size_t len0);
 extern void Peripheral_Reset(void);
+extern bool BOOT_RRAM_InfoValid(void);
 extern void BOOT_Log_Init(void);
 extern void RSIP_IV_Set(uint8_t index, uint8_t *IV);
 extern fih_ret BOOT_OTFCheck(uint32_t start_addr, uint32_t end_addr, uint32_t IV_index,
@@ -197,6 +198,15 @@ void mcuboot_status_change(mcuboot_status_type_t status)
 	 */
 	if (BOOT_Reason() & (AON_BIT_RSTF_WARM_KM4NS | AON_BIT_RSTF_WARM_KM4TZ)) {
 		Peripheral_Reset();
+	}
+
+	/* BOOT Reason: POR or BOR. */
+	/* BOD is enabled by default. BOR may arise if voltage increases slowly during POR. */
+	/* To avoid Retention RAM cannot be initialized to 0 correctly. */
+	if (((BOOT_Reason() & ~AON_BIT_RSTF_BOR) == 0) || (!BOOT_RRAM_InfoValid())) {
+		RRAM_DEV->MAGIC_NUMBER = 0;
+		memset(RRAM_DEV, 0, sizeof(RRAM_TypeDef));
+		RRAM_DEV->MAGIC_NUMBER = 0x6969A5A5;
 	}
 
 	BOOT_VerCheck();

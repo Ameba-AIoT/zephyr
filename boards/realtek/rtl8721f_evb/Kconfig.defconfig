@@ -37,6 +37,18 @@ config GPIO
 config NOCACHE_MEMORY
 	default y
 
+if PM
+
+choice PM_POLICY
+	default PM_POLICY_CUSTOM
+endchoice
+
+config PM_S2RAM
+	default y
+	select PM_S2RAM_CUSTOM_MARKING
+
+endif # PM
+
 if BOOTLOADER_MCUBOOT
 
 config FLASH_BASE_ADDRESS
