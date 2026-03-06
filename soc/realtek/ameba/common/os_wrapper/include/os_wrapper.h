@@ -16,8 +16,9 @@
 
 #include "platform_autoconf.h"
 #include "ameba.h"
+#ifdef __ZEPHYR__
 #include <zephyr/kernel.h>
-
+#endif
 /**
  * @brief  Common header file
  */

@@ -1,0 +1,12 @@
+# Copyright (c) 2024 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations in this file only work for plain device rtl8721f_evb
+# Configurations here would overwrite configurations in Kconfig.defconfig
+# Configurations for all rtl8721f_evb variants(like mcuboot) are supposed to be set in Kconfig.defconfig
+
+# This Board implies building Non-Secure firmware
+CONFIG_TRUSTED_EXECUTION_NONSECURE=y
+
+# Disable TFM BL2 since it is not supported
+CONFIG_TFM_BL2=n

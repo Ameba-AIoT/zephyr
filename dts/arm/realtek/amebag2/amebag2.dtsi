@@ -51,9 +51,14 @@
 	};
 
 	soc {
-		sram0: memory@20006040 {
+		sram0: memory@20006020 {
 			compatible = "mmio-sram";
-			reg = <0x20006040 0x49fc0>;
+			reg = <0x20006020 DT_SIZE_K(296)>;
+		};
+
+		sram0_ns: memory@20016020 {
+			compatible = "mmio-sram";
+			reg = <0x20016020 DT_SIZE_K(232)>;
 		};
 
 		psram: memory@60000000 {
@@ -62,12 +67,6 @@
 			reg = <0x60000000 DT_SIZE_M(4)>;
 			zephyr,memory-region = "PSRAM";
 			status = "disabled";
-		};
-
-		ram_image2_entry: memory@20006020 {
-			compatible = "zephyr,memory-region";
-			reg = <0x20006020 0x20>;
-			zephyr,memory-region = "KM4TZ_IMG2_ENTRY";
 		};
 
 		pinctrl: pinctrl@4080a800 {

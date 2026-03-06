@@ -5,3 +5,4 @@ board:
     - name: rtl8721f
       variants:
         - name: mcuboot
+        - name: ns

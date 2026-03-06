@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2024 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+
+#include "rtl8721f_evb_common.dts"
+
+/ {
+	chosen {
+		zephyr,sram = &sram0_ns;
+	};
+};
+
+&spic {
+	status = "okay";
+};
+
+/* 4MB flash */
+&flash0 {
+	reg = <0x04000020 DT_SIZE_M(4)>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* Reserve 80kB for the bootloader */
+		boot_partition: partition@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00014000>;
+			read-only;
+		};
+
+		/* Reserve 1968kB for the application in slot 0 */
+		slot0_partition: partition@14000 {
+			label = "image-0";
+			reg = <0x00014000 0x001EC000>;
+		};
+
+		storage_partition: partition@250000 {
+			label = "storage";
+			reg = <0x00250000 0x00006000>;
+		};
+	};
+};
