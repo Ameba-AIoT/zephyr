@@ -14,6 +14,12 @@ properties:
   interrupts:
     required: true
 
+  port:
+    type: int
+    required: true
+    description: |
+      GPIO port index of the controller (e.g. 0 for GPIOA, 1 for GPIOB, etc).
+
   "#gpio-cells":
     const: 2
 

@@ -154,6 +154,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <4 0>;
+			port = <0>;     /* GPIOA -> port 0 */
 			status = "disabled";
 		};
 
@@ -163,6 +164,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <8 0>;
+			port = <1>;     /* GPIOB -> port 1 */
 			status = "disabled";
 		};
 

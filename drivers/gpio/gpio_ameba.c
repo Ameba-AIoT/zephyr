@@ -367,7 +367,7 @@ static const struct gpio_driver_api gpio_ameba_driver_api = {
 				.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(n),               \
 			},                                                                         \
 		.base = DT_INST_REG_ADDR(n),                                                       \
-		.port = n,                                                                         \
+		.port = DT_INST_PROP(n, port),                                                     \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(n, gpio_ameba_port##n##_init, NULL, &gpio_ameba_port##n##_data,      \
