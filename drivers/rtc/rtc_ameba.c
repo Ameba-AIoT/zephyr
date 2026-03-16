@@ -615,7 +615,7 @@ static int rtc_ameba_alarm_set_callback(const struct device *dev, uint16_t id,
 }
 #endif
 
-struct rtc_driver_api rtc_ameba_driver_api = {
+static DEVICE_API(rtc, rtc_ameba_driver_api) = {
 	.set_time = rtc_ameba_set_time,
 	.get_time = rtc_ameba_get_time,
 

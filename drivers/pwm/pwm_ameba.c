@@ -277,7 +277,7 @@ int pwm_ameba_init(const struct device *dev)
 	return 0;
 }
 
-static const struct pwm_driver_api pwm_ameba_api = {
+static DEVICE_API(pwm, pwm_ameba_api) = {
 	.set_cycles = pwm_ameba_set_cycles,
 	.get_cycles_per_sec = pwm_ameba_get_cycles_per_sec,
 #ifdef CONFIG_PWM_CAPTURE

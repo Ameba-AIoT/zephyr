@@ -521,7 +521,7 @@ static int i2c_ameba_transfer(const struct device *dev, struct i2c_msg *msgs, ui
 	return err;
 }
 
-static const struct i2c_driver_api i2c_ameba_driver_api = {
+static DEVICE_API(i2c, i2c_ameba_driver_api) = {
 	.configure = i2c_ameba_configure,
 	.transfer = i2c_ameba_transfer,
 };

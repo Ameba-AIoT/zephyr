@@ -111,10 +111,10 @@ static void wdt_ameba_isr(const struct device *dev)
 	WDG_ClearINT(config->WDG, WDG_BIT_EIC);
 }
 
-static const struct wdt_driver_api wdt_api = {.setup = wdt_ameba_setup,
-					      .disable = wdt_ameba_disable,
-					      .install_timeout = wdt_ameba_install_timeout,
-					      .feed = wdt_ameba_feed};
+static DEVICE_API(wdt, wdt_api) = {.setup = wdt_ameba_setup,
+				   .disable = wdt_ameba_disable,
+				   .install_timeout = wdt_ameba_install_timeout,
+				   .feed = wdt_ameba_feed};
 
 #define WDT_IRQ_CONFIG(n)                                                                          \
 	static void irq_config_##n(const struct device *dev)                                       \

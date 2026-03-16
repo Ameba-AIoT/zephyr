@@ -74,7 +74,7 @@ static int entropy_ameba_init(const struct device *dev)
 	return 0;
 }
 
-static const struct entropy_driver_api entropy_ameba_api_funcs = {
+static DEVICE_API(entropy, entropy_ameba_api_funcs) = {
 	.get_entropy = entropy_ameba_get_entropy,
 	.get_entropy_isr = entropy_ameba_get_entropy_isr,
 };

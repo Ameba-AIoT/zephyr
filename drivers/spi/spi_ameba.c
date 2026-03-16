@@ -1104,7 +1104,7 @@ static int spi_ameba_transceive_async(const struct device *dev, const struct spi
 }
 #endif /* CONFIG_SPI_ASYNC */
 
-static const struct spi_driver_api ameba_spi_api = {
+static DEVICE_API(spi, ameba_spi_api) = {
 	.transceive = spi_ameba_transceive,
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_ameba_transceive_async,

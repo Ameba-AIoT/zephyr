@@ -197,7 +197,7 @@ static int ameba_ledc_update_channels(const struct device *dev, uint8_t *channel
 	return -ENOTSUP;
 }
 
-static const struct led_strip_driver_api ameba_ledc_api = {
+static DEVICE_API(led_strip, ameba_ledc_api) = {
 	.update_rgb = ameba_ledc_update_rgb,
 	.update_channels = ameba_ledc_update_channels,
 };

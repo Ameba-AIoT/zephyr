@@ -329,7 +329,7 @@ static void gpio_ameba_isr(const struct device *dev)
 	gpio_fire_callbacks(&data->callbacks, dev, int_status);
 }
 
-static const struct gpio_driver_api gpio_ameba_driver_api = {
+static DEVICE_API(gpio, gpio_ameba_driver_api) = {
 	.pin_configure = gpio_ameba_configure,
 #ifdef CONFIG_GPIO_GET_CONFIG
 	.pin_get_config = gpio_ameba_get_config,

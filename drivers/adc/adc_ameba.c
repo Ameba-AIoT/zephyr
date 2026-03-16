@@ -154,7 +154,7 @@ static int adc_ameba_init(const struct device *dev)
 	return 0;
 }
 
-static const struct adc_driver_api api_ameba_driver_api = {
+static DEVICE_API(adc, api_ameba_driver_api) = {
 	.channel_setup = adc_ameba_channel_setup,
 	.read = adc_ameba_read,
 	.ref_internal = AMEBA_ADC_VREF_MV,

@@ -1167,7 +1167,7 @@ static void uart_ameba_isr(const struct device *dev)
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API */
 
-static const struct uart_driver_api uart_ameba_api = {
+static DEVICE_API(uart, uart_ameba_api) = {
 	.poll_in = uart_ameba_poll_in,
 	.poll_out = uart_ameba_poll_out,
 	.err_check = uart_ameba_err_check,

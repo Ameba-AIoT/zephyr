@@ -1528,7 +1528,7 @@ static int i2s_ameba_write(const struct device *dev, void *mem_block, size_t siz
 	return ret;
 }
 
-static const struct i2s_driver_api i2s_ameba_driver_api = {
+static DEVICE_API(i2s, i2s_ameba_driver_api) = {
 	.configure = i2s_ameba_configure,
 	.config_get = i2s_ameba_config_get,
 	.read = i2s_ameba_read,
