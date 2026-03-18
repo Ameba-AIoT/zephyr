@@ -111,7 +111,7 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 		} else { /* if (datalen <= 32)  */
 			/* tx_frame = ctx->tx_buf ? *(uint32_t *)(data->ctx.tx_buf) : 0; */
 			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
-			return EINVAL;
+			return -EINVAL;
 		}
 	}
 
@@ -132,7 +132,7 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 		} else { /* if (datalen <= 32) */
 			/* (uint32_t *)data->ctx.rx_buf = rx_frame; */
 			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
-			return EINVAL;
+			return -EINVAL;
 		}
 	}
 	spi_context_update_rx(ctx, dfs, 1);
@@ -491,7 +491,7 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 	}
 
 	spi_dma->blk_cfg.block_size = length;
-	LOG_INF("length:%u datalen:%u", length, datalen);
+	LOG_DBG("length:%u datalen:%u", length, datalen);
 	if (datalen > 8) {
 		spi_dma->dma_cfg.source_burst_length = 4;
 		spi_dma->dma_cfg.source_data_size = 2;
@@ -587,7 +587,7 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 
 	spi_dma->blk_cfg.block_size = length;
 
-	LOG_INF("length:%u datalen:%u", length, datalen);
+	LOG_DBG("length:%u datalen:%u", length, datalen);
 	if (datalen > 8) {
 		/* 16~9 bits mode */
 		if (((length & 0x03) == 0) && (((u32)(pdata) & 0x03) == 0)) {
@@ -754,7 +754,7 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 					return ret;
 				}
 			} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
-				LOG_INF("%s dma tx frame number:%u", __func__, dma_len);
+				LOG_DBG("%s dma tx frame number:%u", __func__, dma_len);
 				dma_len = data->ctx.tx_len;
 				ret = spi_dma_move_tx_buffers(dev, dma_len);
 			} else {
@@ -961,7 +961,7 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	}
 
 	if (data->initialized && spi_context_configured(ctx, spi_cfg)) {
-		LOG_INF("Already configured. No need to do it again \r\n");
+		LOG_DBG("Already configured. No need to do it again \r\n");
 		return 0;
 	}
 
@@ -1157,7 +1157,7 @@ static DEVICE_API(spi, ameba_spi_api) = {
 		SPI_DMA_CHANNEL(n, rx) SPI_DMA_CHANNEL(n, tx) SPI_DMA_STATUS_SEM(n)};              \
                                                                                                    \
 	static struct spi_ameba_config spi_ameba_config_##n = {                                    \
-		.SPIx = DT_INST_REG_ADDR(n),                                                       \
+		.SPIx = (SPI_TypeDef *)DT_INST_REG_ADDR(n),                                        \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
