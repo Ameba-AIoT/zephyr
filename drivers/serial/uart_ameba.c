@@ -74,6 +74,11 @@ struct uart_ameba_data {
 #endif
 };
 
+#if defined(CONFIG_UART_ASYNC_API) && !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+static uint32_t last_dat_cnt;
+static uint32_t hang_cnt;
+#endif
+
 static int uart_ameba_poll_in(const struct device *dev, unsigned char *c)
 {
 	const struct uart_ameba_config *config = dev->config;
@@ -522,6 +527,10 @@ static inline void async_evt_rx_buf_release(struct uart_ameba_data *data)
 
 static inline void async_evt_rx_disabled(struct uart_ameba_data *data)
 {
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	last_dat_cnt = 0x0;
+	hang_cnt = 0;
+#endif
 	struct uart_event evt = {
 		.type = UART_RX_DISABLED,
 	};
@@ -538,6 +547,7 @@ static inline void async_timer_start(struct k_work_delayable *work, int32_t time
 	}
 }
 
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 static inline void async_get_dma_data(uint32_t dma_channel, uint32_t timeout)
 {
 	uint32_t count = 0;
@@ -560,6 +570,7 @@ static inline void async_get_dma_data(uint32_t dma_channel, uint32_t timeout)
 		LOG_ERR("Data is hang in GDMA FIFO");
 	}
 }
+#endif
 
 void uart_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
 			  int status)
@@ -617,6 +628,10 @@ static void uart_ameba_dma_replace_buffer(const struct device *dev)
 
 	/* Request next buffer */
 	async_evt_rx_buf_request(data);
+
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	async_timer_start(&data->dma_rx.timeout_work, data->dma_rx.timeout);
+#endif
 }
 
 void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
@@ -634,6 +649,10 @@ void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_
 		return;
 	}
 
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	(void)k_work_cancel_delayable(&data->dma_rx.timeout_work);
+#endif
+
 	UART_RxByteCntClear(uart);
 
 	/* true since this functions occurs when buffer if full */
@@ -649,7 +668,7 @@ void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_
 	} else {
 		LOG_DBG("%s no next buffer", __func__);
 		data->dma_rx.enabled = false;
-#if defined(CONFIG_SOC_SERIES_AMEBAG2)
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 		UART_INT_Clear(uart, RUART_BIT_TOICF | RUART_BIT_RETICF);
 		UART_INTConfig(uart, RUART_BIT_ERETI | RUART_BIT_ETOI, DISABLE);
 #endif
@@ -781,7 +800,12 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 	data->dma_rx.buffer = rx_buf;
 	data->dma_rx.buffer_length = buf_size;
 	data->dma_rx.counter = 0;
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	data->dma_rx.timeout = timeout;
+#else
+	/* 5 can be modified, 3 in uart_ameba_async_rx_timeout should be modified as well */
+	data->dma_rx.timeout = timeout / 5;
+#endif
 	data->dma_rx.dma_cfg.dest_burst_length = 1;
 	/* note: fixed before g2, including g2 */
 	data->dma_rx.dma_cfg.dest_data_size = 4;
@@ -795,7 +819,7 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 
 	UART_INTConfig(uart, RUART_BIT_ERBI, DISABLE);
 
-#if defined(CONFIG_SOC_SERIES_AMEBAG2)
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	if ((timeout != SYS_FOREVER_US) && (timeout != 0)) {
 		/* timeout in us */
 		if (data->uart_config.baudrate >= 1000) {
@@ -827,6 +851,13 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 	/* Request next buffer */
 	async_evt_rx_buf_request(data);
 
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	async_timer_start(&data->dma_rx.timeout_work, data->dma_rx.timeout);
+	UART_RxByteCntClear(uart);
+	last_dat_cnt = 0;
+	hang_cnt = 0;
+#endif
+
 	LOG_DBG("async rx enabled");
 
 	return ret;
@@ -854,9 +885,11 @@ static int uart_ameba_async_rx_disable(const struct device *dev)
 		return -EFAULT;
 	}
 
-#if defined(CONFIG_SOC_SERIES_AMEBAG2)
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	UART_INT_Clear(uart, RUART_BIT_TOICF | RUART_BIT_RETICF);
 	UART_INTConfig(uart, RUART_BIT_ETOI | RUART_BIT_ERETI, DISABLE);
+#else
+	(void)k_work_cancel_delayable(&data->dma_rx.timeout_work);
 #endif
 
 	/* release current buffer */
@@ -902,6 +935,111 @@ static void uart_ameba_async_tx_timeout(struct k_work *work)
 	LOG_DBG("tx: async timeout");
 }
 
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+static void uart_ameba_async_rx_timeout(struct k_work *work)
+{
+	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
+	struct uart_dma_stream *rx_stream =
+		CONTAINER_OF(dwork, struct uart_dma_stream, timeout_work);
+	struct uart_ameba_data *data = CONTAINER_OF(rx_stream, struct uart_ameba_data, dma_rx);
+	const struct device *dev = data->dev;
+	const struct uart_ameba_config *config = dev->config;
+	UART_TypeDef *uart = config->uart;
+
+	u32 ch = data->dma_rx.dma_channel;
+	u32 timeout = 0;
+
+	LOG_DBG("rx timeout");
+
+	u32 byte_got = UART_RxByteCntGet(uart);
+
+	if (last_dat_cnt != byte_got) {
+		last_dat_cnt = byte_got;
+		hang_cnt = 0;
+	} else if (hang_cnt++ >= 3) {
+		/* 3 can be modified according to 5 in uart_ameba_async_rx_enable */
+		hang_cnt = 0;
+		/* rx idle for some time */
+		LOG_DBG("hang");
+
+		/* get remaining data in DMA FIFO */
+		if (GDMA_ChnlFIFOIsEmpty(0x0, ch) == FALSE) {
+
+			GDMA_Suspend(0x0, ch);
+
+			while (GDMA_ChannelIsActive(0x0, ch)) {
+				if (timeout++ >= 500) {
+					break;
+				}
+			}
+			GDMA_Resume(0x0, ch);
+			/* If the ch is still active after timeout, resume is required */
+			if (timeout++ >= 500) {
+				LOG_ERR("Data hangs in GDMA FIFO");
+				return;
+			}
+		}
+
+		if (byte_got > data->dma_rx.offset) {
+			data->dma_rx.counter = byte_got;
+			LOG_DBG("rx cnt turns %u", data->dma_rx.counter);
+		}
+
+		/* get remaining data in UART RX FIFO */
+		if (UART_Readable(uart) == 0) {
+			/* report rx ready event only if rx new data */
+			async_evt_rx_rdy(data);
+		} else {
+			GDMA_Abort(0x0, ch);
+			dma_stop(data->dma_rx.dma_dev, ch);
+			UART_RXDMACmd(uart, DISABLE);
+			while (UART_Readable(uart)) {
+				UART_CharGet(uart, data->dma_rx.buffer + data->dma_rx.counter);
+				data->dma_rx.counter++;
+			}
+			byte_got = UART_RxByteCntGet(uart);
+
+			if (data->dma_rx.counter != byte_got) {
+				LOG_DBG("rx cnt%d, byte_got %d", data->dma_rx.counter, byte_got);
+				assert_param(0);
+			}
+
+			/* report rx ready event only if rx new data */
+			async_evt_rx_rdy(data);
+
+			/* reload DMA */
+			if ((data->dma_rx.counter != data->dma_rx.buffer_length) &&
+			    (data->dma_rx.buffer_length != 0)) {
+				data->dma_rx.buffer += data->dma_rx.counter;
+				data->dma_rx.blk_cfg.block_size =
+					data->dma_rx.buffer_length - data->dma_rx.counter;
+				data->dma_rx.buffer_length = data->dma_rx.blk_cfg.block_size;
+				data->dma_rx.blk_cfg.dest_address = (uint32_t)(data->dma_rx.buffer);
+				data->dma_rx.offset = 0;
+				data->dma_rx.counter = 0;
+				data->rx_next_buffer = NULL;
+				data->rx_next_buffer_len = 0;
+
+				LOG_DBG("reload: rx %dB to 0x%x", data->dma_rx.blk_cfg.block_size,
+					data->dma_rx.blk_cfg.dest_address);
+
+				dma_reload(data->dma_rx.dma_dev, ch,
+					   data->dma_rx.blk_cfg.source_address,
+					   data->dma_rx.blk_cfg.dest_address,
+					   data->dma_rx.blk_cfg.block_size);
+
+				dma_start(data->dma_rx.dma_dev, ch);
+				UART_RxByteCntClear(uart);
+				last_dat_cnt = 0;
+				UART_RXDMACmd(uart, ENABLE);
+			}
+		}
+	}
+
+	async_timer_start(&data->dma_rx.timeout_work, data->dma_rx.timeout);
+}
+#endif
+
 static int uart_ameba_async_init(const struct device *dev)
 {
 	const struct uart_ameba_config *config = dev->config;
@@ -936,6 +1074,9 @@ static int uart_ameba_async_init(const struct device *dev)
 	UART_RXDMACmd(uart, DISABLE);
 	data->dma_rx.enabled = false;
 
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	k_work_init_delayable(&data->dma_rx.timeout_work, uart_ameba_async_rx_timeout);
+#endif
 	k_work_init_delayable(&data->dma_tx.timeout_work, uart_ameba_async_tx_timeout);
 
 	/* Configure dma rx config */
@@ -1074,7 +1215,7 @@ static void uart_ameba_isr(const struct device *dev)
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 #ifdef CONFIG_UART_ASYNC_API
-#if defined(CONFIG_SOC_SERIES_AMEBAG2)
+#if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	const struct uart_ameba_config *config = dev->config;
 	UART_TypeDef *uart = config->uart;
 	u32 ch = data->dma_rx.dma_channel;
@@ -1159,7 +1300,9 @@ static void uart_ameba_isr(const struct device *dev)
 			UART_RXDMACmd(uart, ENABLE);
 		}
 	}
-#endif /* CONFIG_SOC_SERIES_AMEBAG2 */
+#else
+	(void)data;
+#endif /* CONFIG_SERIAL_ASYNC_WITH_ERETI */
 #endif /* CONFIG_UART_ASYNC_API */
 
 	/* Clear errors */

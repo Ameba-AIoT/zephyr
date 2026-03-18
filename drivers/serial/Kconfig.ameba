@@ -17,3 +17,7 @@ config UART_AMEBA
 	help
 	  This option enables the UART driver for AMEBA family of processors.
 	  Say y if you wish to use serial port on AMEBA MCU.
+
+config SERIAL_ASYNC_WITH_ERETI
+	bool
+	# realize serial async mechanism with ERETI interrupt
