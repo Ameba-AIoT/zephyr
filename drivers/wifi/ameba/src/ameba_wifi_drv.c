@@ -308,8 +308,7 @@ void ameba_wifi_handle_connect_event(void)
 {
 	net_eth_carrier_on(ameba_wifi_iface[STA_WLAN_INDEX]);
 
-	/* TODOD check IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4) */
-	if (1) {
+	if (IS_ENABLED(CONFIG_RTK_WIFI_STA_AUTO_DHCPV4)) {
 		if (ameba_data[STA_WLAN_INDEX].dhcp_init == 0) {
 			net_dhcpv4_start(ameba_wifi_iface[STA_WLAN_INDEX]);
 			ameba_data[STA_WLAN_INDEX].dhcp_init = 1;

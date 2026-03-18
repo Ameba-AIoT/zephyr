@@ -5,11 +5,7 @@ menuconfig WIFI_AMEBA
 	bool "AMEBA SoC WiFi support"
 	default y
 	select WIFI_USE_NATIVE_NETWORKING
-	select ZEPHYR_WIFI
 	#select NET_L2_WIFI_MGMT
-
-config ZEPHYR_WIFI
-	bool
 
 if WIFI_AMEBA
 
@@ -26,6 +22,7 @@ if WIFI_AMEBA
 		bool "Automatically starts DHCP4 negotiation"
 		depends on NET_DHCPV4
 		depends on NET_IPV4
+		default y
 		help
 			WiFi driver will automatically initiate DHCPV4 negotiation when connected.
 
