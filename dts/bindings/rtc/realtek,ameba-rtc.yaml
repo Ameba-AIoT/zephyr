@@ -5,7 +5,10 @@ description: AMEBA RTC
 
 compatible: "realtek,ameba-rtc"
 
-include: [rtc.yaml, rtc-device.yaml]
+include:
+  - rtc.yaml
+  - rtc-device.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

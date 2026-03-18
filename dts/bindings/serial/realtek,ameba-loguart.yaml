@@ -4,7 +4,11 @@
 description: Ameba LOGUART
 compatible: "realtek,ameba-loguart"
 
-include: [uart-controller.yaml, base.yaml, pinctrl-device.yaml]
+include:
+  - uart-controller.yaml
+  - base.yaml
+  - pinctrl-device.yaml
+  - realtek,ameba-pmu.yaml
 
 bus: uart
 

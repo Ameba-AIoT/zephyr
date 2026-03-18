@@ -1,0 +1,46 @@
+# Copyright (c) 2025 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# realtek,ameba-pmu.yaml
+description: |
+  Realtek Ameba PMU (Power Management Unit) / Wakeup controller
+
+  The PMU controls power domains and can wake up the SoC from low-power
+  states using dedicated peripherals as wakeup sources.
+
+  Peripherals that can act as wakeup sources (such as timers, RTC, GPIO, etc.)
+  must specify the wakeup-source-id property on their respective nodes.
+
+    rtc: rtc@... {
+      ...
+      wakeup-source-id = <WAKE_SRC_RTC>;
+      ...
+    };
+
+  To support this property, the device binding file should include this binding:
+
+    include:
+      - ...
+      - realtek,ameba-pmu.yaml
+
+  A peripheral will actually be used as a wakeup source only when the standard
+  boolean property 'wakeup-source' is also present, e.g.:
+
+    &rtc {
+      ...
+      wakeup-source;
+      ...
+    };
+
+  The PMU wakeup source IDs that can be enabled are defined in the
+  zephyr/include/zephyr/dt-bindings/power/ameba*_power.h header file.
+
+compatible: "realtek,ameba-pmu"
+
+include:
+  - name: base.yaml
+
+properties:
+  wakeup-source-id:
+    type: int
+    description: wakeup-source-id specifier

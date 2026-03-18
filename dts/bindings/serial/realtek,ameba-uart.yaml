@@ -4,7 +4,10 @@
 description: Ameba UART
 compatible: "realtek,ameba-uart"
 
-include: [uart-controller.yaml, pinctrl-device.yaml]
+include:
+  - uart-controller.yaml
+  - pinctrl-device.yaml
+  - realtek,ameba-pmu.yaml
 
 bus: uart
 

@@ -5,7 +5,9 @@ description: Bluetooth HCI for REALTEK AMEBA
 
 compatible: "realtek,ameba-bt-hci"
 
-include: bt-hci.yaml
+include:
+  - bt-hci.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   bt-hci-name:

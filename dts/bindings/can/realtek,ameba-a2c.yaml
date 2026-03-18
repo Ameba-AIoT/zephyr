@@ -5,7 +5,10 @@ description: AMEBA Automotive 2-Wire Connection (A2C)
 
 compatible: "realtek,ameba-a2c"
 
-include: [can-controller.yaml, pinctrl-device.yaml]
+include:
+  - can-controller.yaml
+  - pinctrl-device.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

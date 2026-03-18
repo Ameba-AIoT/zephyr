@@ -5,7 +5,9 @@ description: Ameba counters
 
 compatible: "realtek,ameba-counter"
 
-include: base.yaml
+include:
+  - base.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

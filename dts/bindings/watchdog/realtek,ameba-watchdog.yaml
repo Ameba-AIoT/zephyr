@@ -5,7 +5,9 @@ description: Ameba watchdog
 
 compatible: "realtek,ameba-watchdog"
 
-include: base.yaml
+include:
+  - base.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

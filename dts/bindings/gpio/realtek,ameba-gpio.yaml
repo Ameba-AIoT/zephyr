@@ -5,7 +5,10 @@ description: Realtek Ameba GPIO controller
 
 compatible: "realtek,ameba-gpio"
 
-include: [gpio-controller.yaml, base.yaml]
+include:
+  - gpio-controller.yaml
+  - base.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

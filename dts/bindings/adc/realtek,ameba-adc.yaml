@@ -15,7 +15,10 @@ description: |
 
 compatible: "realtek,ameba-adc"
 
-include: [adc-controller.yaml, pinctrl-device.yaml]
+include:
+  - adc-controller.yaml
+  - pinctrl-device.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   reg:

@@ -18,7 +18,10 @@ description: |
 
 compatible: "realtek,ameba-mac"
 
-include: [pinctrl-device.yaml, ethernet-controller.yaml]
+include:
+  - pinctrl-device.yaml
+  - ethernet-controller.yaml
+  - realtek,ameba-pmu.yaml
 
 properties:
   pinctrl-names:

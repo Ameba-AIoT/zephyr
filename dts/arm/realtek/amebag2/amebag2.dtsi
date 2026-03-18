@@ -17,6 +17,7 @@
 #include <zephyr/dt-bindings/pwm/pwm.h>
 #include <zephyr/dt-bindings/usb/ameba_usb_ep.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/power/amebag2_power.h>
 
 / {
 	cpus {
@@ -103,6 +104,7 @@
 			clocks = <&rcc AMEBA_LOGUART_CLK>;
 			interrupts = <24 0>;
 			current-speed = <1500000>;
+			wakeup-source-id = <WAKE_SRC_UART_LOG>;
 			status = "disabled";
 		};
 
@@ -137,6 +139,7 @@
 			dmas = <&dma 2 1 0xa>,
 				   <&dma 3 0 0x214A1>;
 			dma-names = "rx", "tx";
+			wakeup-source-id = <WAKE_SRC_UART0>;
 			status = "disabled";
 		};
 
@@ -149,6 +152,7 @@
 			dmas = <&dma 2 3 0xa>,
 				   <&dma 3 2 0x214A1>;
 			dma-names = "rx", "tx";
+			wakeup-source-id = <WAKE_SRC_UART1>;
 			status = "disabled";
 		};
 
@@ -161,6 +165,7 @@
 			dmas = <&dma 2 5 0xa>,
 				   <&dma 3 4 0x214A1>;
 			dma-names = "rx", "tx";
+			wakeup-source-id = <WAKE_SRC_UART2>;
 			status = "disabled";
 		};
 
@@ -173,6 +178,7 @@
 			dmas = <&dma 2 25 0xa>,
 				   <&dma 3 24 0x214A1>;
 			dma-names = "rx", "tx";
+			wakeup-source-id = <WAKE_SRC_UART3>;
 			status = "disabled";
 		};
 
@@ -236,6 +242,7 @@
 			#gpio-cells = <2>;
 			interrupts = <25 0>;
 			port = <0>;     /* GPIOA -> port 0 */
+			wakeup-source-id = <WAKE_SRC_GPIOA>;
 			status = "disabled";
 		};
 
@@ -246,6 +253,7 @@
 			#gpio-cells = <2>;
 			interrupts = <26 0>;
 			port = <1>;     /* GPIOB -> port 1 */
+			wakeup-source-id = <WAKE_SRC_GPIOB>;
 			status = "disabled";
 		};
 
@@ -256,6 +264,7 @@
 			#gpio-cells = <2>;
 			interrupts = <27 0>;
 			port = <2>;     /* GPIOC -> port 2 */
+			wakeup-source-id = <WAKE_SRC_GPIOC>;
 			status = "disabled";
 		};
 
@@ -265,6 +274,7 @@
 			clocks = <&rcc AMEBA_LTIM0_CLK>;
 			interrupts = <7 0>;
 			clock-frequency = <32768>;
+			wakeup-source-id = <WAKE_SRC_TIMER0>;
 			status = "disabled";
 		};
 
@@ -274,6 +284,7 @@
 			clocks = <&rcc AMEBA_LTIM1_CLK>;
 			interrupts = <8 0>;
 			clock-frequency = <32768>;
+			wakeup-source-id = <WAKE_SRC_TIMER1>;
 			status = "disabled";
 		};
 
@@ -283,6 +294,7 @@
 			clocks = <&rcc AMEBA_LTIM2_CLK>;
 			interrupts = <9 0>;
 			clock-frequency = <32768>;
+			wakeup-source-id = <WAKE_SRC_TIMER2>;
 			status = "disabled";
 		};
 
@@ -292,6 +304,7 @@
 			clocks = <&rcc AMEBA_LTIM3_CLK>;
 			interrupts = <10 0>;
 			clock-frequency = <32768>;
+			wakeup-source-id = <WAKE_SRC_TIMER3>;
 			status = "disabled";
 		};
 
@@ -396,6 +409,7 @@
 			clocks = <&rcc AMEBA_RTC_CLK>;
 			interrupts = <41 0>;
 			alarms-count = <1>;
+			wakeup-source-id = <WAKE_SRC_RTC>;
 			status = "disabled";
 		};
 
@@ -419,6 +433,7 @@
 			reg = <0x4080ad80 0x20>;
 			interrupts = <69 0>;
 			early_int_cnt = <500>;
+			wakeup-source-id = <WAKE_SRC_IWDG>;
 			status = "disabled";
 		};
 
@@ -458,6 +473,7 @@
 			interrupts = <42 0>;
 			channel-count = <8>;
 			#io-channel-cells = <1>;
+			wakeup-source-id = <WAKE_SRC_ADC>;
 			status = "disabled";
 		};
 
@@ -484,6 +500,7 @@
 			reg = <0x41005000 0x400>;
 			clocks = <&rcc AMEBA_A2C0_CLK>;
 			interrupts = <60 0>;
+			wakeup-source-id = <WAKE_SRC_CAN0>;
 			status = "disabled";
 		};
 
@@ -492,6 +509,7 @@
 			reg = <0x41006000 0x400>;
 			clocks = <&rcc AMEBA_A2C1_CLK>;
 			interrupts = <61 0>;
+			wakeup-source-id = <WAKE_SRC_CAN1>;
 			status = "disabled";
 		};
 
@@ -503,6 +521,7 @@
 			mac: ethernet {
 				compatible = "realtek,ameba-mac";
 				interrupts = <48 0>;
+				wakeup-source-id = <WAKE_SRC_RMII>;
 				status = "disabled";
 			};
 
@@ -527,6 +546,7 @@
 		//	pnoise-thre = <800 800 800 800>;
 		//	channel-status = <1 1 1 1>;
 		//	input-key = <INPUT_KEY_0 INPUT_KEY_1 INPUT_KEY_2 INPUT_KEY_3>;
+		//	wakeup-source-id = <WAKE_SRC_CAPTOUCH>;
 		//	status = "disabled";
 		//};
 
@@ -556,6 +576,7 @@
 			interrupts = <58 0>;
 			max-bus-freq = <52000000>; // 52MHz for mmc card
 			min-bus-freq = <400000>; // 400KHz
+			wakeup-source-id = <WAKE_SRC_SDIO_HOST>;
 			status = "disabled";
 		};
 
@@ -578,6 +599,7 @@
 
 	bt: bt {
 		compatible = "realtek,ameba-bt-hci";
+		wakeup-source-id = <WAKE_SRC_BT_WAKE_HOST>;
 		status = "disabled";
 	};
 };

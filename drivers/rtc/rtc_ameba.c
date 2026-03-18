@@ -221,12 +221,6 @@ static int rtc_ameba_init(const struct device *dev)
 
 	k_mutex_init(&data->lock);
 
-#ifdef CONFIG_PM
-#if DT_NODE_HAS_PROP(DT_DRV_INST(0), wakeup_source)
-	SOCPS_SetAPWakeEvent(WAKE_SRC_RTC, ENABLE);
-#endif
-#endif
-
 	err = rtc_ameba_configure(dev);
 
 	return err;

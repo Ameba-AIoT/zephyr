@@ -130,3 +130,27 @@ bool pm_s2ram_mark_check_and_clear(void)
 	}
 	return false;
 }
+
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+#define HANDLE_WAKEUP_SOURCE_NODE(node_id)                                                         \
+	IF_ENABLED(DT_PROP_OR(node_id, wakeup_source, 0), (         \
+		IF_ENABLED(DT_NODE_HAS_PROP(node_id, wakeup_source_id), ( \
+			do {                                                    \
+				const uint32_t wake_src =                             \
+					DT_PROP(node_id, wakeup_source_id);                 \
+				LOG_DBG("PM: Enabling wakeup source for %s (ID: %x)", \
+						DT_NODE_FULL_NAME(node_id), wake_src);            \
+				SOCPS_SetAPWakeEvent(wake_src, ENABLE);               \
+			} while (0);                                            \
+		))                                                        \
+	))
+
+static int ameba_universal_wakeup_init(void)
+{
+	DT_FOREACH_STATUS_OKAY_NODE(HANDLE_WAKEUP_SOURCE_NODE);
+	LOG_DBG("PM: All wakeup sources initialized.");
+	return 0;
+}
+
+SYS_INIT(ameba_universal_wakeup_init, POST_KERNEL, CONFIG_APPLICATION_INIT_PRIORITY);
+#endif

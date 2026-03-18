@@ -8,6 +8,7 @@
 #include <ameba_soc.h>
 #include <boot_security_km4tz.h>
 #include <bootloader_km4tz.h>
+#include <boot_ota_km4tz.h>
 #include <fault_injection_hardening.h>
 
 #include <zephyr/device.h>
@@ -31,12 +32,7 @@ LOG_MODULE_REGISTER(loader, CONFIG_MCUBOOT_LOG_LEVEL);
 
 _LONG_CALL_ void RCC_PeriphClockCmd(u32 APBPeriph, u32 APBPeriph_Clock, u8 NewState);
 extern void BOOT_ROM_Copy(void *__restrict dst0, const void *__restrict src0, size_t len0);
-extern void Peripheral_Reset(void);
-extern bool BOOT_RRAM_InfoValid(void);
-extern void BOOT_Log_Init(void);
 extern void RSIP_IV_Set(uint8_t index, uint8_t *IV);
-extern fih_ret BOOT_OTFCheck(uint32_t start_addr, uint32_t end_addr, uint32_t IV_index,
-			     uint32_t OTF_index);
 
 extern MCM_MemTypeDef meminfo;
 
