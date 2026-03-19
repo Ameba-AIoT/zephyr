@@ -76,6 +76,7 @@ static bool spi_ameba_transfer_ongoing(struct spi_ameba_data *data)
 	return spi_context_tx_on(&data->ctx) || spi_context_rx_on(&data->ctx);
 }
 
+#if !defined(CONFIG_SPI_AMEBA_INTERRUPT)
 static int spi_ameba_get_err(const struct spi_ameba_config *cfg)
 {
 	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
@@ -139,6 +140,7 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 
 	return spi_ameba_get_err(cfg);
 }
+#endif
 
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
 static void spi_ameba_complete(const struct device *dev, int status)
@@ -166,7 +168,6 @@ static void spi_ameba_receive_data(const struct device *dev)
 	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
 
 	uint32_t rxlevel;
-	int err = 0;
 	uint32_t datalen = data->datasize;  /* data bit: 4~16 bits */
 	int dfs = ((datalen - 1) >> 3) + 1; /* frame number: 1, 2 bytes */
 
@@ -222,7 +223,6 @@ static void spi_ameba_send_data(const struct device *dev)
 	const struct spi_ameba_config *cfg = dev->config;
 	struct spi_ameba_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
-	int err = 0;
 	uint32_t txdata = 0U;
 	uint32_t txmax;
 	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
@@ -452,7 +452,6 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 {
 	const struct spi_ameba_config *cfg = dev->config;
 	struct spi_ameba_data *data = dev->data;
-	struct spi_context *ctx = &data->ctx;
 	struct spi_dma_stream *spi_dma = &data->dma_rx;
 	uint32_t datalen = data->datasize; /* data bit: 4~16 bits */
 	uint32_t handshake_index = spi_dma->dma_cfg.dma_slot;
@@ -507,7 +506,7 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 			spi_dma->dma_cfg.dest_burst_length = 8;
 			spi_dma->dma_cfg.dest_data_size = 2;
 		} else {
-			LOG_ERR("pTxData=%p,  Length=%lu\n", pdata, length);
+			LOG_ERR("pTxData=%p,  Length=%u\n", pdata, length);
 			return -EINVAL;
 		}
 	} else {
@@ -547,7 +546,6 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 	const struct spi_ameba_config *cfg = dev->config;
 
 	struct spi_ameba_data *data = dev->data;
-	struct spi_context *ctx = &data->ctx;
 	struct spi_dma_stream *spi_dma = &data->dma_tx;
 	uint32_t datalen = data->datasize; /* data bit: 4~16 bits */
 	uint32_t handshake_index = spi_dma->dma_cfg.dma_slot;
@@ -736,7 +734,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 		data->transfer_dir = SPI_AMEBA_HALF_DUPLEX_TX_FLAG;
 	} else {
 		LOG_ERR("Not support rx only mode for dma");
-		return -ENOTSUP;
+		ret = -ENOTSUP;
+		goto end;
 	}
 
 	LOG_INF("dma mode");
@@ -751,7 +750,7 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 				LOG_INF("%s dma trx frame number:%u", __func__, dma_len);
 				ret = spi_dma_move_buffers(dev, dma_len);
 				if (ret != 0) {
-					return ret;
+					goto dma_error;
 				}
 			} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
 				LOG_DBG("%s dma tx frame number:%u", __func__, dma_len);
@@ -759,7 +758,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 				ret = spi_dma_move_tx_buffers(dev, dma_len);
 			} else {
 				LOG_ERR("Not support rx only mode for dma");
-				return -ENOTSUP;
+				ret = -ENOTSUP;
+				goto end;
 			}
 
 			if (ret != 0) {
@@ -773,7 +773,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 				SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_TDMAE);
 			} else {
 				LOG_ERR("Not support rx only mode for dma");
-				return -ENOTSUP;
+				ret = -ENOTSUP;
+				goto end;
 			}
 
 			ret = spi_ameba_wait_dma_rx_tx_done(dev);
@@ -799,7 +800,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 				spi_context_update_tx(&data->ctx, frame_size_bytes, dma_len);
 			} else {
 				LOG_ERR("Not support rx only mode for dma");
-				return -ENOTSUP;
+				ret = -ENOTSUP;
+				goto dma_error;
 				/* spi_context_update_rx(&data->ctx, frame_size_bytes,
 				 * dma_len);
 				 */
@@ -808,7 +810,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 			if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG &&
 			    !spi_context_tx_on(&data->ctx) && spi_context_rx_on(&data->ctx)) {
 				LOG_ERR("dma dev is not enabled");
-				return -ENOTSUP;
+				ret = -ENOTSUP;
+				goto dma_error;
 			}
 		}
 
@@ -817,7 +820,8 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 		}
 	} else {
 		LOG_ERR("dma dev is not enabled");
-		return -ENOTSUP;
+		ret = -ENOTSUP;
+		goto end;
 	}
 
 	/* check after trx cb done
@@ -829,15 +833,10 @@ dma_error:
 	SSI_SetDmaEnable(spi, DISABLE, SPI_BIT_TDMAE);
 	SSI_SetDmaEnable(spi, DISABLE, SPI_BIT_RDMAE);
 
-	ret = dma_stop(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
-	if (ret) {
-		LOG_DBG("Rx dma_stop failed with error %d", ret);
-	}
+	(void)dma_stop(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 
-	ret = dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
-	if (ret) {
-		LOG_DBG("Tx dma_stop failed with error %d", ret);
-	}
+	(void)dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
+
 	/* spi_context_complete(&data->ctx, dev, ret); */
 
 end:
@@ -887,6 +886,12 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 		uint32_t int_mask = 0; /* fix warning */
 
 		data->fifo_diff = 0U;
+
+		if (data->datasize > 16 || data->datasize < 4) {
+			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
+			ret = -EINVAL;
+			goto end;
+		}
 
 		if (spi_ameba_is_slave(data)) {
 			if (tx_bufs) { /* && tx_bufs->buffers*/
@@ -1080,8 +1085,7 @@ static int spi_ameba_init(const struct device *dev)
 
 static int spi_ameba_transceive(const struct device *dev, const struct spi_config *spi_cfg,
 				const struct spi_buf_set *tx_bufs,
-				const struct spi_buf_set *rx_bufs, bool asynchronous,
-				spi_callback_t cb, void *userdata)
+				const struct spi_buf_set *rx_bufs)
 {
 #ifdef CONFIG_SPI_AMEBA_DMA
 	struct spi_ameba_data *data = dev->data;
