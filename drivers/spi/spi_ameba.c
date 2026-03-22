@@ -298,7 +298,6 @@ static void spi_ameba_isr(struct device *dev)
 {
 	const struct spi_ameba_config *cfg = dev->config;
 	struct spi_ameba_data *data = dev->data;
-	struct spi_context *ctx = &data->ctx;
 
 	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
 	int err = 0;
@@ -317,19 +316,11 @@ static void spi_ameba_isr(struct device *dev)
 	if (int_status & SPI_BIT_RXFIS) {
 		LOG_DBG("[ISR] RXFIS\r\n");
 		spi_ameba_receive_data(dev);
-
-		if (!spi_context_rx_on(ctx)) {
-			SSI_INTConfig(spi, SPI_BIT_RXFIM, DISABLE);
-		}
 	}
 
 	if (int_status & SPI_BIT_TXEIS) {
 		LOG_DBG("[ISR] TXEIS\r\n");
 		spi_ameba_send_data(dev);
-
-		if (!spi_context_tx_on(ctx)) {
-			SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
-		}
 	}
 
 	if (!spi_ameba_transfer_ongoing(data)) {
