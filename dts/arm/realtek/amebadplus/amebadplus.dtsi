@@ -53,7 +53,7 @@
 	soc {
 		sram0: memory@20010020 {
 			compatible = "mmio-sram";
-			reg = <0x20010020 0x00030000>;
+			reg = <0x20010020 0x00058000>;
 		};
 
 		psram: memory@60000000 {
