@@ -1175,7 +1175,7 @@ static int uart_ameba_init(const struct device *dev)
 #ifdef CONFIG_UART_ASYNC_API
 
 #define UART_DMA_CHANNEL_INIT(index, dir)                                                          \
-	.dma_dev = AMEBA_DT_INST_DMA_CTLR(index, dir),                                             \
+	.dma_dev = DEVICE_DT_GET(DT_INST_DMAS_CTLR_BY_NAME(index, dir)),                           \
 	.dma_channel = DT_INST_DMAS_CELL_BY_NAME(index, dir, channel),                             \
 	.dma_cfg = AMEBA_DMA_CONFIG(index, dir, 1, uart_ameba_dma_##dir##_cb),
 

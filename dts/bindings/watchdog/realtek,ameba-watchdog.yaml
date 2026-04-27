@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Realtek Semiconductor Corp.
+# Copyright (c) 2026 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
 description: Ameba watchdog
@@ -13,7 +13,10 @@ properties:
   reg:
     required: true
 
-  early_int_cnt:
+  interrupts:
+    required: true
+
+  early-int-cnt:
     type: int
     default: 500
     description: |

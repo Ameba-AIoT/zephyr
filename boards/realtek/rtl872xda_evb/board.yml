@@ -3,3 +3,5 @@ board:
   vendor: realtek
   socs:
     - name: rtl8721dx
+      variants:
+        - name: mcuboot

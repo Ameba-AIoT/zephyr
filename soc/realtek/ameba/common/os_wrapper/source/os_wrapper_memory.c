@@ -16,7 +16,7 @@ extern struct sys_heap _system_heap;
 
 void rtos_mem_init(void)
 {
-	LOG_ERR("%s Not Support\n", __func__);
+	/* Zephyr initializes the system heap automatically. Nothing to do. */
 }
 
 void rtos_mem_free(void *pbuf)
@@ -32,7 +32,7 @@ void *rtos_mem_malloc(uint32_t size)
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
 	return k_aligned_alloc(CACHE_LINE_SIZE, CACHE_LINE_ALIGNMENT(size));
 #else
-	LOG_ERR("%s <<< k_aligned_alloc not support. >>>\n", __func__);
+	LOG_ERR("%s <<< k_aligned_alloc not support. >>>", __func__);
 	return NULL;
 #endif
 }
@@ -101,7 +101,7 @@ uint32_t rtos_mem_get_free_heap_size(void)
 	sys_heap_runtime_stats_get(_SYSTEM_HEAP, &stats);
 	size = stats.free_bytes;
 #else
-	LOG_ERR("%s Not Support\n", __func__);
+	LOG_ERR("%s Not Support", __func__);
 #endif
 	return size;
 }
@@ -116,7 +116,7 @@ uint32_t rtos_mem_get_minimum_ever_free_heap_size(void)
 	sys_heap_runtime_stats_get(_SYSTEM_HEAP, &stats);
 	size = K_HEAP_MEM_POOL_SIZE - stats.max_allocated_bytes;
 #else
-	LOG_ERR("%s Not Support\n", __func__);
+	LOG_ERR("%s Not Support", __func__);
 #endif
 	return size;
 }

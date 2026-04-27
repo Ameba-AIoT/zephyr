@@ -1124,7 +1124,7 @@ static DEVICE_API(spi, ameba_spi_api) = {
 #define SPI_DMA_STATUS_SEM(index)                                                                  \
 	.status_sem = Z_SEM_INITIALIZER(spi_ameba_data_##index.status_sem, 0, 1),
 #define SPI_DMA_CHANNEL_INIT(index, dir)                                                           \
-	.dma_dev = AMEBA_DT_INST_DMA_CTLR(index, dir),                                             \
+	.dma_dev = DEVICE_DT_GET(DT_INST_DMAS_CTLR_BY_NAME(index, dir)),                           \
 	.dma_channel = DT_INST_DMAS_CELL_BY_NAME(index, dir, channel),                             \
 	.dma_cfg = AMEBA_DMA_CONFIG(index, dir, 1, spi_ameba_dma_callback),
 

@@ -11,7 +11,6 @@ LOG_MODULE_REGISTER(os_if_sema);
 
 int rtos_sema_create(rtos_sema_t *pp_handle, uint32_t init_count, uint32_t max_count)
 {
-	int status;
 	/* K_SEM_DEFINE or k_malloc for sema struct */
 	if (pp_handle == NULL) {
 		return RTK_FAIL;
@@ -23,14 +22,14 @@ int rtos_sema_create(rtos_sema_t *pp_handle, uint32_t init_count, uint32_t max_c
 		return RTK_FAIL;
 	}
 #else
-	LOG_ERR("%s <<< k_malloc not support. >>>\n", __func__);
+	LOG_ERR("%s <<< k_malloc not support. >>>", __func__);
 	return RTK_FAIL;
 #endif
 
-	status = k_sem_init(*pp_handle, init_count, max_count);
-	if (status == 0) {
+	if (k_sem_init(*pp_handle, init_count, max_count) == 0) {
 		return RTK_SUCCESS;
 	} else {
+		k_free(*pp_handle);
 		return RTK_FAIL;
 	}
 }
@@ -47,13 +46,11 @@ int rtos_sema_delete(rtos_sema_t p_handle)
 	}
 
 	k_free(p_handle);
-
 	return RTK_SUCCESS;
 }
 
 int rtos_sema_take(rtos_sema_t p_handle, uint32_t wait_ms)
 {
-	int status;
 	k_timeout_t wait_ticks;
 
 	if (p_handle == NULL) {
@@ -66,9 +63,7 @@ int rtos_sema_take(rtos_sema_t p_handle, uint32_t wait_ms)
 		wait_ticks = K_MSEC(wait_ms);
 	}
 
-	status = k_sem_take(p_handle, wait_ticks);
-
-	if (status == 0) {
+	if (k_sem_take(p_handle, wait_ticks) == 0) {
 		return RTK_SUCCESS;
 	} else {
 		return RTK_FAIL;
@@ -77,7 +72,13 @@ int rtos_sema_take(rtos_sema_t p_handle, uint32_t wait_ms)
 
 int rtos_sema_give(rtos_sema_t p_handle)
 {
+	struct k_sem *sem = (struct k_sem *)p_handle;
+
 	if (p_handle == NULL) {
+		return RTK_FAIL;
+	}
+
+	if (k_sem_count_get(sem) >= sem->limit) {
 		return RTK_FAIL;
 	}
 
@@ -88,7 +89,7 @@ int rtos_sema_give(rtos_sema_t p_handle)
 uint32_t rtos_sema_get_count(rtos_sema_t p_handle)
 {
 	if (p_handle == NULL) {
-		return RTK_FAIL;
+		return RTK_SUCCESS;
 	}
 
 	return k_sem_count_get(p_handle);

@@ -9,4 +9,4 @@
 CONFIG_TRUSTED_EXECUTION_NONSECURE=y
 
 # Disable TFM BL2 since it is not supported
-CONFIG_TFM_BL2=n
+CONFIG_TFM_BL2=y

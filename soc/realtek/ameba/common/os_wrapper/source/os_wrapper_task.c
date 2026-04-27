@@ -5,48 +5,71 @@
  */
 
 #include "os_wrapper.h"
-
+#include <zephyr/kernel_structs.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(os_if_task);
-extern struct k_thread *z_swap_next_thread(void);
+
+struct rtos_task_delete_context {
+	struct k_work work;
+	k_tid_t thread;
+	void *stack;
+};
+
+static void deferred_task_delete_handler(struct k_work *work)
+{
+	struct rtos_task_delete_context *ctx =
+		CONTAINER_OF(work, struct rtos_task_delete_context, work);
+
+	k_thread_abort(ctx->thread);
+
+	if (ctx->stack) {
+		k_free(ctx->stack);
+	}
+	k_free(ctx->thread);
+	k_free(ctx);
+}
 
 int rtos_sched_start(void)
 {
-	LOG_WRN("%s Not Support\n", __func__);
+	LOG_WRN("%s Not Support", __func__);
 	return RTK_SUCCESS;
 }
 
 int rtos_sched_stop(void)
 {
-	LOG_ERR("%s Not Support\n", __func__);
-	return RTK_SUCCESS;
+	LOG_ERR("%s Not Support", __func__);
+	return RTK_FAIL;
 }
 
 int rtos_sched_suspend(void)
 {
+	if (k_is_in_isr()) {
+		return RTK_FAIL;
+	}
 	k_sched_lock();
 	return RTK_SUCCESS;
 }
 
 int rtos_sched_resume(void)
 {
+	if (k_is_in_isr()) {
+		return RTK_FAIL;
+	}
 	k_sched_unlock();
 	return RTK_SUCCESS;
 }
 
 int rtos_sched_get_state(void)
 {
-	int status = RTK_FAIL;
-
-	if (z_swap_next_thread() == NULL) {
-		status = RTOS_SCHED_NOT_STARTED;
-	} else if (_current->base.sched_locked != 0U) {
-		status = RTOS_SCHED_SUSPENDED;
-	} else {
-		status = RTOS_SCHED_RUNNING;
+	if (k_is_pre_kernel()) {
+		return RTOS_SCHED_NOT_STARTED;
 	}
 
-	return status;
+	if (_current->base.sched_locked != 0U) {
+		return RTOS_SCHED_SUSPENDED;
+	}
+
+	return RTOS_SCHED_RUNNING;
 }
 
 int rtos_task_create(rtos_task_t *pp_handle, const char *p_name, void (*p_routine)(void *),
@@ -54,10 +77,12 @@ int rtos_task_create(rtos_task_t *pp_handle, const char *p_name, void (*p_routin
 {
 	k_tid_t p_thread;
 	k_thread_stack_t *p_stack;
-	/* higher value, lower priority. see
-	 * https://docs.zephyrproject.org/latest/kernel/services/threads/index.html#thread-priorities
-	 */
+	/* higher value, lower priority. */
 	int switch_priority = RTOS_TASK_MAX_PRIORITIES - priority;
+
+	if (priority >= RTOS_TASK_MAX_PRIORITIES) {
+		return RTK_FAIL;
+	}
 
 #if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
 	p_thread = k_malloc(sizeof(struct k_thread));
@@ -69,11 +94,11 @@ int rtos_task_create(rtos_task_t *pp_handle, const char *p_name, void (*p_routin
 	p_stack = (k_thread_stack_t *)k_malloc(K_KERNEL_STACK_LEN(stack_size_in_byte));
 	if (p_stack == NULL) {
 		k_free(p_thread);
-		LOG_ERR("Alloc stack fail for %s\n", p_name);
+		LOG_ERR("Alloc stack fail for %s", p_name);
 		return RTK_FAIL;
 	}
 #else
-	LOG_ERR("%s <<< k_malloc not support. >>>\n", __func__);
+	LOG_ERR("%s <<< k_malloc not support. >>>", __func__);
 	return RTK_FAIL;
 #endif
 
@@ -91,30 +116,30 @@ int rtos_task_create(rtos_task_t *pp_handle, const char *p_name, void (*p_routin
 	return RTK_SUCCESS;
 }
 
-void thread_abort_hook(struct k_thread *p_free)
-{
-	k_tid_t p_curr = k_thread_custom_data_get();
-
-	if (p_curr == p_free) {
-		k_free((void *)p_curr->stack_info.start);
-		k_free(p_curr);
-	}
-}
-
 int rtos_task_delete(rtos_task_t p_handle)
 {
 	k_tid_t p_free = (k_tid_t)p_handle;
 	k_tid_t p_curr = k_current_get();
+	bool is_self_delete = (p_free == NULL) || (p_curr == p_free);
 
-	if ((p_free == NULL) || (p_curr == p_free)) {
-		/* TODO: wait wifi use dynamic task create   */
-		/* k_thread_custom_data_set((void *)p_curr); */
+	if (is_self_delete) {
+		struct rtos_task_delete_context *ctx = NULL;
+#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
+		ctx = k_malloc(sizeof(struct rtos_task_delete_context));
+#else
+		LOG_ERR("%s <<< k_malloc not support. >>>", __func__);
+#endif
+		if (ctx) {
+			ctx->thread = p_curr;
+			ctx->stack = (void *)p_curr->stack_info.start;
+			k_work_init(&ctx->work, deferred_task_delete_handler);
+			k_work_submit(&ctx->work);
+		}
 
-		k_thread_abort(p_curr);
+		k_sleep(K_FOREVER);
 		CODE_UNREACHABLE;
 	} else {
 		k_thread_abort(p_free);
-
 		k_free((void *)p_free->stack_info.start);
 		k_free(p_free);
 	}
@@ -124,18 +149,27 @@ int rtos_task_delete(rtos_task_t p_handle)
 
 int rtos_task_suspend(rtos_task_t p_handle)
 {
+	if (p_handle == NULL) {
+		return RTK_FAIL;
+	}
 	k_thread_suspend((k_tid_t)p_handle);
 	return RTK_SUCCESS;
 }
 
 int rtos_task_resume(rtos_task_t p_handle)
 {
+	if (p_handle == NULL) {
+		return RTK_FAIL;
+	}
 	k_thread_resume((k_tid_t)p_handle);
 	return RTK_SUCCESS;
 }
 
 int rtos_task_yield(void)
 {
+	if (k_is_in_isr()) {
+		return RTK_FAIL;
+	}
 	k_yield();
 	return RTK_SUCCESS;
 }
@@ -167,8 +201,34 @@ uint32_t rtos_task_priority_get(rtos_task_t p_handle)
 	return RTOS_TASK_MAX_PRIORITIES - priority;
 }
 
+void thread_abort_hook(struct k_thread *p_free)
+{
+	/* Deferred deletion handles cleanup via workqueue. */
+}
+
+static void thread_status_cb(const struct k_thread *thread, void *user_data)
+{
+	const char *name = k_thread_name_get((k_tid_t)thread);
+	int prio = k_thread_priority_get((k_tid_t)thread);
+	unsigned int state = thread->base.thread_state;
+	size_t unused;
+
+	k_thread_stack_space_get(thread, &unused);
+
+	LOG_INF("  %-16s  prio=%-4d  state=0x%x  stack_free=%u/%u", name ? name : "(anon)", prio,
+		state, (unsigned int)unused, (unsigned int)thread->stack_info.size);
+}
+
+void rtos_task_out_current_status(void)
+{
+	LOG_INF("=== Thread Status Dump ===");
+	k_thread_foreach(thread_status_cb, NULL);
+}
+
 void rtos_create_secure_context(uint32_t size)
 {
+	/* Zephyr manages TrustZone secure contexts implicitly via kernel.
+	 * No manual allocation is needed.
+	 */
 	(void)size;
-	LOG_ERR("%s Not Support\n", __func__);
 }

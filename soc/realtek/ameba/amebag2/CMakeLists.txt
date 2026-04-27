@@ -6,8 +6,7 @@ zephyr_include_directories(.)
 
 if(CONFIG_MCUBOOT)
   zephyr_linker_sources(ROM_START SORT_KEY 0x0 loader_section.ld)
-  zephyr_sources(mcuboot_action_hook.c)
-  zephyr_library_sources_ifdef(CONFIG_MCUBOOT_HW_DOWNGRADE_PREVENTION mcuboot_security_counters.c)
+  zephyr_sources(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_action_hook.c)
 else()
   zephyr_sources(soc.c)
   zephyr_library_sources_ifdef(CONFIG_PM pm.c)
@@ -34,16 +33,16 @@ endif()
 file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/*.bin")
 
 if(BIN_FILES)
-  if (CONFIG_BOOTLOADER_MCUBOOT)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/km4tz)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/km4ns)
-    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
-    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/ameba_layout.ld DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
+  if (CONFIG_BOOTLOADER_MCUBOOT OR CONFIG_TFM_BL2)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/km4tz)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/km4ns)
+    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
+    file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/ameba_layout.ld DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
     execute_process(COMMAND_ERROR_IS_FATAL ANY
       COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py helper manifest-fmt
-              --output-file ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/manifest_formatted.json
-      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project
+              --output-file ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/manifest_formatted.json
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
     )
     set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
       COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
@@ -58,18 +57,10 @@ if(BIN_FILES)
     #      that needed to be executed exactly after ${ZEPHYR_BASE}/cmake/mcuboot.cmake
     set_target_properties(zephyr_property_target PROPERTIES SIGNING_SCRIPT
       ${CMAKE_CURRENT_LIST_DIR}/../common/primary_image.cmake)
-    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix amebagreen2_km4tz)
-    set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name amebagreen2)
-    set_target_properties(zephyr_property_target PROPERTIES ameba_image_name km4tz)
-
-    # post process secondary image
-    set(origin_secondary_image ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
-    set(output_path ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
-    set(output_prefix amebagreen2_km4ns)
-    set(ameba_soc_name amebagreen2)
-    set(ameba_image_name km4ns)
-    set(section_name KM4NS_IMG2_XIP)
-    include(${CMAKE_CURRENT_LIST_DIR}/../common/secondary_image.cmake)
+    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix ${SOC_SERIES}_app)
+    set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name ${SOC_SERIES})
+    set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image
+      ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
   else ()
     if(CONFIG_MCUBOOT)
       # Generate container key from manifest(raw key)
@@ -82,14 +73,14 @@ if(BIN_FILES)
         elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
           set(algorithm secp256r1)
         endif()
-        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project)
-        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebag2/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project/)
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
+        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
         execute_process(COMMAND_ERROR_IS_FATAL ANY
           COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
                   --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
                   --algorithm ${algorithm}
                   --image image2
-          WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/amebagreen2_gcc_project
+          WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
         )
       endif()
       #Invoke mcuboot bootloader generation in merge_bin.py
@@ -104,7 +95,10 @@ if(BIN_FILES)
       COMMAND ${CMAKE_NM} ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} | sort > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
       COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
       COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py ${PYTHON_SCRIPT_ARGS}
-      DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC_SERIES}/manifest.json5
+      DEPENDS
+        ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME}
+        ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${CONFIG_SOC_SERIES}/manifest.json5
+        ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/merge_bin.py
     )
   endif()
 else()

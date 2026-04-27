@@ -1616,7 +1616,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 
 /* src_dev and dest_dev should be 'MEMORY' or 'PERIPHERAL'. */
 #define I2S_DMA_CHANNEL_INIT(index, dir)                                                           \
-	.dma_dev = AMEBA_DT_INST_DMA_CTLR(index, dir),                                             \
+	.dma_dev = DEVICE_DT_GET(DT_INST_DMAS_CTLR_BY_NAME(index, dir)),                           \
 	.dma_channel = DT_INST_DMAS_CELL_BY_NAME(index, dir, channel),                             \
 	.dma_cfg = AMEBA_DMA_CONFIG(index, dir, 1, NULL),
 

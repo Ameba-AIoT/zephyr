@@ -13,7 +13,7 @@
 	loguart_default: loguart_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 8, AMEBA_LOGUART)>,        /* RXD */
-					 <AMEBA_PINMUX('A', 7, AMEBA_LOGUART)>;        /* TXD */
+				 <AMEBA_PINMUX('A', 7, AMEBA_LOGUART)>;        /* TXD */
 			bias-pull-up;
 		};
 	};
@@ -21,7 +21,7 @@
 	uart0_default: uart0_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 19, AMEBA_UART)>,
-					 <AMEBA_PINMUX('A', 18, AMEBA_UART)>;
+				 <AMEBA_PINMUX('A', 18, AMEBA_UART)>;
 			bias-pull-up;
 		};
 	};
@@ -29,7 +29,7 @@
 	uart3_default: uart3_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 25, AMEBA_UART)>,
-					 <AMEBA_PINMUX('A', 26, AMEBA_UART)>;
+				 <AMEBA_PINMUX('A', 26, AMEBA_UART)>;
 			bias-pull-up;
 		};
 	};
@@ -38,8 +38,8 @@
 	spi1_default: spi1_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('B', 6, AMEBA_SPIM)>,/* AMEBA_SPI1_CLK */
-					 <AMEBA_PINMUX('B', 4, AMEBA_SPIM)>,/* AMEBA_SPI1_MOSI */
-					 <AMEBA_PINMUX('B', 5, AMEBA_SPIM)>;/* AMEBA_SPI1_MISO */
+				 <AMEBA_PINMUX('B', 4, AMEBA_SPIM)>,/* AMEBA_SPI1_MOSI */
+				 <AMEBA_PINMUX('B', 5, AMEBA_SPIM)>;/* AMEBA_SPI1_MISO */
 			bias-pull-up;
 		};
 		group2 {
@@ -51,7 +51,7 @@
 	i2c0_default: i2c0_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 25, AMEBA_I2C)>,
-					 <AMEBA_PINMUX('A', 26, AMEBA_I2C)>;
+				 <AMEBA_PINMUX('A', 26, AMEBA_I2C)>;
 			bias-pull-up;
 		};
 	};
@@ -95,8 +95,8 @@
 	pwm0_default: pwm0_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 12, AMEBA_PWM_HS)>,/* Channel 0 Output Pin */
-					 <AMEBA_PINMUX('A', 13, AMEBA_PWM_HS)>,
-					 <AMEBA_PINMUX('B', 2, AMEBA_TIMINPUT_HS)>; /* TRGI */
+				 <AMEBA_PINMUX('A', 13, AMEBA_PWM_HS)>,
+				 <AMEBA_PINMUX('B', 2, AMEBA_TIMINPUT_HS)>; /* TRGI */
 			bias-pull-up;
 		};
 	};

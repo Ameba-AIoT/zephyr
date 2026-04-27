@@ -31,7 +31,7 @@ int rtos_timer_create(rtos_timer_t *pp_handle, const char *p_timer_name, uint32_
 		return RTK_FAIL;
 	}
 #else
-	LOG_ERR("%s <<< k_malloc not support. >>>\n", __func__);
+	LOG_ERR("%s <<< k_malloc not support. >>>", __func__);
 	return RTK_FAIL;
 #endif
 
@@ -128,6 +128,10 @@ uint32_t rtos_timer_is_timer_active(rtos_timer_t p_handle)
 {
 	struct k_timer *p_timer = p_handle;
 
+	if (p_handle == NULL) {
+		return 0;
+	}
+
 	return (k_timer_remaining_get(p_timer) != 0u) ? TRUE : FALSE;
 }
 
@@ -135,10 +139,14 @@ uint32_t rtos_timer_get_id(rtos_timer_t p_handle)
 {
 	k_timer_wrapper_t *p_timer = p_handle;
 
+	if (p_handle == NULL) {
+		return 0;
+	}
+
 	return p_timer->timer_id;
 }
 
 _WEAK void init_timer_wrapper(void)
 {
-	LOG_ERR("%s Not Support\n", __func__);
+	LOG_ERR("%s Not Support", __func__);
 }

@@ -2,5 +2,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_sources_ifdef(CONFIG_WIFI_AMEBA
-  src/ameba_wifi_drv.c
+  ameba_wifi_drv.c
   )
