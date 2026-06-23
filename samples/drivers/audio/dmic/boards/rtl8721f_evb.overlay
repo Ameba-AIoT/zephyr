@@ -4,6 +4,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+&dma {
+	status = "okay";
+};
+
+&i2s0 {
+	pinctrl-0 = <&i2s0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
 dmic_dev: &codec {
+	pinctrl-0 = <&dmic_default>;
+	pinctrl-names = "default";
+	i2s-index = <0>;
 	status = "okay";
 };

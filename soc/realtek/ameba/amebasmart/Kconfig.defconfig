@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_RTL8730E
+
+config CACHE_MANAGEMENT
+	default y
+
+config NUM_IRQS
+	# CA32 highest SPI: AON_TIM_IRQ=95, GIC INTID=95+32=127, so NUM_IRQS=128.
+	# GIC v3 ITS: LPIs start at 8192, reserve 16384 total.
+	default 16384 if GIC_V3_ITS
+	default 128 if !GIC_V3_ITS
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 25000000
+
+config DYNAMIC_INTERRUPTS
+	default y
+
+config SOC_PREP_HOOK
+	default y
+
+endif # SOC_RTL8730E

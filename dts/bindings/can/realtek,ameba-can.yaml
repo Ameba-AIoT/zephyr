@@ -1,9 +1,9 @@
 # Copyright (c) 2025 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-description: AMEBA Automotive 2-Wire Connection (A2C)
+description: AMEBA Controller Area Network  (CAN)
 
-compatible: "realtek,ameba-a2c"
+compatible: "realtek,ameba-can"
 
 include:
   - can-controller.yaml

@@ -9,10 +9,10 @@ if(CONFIG_MCUBOOT)
   zephyr_sources(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_action_hook.c)
 else()
   zephyr_sources(soc.c)
-  zephyr_library_sources_ifdef(CONFIG_PM pm.c)
+  zephyr_library_sources_ifdef(CONFIG_PM ${CMAKE_CURRENT_LIST_DIR}/../common/pm.c)
 endif()
 
-zephyr_linker_sources(RAMFUNC_SECTION ram_function_section.ld)
+zephyr_linker_sources(RAMFUNC_SECTION ${CMAKE_CURRENT_LIST_DIR}/../common/ram_function_section.ld)
 zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
 set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
@@ -57,36 +57,34 @@ if(BIN_FILES)
     #      that needed to be executed exactly after ${ZEPHYR_BASE}/cmake/mcuboot.cmake
     set_target_properties(zephyr_property_target PROPERTIES SIGNING_SCRIPT
       ${CMAKE_CURRENT_LIST_DIR}/../common/primary_image.cmake)
-    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix ${SOC_SERIES}_app)
+    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix app)
     set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name ${SOC_SERIES})
     set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image
       ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
-  else ()
-    if(CONFIG_MCUBOOT)
-      # Generate container key from manifest(raw key)
-      #TODO:
-      #  1. support more algorithm
-      #  2. move these code to common place
-      if(CONFIG_AMEBA_USING_MANIFEST_KEY)
-        if (CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
-          set(algorithm ed25519)
-        elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
-          set(algorithm secp256r1)
-        endif()
-        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
-        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
-        execute_process(COMMAND_ERROR_IS_FATAL ANY
-          COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
-                  --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
-                  --algorithm ${algorithm}
-                  --image image2
-          WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
-        )
+  elseif (CONFIG_MCUBOOT)
+    # Generate container key from manifest(raw key)
+    #TODO:
+    #  1. support more algorithm
+    #  2. move these code to common place
+    if(CONFIG_AMEBA_USING_MANIFEST_KEY)
+      if (CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
+        set(algorithm ed25519)
+      elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
+        set(algorithm secp256r1)
       endif()
-      #Invoke mcuboot bootloader generation in merge_bin.py
-      list(APPEND PYTHON_SCRIPT_ARGS --mcuboot)
+      file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
+      file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
+      execute_process(COMMAND_ERROR_IS_FATAL ANY
+        COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
+                --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
+                --algorithm ${algorithm}
+                --image image2
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
+      )
     endif()
-
+    #Invoke mcuboot bootloader generation using cmake
+    include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_image.cmake)
+  else()
     add_custom_target(raw.map ALL
       DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
     )

@@ -11,6 +11,24 @@ common:
     fixture: spi_loopback
 tests:
   drivers.spi.loopback: {}
+  drivers.spi.loopback.ameba.polling:
+    extra_configs:
+      - CONFIG_SPI_AMEBA_POLLING=y
+    platform_allow:
+      - rtl872xda_evb
+      - rtl8721f_evb
+  drivers.spi.loopback.ameba.dma:
+    extra_configs:
+      - CONFIG_SPI_AMEBA_DMA=y
+    platform_allow:
+      - rtl872xda_evb
+      - rtl8721f_evb
+  drivers.spi.loopback.ameba.interrupt:
+    extra_configs:
+      - CONFIG_SPI_AMEBA_INTERRUPT=y
+    platform_allow:
+      - rtl872xda_evb
+      - rtl8721f_evb
   drivers.spi.loopback.internal:
     filter: CONFIG_SPI_LOOPBACK_MODE_LOOP
   drivers.spi.loopback.lpspi.dma:

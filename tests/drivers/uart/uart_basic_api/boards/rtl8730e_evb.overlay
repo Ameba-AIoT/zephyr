@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,console    = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+};
+
+/*
+ * UART0_TX -> PA3 <-> PA2 <- UART0_RX  (wire for loopback)
+ */
+
+&uart0 {
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+};
+
+&dma {
+	status = "okay";
+};

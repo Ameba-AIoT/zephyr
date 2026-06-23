@@ -11,11 +11,20 @@
 #include <zephyr/kernel.h>
 #include <zephyr/cache.h>
 
-void z_arm_reset(void);
+extern void SOCPS_WakeFromPG_KM4(void);
+extern void z_arm_reset(void);
 
 IMAGE2_ENTRY_SECTION
-RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
-				    (uint32_t)NewVectorTable};
+RAM_START_FUNCTION Img2EntryFun0 = {
+	z_arm_reset,
+#if defined(CONFIG_PM) && !defined(CONFIG_BOOTLOADER_MCUBOOT)
+	/* For ameba loader wake from PG, BOOT_WakeFromPG jump to SOCPS_WakeFromPG */
+	SOCPS_WakeFromPG_KM4,
+#else
+	/* For mcuboot wake from PG, BOOT_WakeFromPG jump to app's z_arm_reset */
+	z_arm_reset,
+#endif
+	(uint32_t)NewVectorTable};
 
 static void app_vdd1833_detect(void)
 {
@@ -82,5 +91,22 @@ void soc_early_init_hook(void)
 
 #ifdef CONFIG_AMEBA_PSRAM
 	ameba_init_psram();
+#endif
+
+#ifdef CONFIG_PM
+	/* PMC init */
+	SOCPS_SleepInit();
+	pmu_init_wakeup_timer();
+	pmu_set_sleep_type(SLEEP_PG);
+
+	/* Clear SENONPEND bit otherwise WFE would be wake up by pending interrupts.
+	 * The AP is designed to be wake up by sev from NP
+	 */
+	SCB->SCR &= ~SCB_SCR_SEVONPEND_Msk;
+
+	/* In zephyr, whether enter sleep is decided by policy like power-state, custom policy
+	 * instead of user api control, so keep OS lock released and no need to acuqire it again.
+	 */
+	pmu_release_wakelock(PMU_OS);
 #endif
 }

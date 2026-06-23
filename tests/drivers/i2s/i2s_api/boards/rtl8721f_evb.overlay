@@ -11,3 +11,13 @@
 		i2s-node0 = &i2s0;
 	};
 };
+
+&dma {
+	status = "okay";
+};
+
+&i2s0 {
+	pinctrl-0 = <&i2s0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};

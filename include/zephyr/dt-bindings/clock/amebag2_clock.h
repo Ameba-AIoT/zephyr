@@ -64,8 +64,8 @@ extern "C" {
 #define AMEBA_I2C1_CLK  35
 #define AMEBA_TRNG_CLK  36
 #define AMEBA_LCDC_CLK  37
-#define AMEBA_A2C0_CLK  38
-#define AMEBA_A2C1_CLK  39
+#define AMEBA_CAN0_CLK  38
+#define AMEBA_CAN1_CLK  39
 #define AMEBA_GMAC_CLK  40
 #define AMEBA_PPE_CLK   41
 #define AMEBA_MJPEG_CLK 42
@@ -128,9 +128,9 @@ extern "C" {
 	AMEBA_NUMERICAL_PERIPH(UART, 2) /* AMEBA_UART2_CLK */                                      \
 	AMEBA_NUMERICAL_PERIPH(UART, 3) /* AMEBA_UART3_CLK */
 
-#define AMEBA_A2C_PERIPHS                                                                          \
-	AMEBA_NUMERICAL_PERIPH(A2C, 0) /* AMEBA_A2C0_CLK */                                        \
-	AMEBA_NUMERICAL_PERIPH(A2C, 1) /* AMEBA_A2C1_CLK */
+#define AMEBA_CAN_PERIPHS                                                                          \
+	AMEBA_NUMERICAL_PERIPH(CAN, 0) /* AMEBA_CAN0_CLK */                                        \
+	AMEBA_NUMERICAL_PERIPH(CAN, 1) /* AMEBA_CAN1_CLK */
 
 #define AMEBA_LOGUART_PERIPHS AMEBA_SINGLE_PERIPH(LOGUART)    /* AMEBA_LOGUART_CLK */
 #define AMEBA_DMAC_PERIPHS    AMEBA_SINGLE_PERIPH(DMAC)       /* AMEBA_DMAC_CLK */
@@ -174,7 +174,7 @@ extern "C" {
 	AMEBA_I2C_PERIPHS                                                                          \
 	AMEBA_TRNG_PERIPHS                                                                         \
 	AMEBA_LCDC_PERIPHS                                                                         \
-	AMEBA_A2C_PERIPHS                                                                          \
+	AMEBA_CAN_PERIPHS                                                                          \
 	AMEBA_GMAC_PERIPHS                                                                         \
 	AMEBA_PPE_PERIPHS                                                                          \
 	AMEBA_MJPEG_PERIPHS                                                                        \

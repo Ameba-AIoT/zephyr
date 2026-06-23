@@ -23,3 +23,7 @@
 	pinctrl-names = "default";
 	status = "okay";
 };
+
+&dma {
+	status = "okay";
+};

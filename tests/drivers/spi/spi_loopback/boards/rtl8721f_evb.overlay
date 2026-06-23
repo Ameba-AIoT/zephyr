@@ -42,3 +42,7 @@
 	pinctrl-0 = <&spi1_default>;
 	pinctrl-names = "default";
 };
+
+&dma {
+	status = "okay";
+};

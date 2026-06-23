@@ -70,7 +70,12 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 		return -ENOTSUP;
 	}
 
-	/* Find the parents,and loop to enable all gating */
+	phandle = &(ameba_clk_ctrl_reg_array[clk_idx]);
+	if (phandle->cke && RCC_PeriphClockEnableChk(phandle->cke)) {
+		return -EALREADY;
+	}
+
+	/* Enable clock and walk up the parent chain */
 	do {
 		if (clk_idx >= AMEBA_CLK_MAX) {
 			break;
@@ -142,8 +147,9 @@ static enum clock_control_status ameba_clock_get_status(const struct device *dev
 		return CLOCK_CONTROL_STATUS_OFF;
 	}
 
-	if (RCC_PeriphClockEnableChk(phandle->cke)) {
-		return CLOCK_CONTROL_STATUS_ON;
+	if (phandle->cke) {
+		return RCC_PeriphClockEnableChk(phandle->cke) ? CLOCK_CONTROL_STATUS_ON
+							      : CLOCK_CONTROL_STATUS_OFF;
 	}
 
 	return CLOCK_CONTROL_STATUS_OFF;

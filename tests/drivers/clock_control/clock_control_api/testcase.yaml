@@ -3,6 +3,13 @@ common:
     - drivers
     - clock_control
 tests:
+  drivers.clock.clock_control_api_ameba:
+    platform_allow:
+      - rtl8730e_evb
+      - rtl8721f_evb
+      - rtl872xda_evb
+    extra_configs:
+      - CONFIG_CLOCK_CONTROL=y
   drivers.clock.clock_control_api_default:
     platform_allow:
       - esp32_devkitc/esp32/procpu

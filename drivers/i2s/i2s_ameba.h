@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Realtek Semiconductor Corp.
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -44,7 +44,7 @@ struct i2s_dma_stream {
 	bool enabled;
 };
 
-struct stream {
+struct i2s_ameba_stream {
 	volatile int32_t state;
 	struct i2s_config cfg;
 	uint8_t free_tx_dma_blocks;
@@ -70,8 +70,8 @@ struct i2s_ameba_data {
 	uint8_t tdmmode;
 	uint8_t fifo_num;
 	uint8_t reorder_mode;
-	struct stream tx;
-	struct stream rx;
+	struct i2s_ameba_stream tx;
+	struct i2s_ameba_stream rx;
 	void *tx_out_msgs[1];
 	void *rx_in_msgs[1];
 	void *tx_in_msgs[CONFIG_I2S_TX_BLOCK_COUNT];

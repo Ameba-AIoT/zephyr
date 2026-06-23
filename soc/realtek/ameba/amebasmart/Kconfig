@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config SOC_RTL8730E
+	select ARM
+	select CPU_CORTEX_A32
+	select ARM_ARCH_TIMER
+	select CPU_HAS_FPU
+	select FPU

@@ -305,7 +305,7 @@
 			interrupts = <20 0>;
 			current-speed = <115200>;
 			dmas = <&dma 2 1 0xa>,
-			<&dma 3 0 0x214A1>;
+			       <&dma 3 0 0x214a1>;
 			dma-names = "rx", "tx";
 			wakeup-source-id = <WAKE_SRC_UART0>;
 			status = "disabled";
@@ -318,7 +318,7 @@
 			interrupts = <21 0>;
 			current-speed = <115200>;
 			dmas = <&dma 2 3 0xa>,
-			<&dma 3 2 0x214A1>;
+			       <&dma 3 2 0x214a1>;
 			dma-names = "rx", "tx";
 			wakeup-source-id = <WAKE_SRC_UART1>;
 			status = "disabled";
@@ -331,7 +331,7 @@
 			interrupts = <22 0>;
 			current-speed = <115200>;
 			dmas = <&dma 2 5 0xa>,
-			<&dma 3 4 0x214A1>;
+			       <&dma 3 4 0x214a1>;
 			dma-names = "rx", "tx";
 			wakeup-source-id = <WAKE_SRC_UART2>;
 			status = "disabled";
@@ -344,7 +344,7 @@
 			interrupts = <23 0>;
 			current-speed = <115200>;
 			dmas = <&dma 2 25 0xa>,
-			<&dma 3 24 0x214A1>;
+			       <&dma 3 24 0x214a1>;
 			dma-names = "rx", "tx";
 			wakeup-source-id = <WAKE_SRC_UART3>;
 			status = "disabled";
@@ -506,19 +506,19 @@
 			status = "disabled";
 		};
 
-		a2c0: can@41005000 {
-			compatible = "realtek,ameba-a2c";
+		can0: can@41005000 {
+			compatible = "realtek,ameba-can";
 			reg = <0x41005000 0x400>;
-			clocks = <&rcc AMEBA_A2C0_CLK>;
+			clocks = <&rcc AMEBA_CAN0_CLK>;
 			interrupts = <60 0>;
 			wakeup-source-id = <WAKE_SRC_CAN0>;
 			status = "disabled";
 		};
 
-		a2c1: can@41006000 {
-			compatible = "realtek,ameba-a2c";
+		can1: can@41006000 {
+			compatible = "realtek,ameba-can";
 			reg = <0x41006000 0x400>;
-			clocks = <&rcc AMEBA_A2C1_CLK>;
+			clocks = <&rcc AMEBA_CAN1_CLK>;
 			interrupts = <61 0>;
 			wakeup-source-id = <WAKE_SRC_CAN1>;
 			status = "disabled";

@@ -1,6 +1,6 @@
 # AMEBA I2S driver configuration options
 
-# Copyright (c) 2024 Realtek Semiconductor Corp.
+# Copyright (c) 2026 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
 menuconfig I2S_AMEBA
@@ -16,11 +16,11 @@ if I2S_AMEBA
 
 config I2S_RX_BLOCK_COUNT
 	int "RX queue length"
-	default 4  # 1 enough  todo:4
+	default 4
 
 config I2S_TX_BLOCK_COUNT
 	int "TX queue length"
-	default 4  # 1 enough  todo:4
+	default 4
 
 config I2S_CHANNEL_EXT
 	bool "AMEBA I2S controller support for more channels"

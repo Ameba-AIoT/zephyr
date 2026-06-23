@@ -9,3 +9,7 @@
 		rtc = &rtc;
 	};
 };
+
+&rtc {
+	status = "okay";
+};

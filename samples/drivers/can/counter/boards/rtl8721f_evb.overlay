@@ -6,12 +6,12 @@
 
 / {
 	chosen {
-		zephyr,canbus = &a2c0;
+		zephyr,canbus = &can0;
 	};
 };
 
-&a2c0 {
-	pinctrl-0 = <&a2c0_default>;
+&can0 {
+	pinctrl-0 = <&can0_default>;
 	pinctrl-names = "default";
 	status = "okay";
 };

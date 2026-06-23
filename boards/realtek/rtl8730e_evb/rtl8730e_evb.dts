@@ -1,0 +1,87 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <realtek/amebasmart/amebasmart.dtsi>
+#include "rtl8730e_evb-pinctrl.dtsi"
+
+/ {
+	chosen {
+		zephyr,sram = &dram0;
+		zephyr,console    = &loguart;
+		zephyr,shell-uart = &loguart;
+		zephyr,flash = &flash0;
+		zephyr,flash-controller = &spic;
+		zephyr,entropy = &trng;
+	};
+};
+
+&loguart {
+	status = "okay";
+};
+
+&trng {
+	status = "okay";
+};
+
+&rtc {
+	status = "okay";
+};
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};
+
+&gpioc {
+	status = "okay";
+};
+
+&spi0 {
+	pinctrl-0 = <&spi0_default>;
+	pinctrl-names = "default";
+};
+
+&spic {
+	status = "okay";
+};
+
+&dma {
+	status = "okay";
+};
+
+&flash0 {
+	reg = <0x0e000020 DT_SIZE_M(6)>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		/* 128 KB - holds boot.bin (~51 KB) with margin */
+		boot_partition: partition@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00020000>;
+			read-only;
+		};
+
+		/* 2 MB - holds app.bin (KM0+KM4+CA32 ~644 KB)  */
+		slot0_partition: partition@20000 {
+			label = "image-0";
+			reg = <0x00020000 0x00200000>;
+		};
+
+		/* 128 KB - storage for vfs */
+		storage_partition: partition@220000 {
+			label = "storage";
+			reg = <0x00220000 0x00020000>;
+		};
+	};
+};

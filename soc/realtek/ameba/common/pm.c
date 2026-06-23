@@ -76,6 +76,14 @@ void pm_sleep_ram_for_wfe(struct CPU_BackUp_TypeDef *bk)
 {
 	ARG_UNUSED(bk);
 
+	/*NOTE: Img2EntryFun0 maybe changed in some soc before this function called
+	 *      Here simply reset to correct value making it workaround
+	 */
+	extern RAM_START_FUNCTION Img2EntryFun0;
+	extern void z_arm_reset(void);
+	Img2EntryFun0.RamWakeupFun = z_arm_reset;
+	Img2EntryFun0.VectorNS = (uint32_t)NewVectorTable;
+
 	arch_pm_s2ram_suspend(pm_sleep_wfe);
 }
 #endif

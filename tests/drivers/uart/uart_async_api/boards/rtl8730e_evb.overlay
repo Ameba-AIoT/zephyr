@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * uart0 as DUT (PA3=TX / PA2=RX) — wire PA3 to PA2 for loopback.
+ * dmas/dma-names added here (not in amebasmart.dtsi) for async support.
+ * DMA ch4: UART0_RX (handshake 1), ch5: UART0_TX (handshake 0).
+ */
+
+dut: &uart0 {
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	dmas = <&dma 4 1 0xa>, <&dma 5 0 0x21>;
+	dma-names = "rx", "tx";
+	status = "okay";
+};
+
+&dma {
+	status = "okay";
+};

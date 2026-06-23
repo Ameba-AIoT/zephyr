@@ -150,3 +150,51 @@ _WEAK void init_timer_wrapper(void)
 {
 	LOG_ERR("%s Not Support", __func__);
 }
+
+typedef struct {
+	struct k_work work;
+	void (*func)(void *pv_p1, uint32_t ul_p2);
+	void *param1;
+	uint32_t param2;
+} rtos_pended_call_t;
+
+static void rtos_pended_work_handler(struct k_work *work)
+{
+	rtos_pended_call_t *call = CONTAINER_OF(work, rtos_pended_call_t, work);
+
+	if (call->func) {
+		call->func(call->param1, call->param2);
+	}
+
+	k_free(call);
+}
+
+int rtos_timer_pend_function_call(void (*p_func)(void *, uint32_t), void *pv_p1, uint32_t ul_p2,
+				  uint32_t wait_ms)
+{
+	rtos_pended_call_t *call;
+
+	ARG_UNUSED(wait_ms);
+	if (p_func == NULL) {
+		return RTK_FAIL;
+	}
+
+	call = k_malloc(sizeof(rtos_pended_call_t));
+	if (!call) {
+		return RTK_FAIL;
+	}
+
+	call->func = p_func;
+	call->param1 = pv_p1;
+	call->param2 = ul_p2;
+
+	k_work_init(&call->work, rtos_pended_work_handler);
+
+	int ret = k_work_submit(&call->work);
+
+	if (ret < 0) {
+		k_free(call);
+		return RTK_FAIL;
+	}
+	return RTK_SUCCESS;
+}

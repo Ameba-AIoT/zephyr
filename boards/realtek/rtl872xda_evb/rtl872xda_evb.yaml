@@ -14,3 +14,21 @@ flash: 4096
 supported:
   - pinctrl
   - serial
+  - console
+  - clock_control
+  - dma
+  - spi
+  - uart
+  - i2c
+  - i2s
+  - gpio
+  - flash
+  - counter
+  - rtc
+  - watchdog
+  - adc
+  - entropy
+  - audio
+  - led
+  - input
+  - pwm

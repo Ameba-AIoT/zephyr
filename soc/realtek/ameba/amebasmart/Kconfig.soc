@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config SOC_SERIES_AMEBASMART
+	bool
+	select SOC_FAMILY_REALTEK_AMEBA
+	select CPU_HAS_DCACHE
+	select CPU_HAS_ICACHE
+
+config SOC_SERIES
+	default "amebasmart" if SOC_SERIES_AMEBASMART
+
+config SOC_RTL8730E
+	bool
+	select SOC_SERIES_AMEBASMART
+	select CPU_HAS_NEON
+	select VFP_DP_D32_FP16_FMAC
+
+config SOC
+	default "rtl8730e" if SOC_RTL8730E

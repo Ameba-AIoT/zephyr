@@ -1,0 +1,25 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations here work for all rtl8730e_evb variants
+
+# enable rcc
+config CLOCK_CONTROL
+	default y
+
+# enable uart
+config SERIAL
+	default y
+
+# enable console for stdout
+config CONSOLE
+	default y
+
+config UART_CONSOLE
+	default y
+
+config GPIO
+	default y
+
+config NOCACHE_MEMORY
+	default y

@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-dut: &uart0 {
-	pinctrl-0 = <&uart0_default>;
+/* DUT moved to uart2 (PA25 TX / PA26 RX) — that pair is wired on the bench.
+ * uart2 already has dmas/dma-names declared in amebag2.dtsi, so the overlay
+ * only needs to set pinctrl and enable the node.
+ */
+
+dut: &uart2 {
+	pinctrl-0 = <&uart2_default>;
 	pinctrl-names = "default";
-	dmas = <&dma 2 1 0xa>,
-	<&dma 3 0 0x214A1>;
-	dma-names = "rx", "tx";
 	status = "okay";
 };
 

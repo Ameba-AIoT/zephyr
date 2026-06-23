@@ -19,7 +19,8 @@
 #include <zephyr/irq.h>
 
 #ifdef CONFIG_UART_ASYNC_API
-#include <zephyr/drivers/dma/dma_ameba_gdma.h>
+#include <zephyr/cache.h>
+#include "dma_ameba_gdma.h"
 #include <zephyr/drivers/dma.h>
 #endif
 
@@ -45,7 +46,6 @@ struct uart_dma_stream {
 
 struct uart_ameba_config {
 	UART_TypeDef *uart;
-	int uart_idx;
 	const struct device *clock_dev;
 	const struct pinctrl_dev_config *pcfg;
 	const clock_control_subsys_t clock_subsys;
@@ -64,20 +64,19 @@ struct uart_ameba_data {
 	bool tx_int_en;
 	bool rx_int_en;
 #endif
-#if CONFIG_UART_ASYNC_API
+#ifdef CONFIG_UART_ASYNC_API
 	uart_callback_t async_cb;
 	void *async_user_data;
 	struct uart_dma_stream dma_rx;
 	struct uart_dma_stream dma_tx;
 	uint8_t *rx_next_buffer;
 	size_t rx_next_buffer_len;
+#if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
+	uint32_t last_dat_cnt;
+	uint32_t hang_cnt;
+#endif
 #endif
 };
-
-#if defined(CONFIG_UART_ASYNC_API) && !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
-static uint32_t last_dat_cnt;
-static uint32_t hang_cnt;
-#endif
 
 static int uart_ameba_poll_in(const struct device *dev, unsigned char *c)
 {
@@ -321,7 +320,7 @@ static void uart_ameba_irq_tx_enable(const struct device *dev)
 	const struct uart_ameba_config *config = dev->config;
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
-	u32 sts;
+	uint32_t sts;
 
 	/* Disable IRQ Interrupts and Save Previous Status. */
 	sts = irq_disable_save();
@@ -338,7 +337,7 @@ static void uart_ameba_irq_tx_disable(const struct device *dev)
 	const struct uart_ameba_config *config = dev->config;
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
-	u32 sts;
+	uint32_t sts;
 
 	/* Disable IRQ Interrupts and Save Previous Status. */
 	sts = irq_disable_save();
@@ -528,8 +527,8 @@ static inline void async_evt_rx_buf_release(struct uart_ameba_data *data)
 static inline void async_evt_rx_disabled(struct uart_ameba_data *data)
 {
 #if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
-	last_dat_cnt = 0x0;
-	hang_cnt = 0;
+	data->last_dat_cnt = 0x0;
+	data->hang_cnt = 0;
 #endif
 	struct uart_event evt = {
 		.type = UART_RX_DISABLED,
@@ -572,8 +571,8 @@ static inline void async_get_dma_data(uint32_t dma_channel, uint32_t timeout)
 }
 #endif
 
-void uart_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
-			  int status)
+static void uart_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
+				 int status)
 {
 	const struct device *uart_dev = user_data;
 	struct uart_ameba_data *data = uart_dev->data;
@@ -597,7 +596,9 @@ void uart_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_
 
 	irq_unlock(key);
 
-	dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
+	if (dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel)) {
+		LOG_ERR("TX DMA stop failed");
+	}
 
 	/* Generate TX_DONE event when transmission is done */
 	async_evt_tx_done(data);
@@ -607,7 +608,8 @@ static void uart_ameba_dma_replace_buffer(const struct device *dev)
 {
 	const struct device *uart_dev = dev;
 	struct uart_ameba_data *data = uart_dev->data;
-	/* Replace the buffer and reload the DMA */
+	int ret;
+
 	LOG_DBG("Replacing RX buffer: %d", data->rx_next_buffer_len);
 
 	/* reload DMA */
@@ -620,11 +622,22 @@ static void uart_ameba_dma_replace_buffer(const struct device *dev)
 	data->rx_next_buffer = NULL;
 	data->rx_next_buffer_len = 0;
 
-	dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
-		   data->dma_rx.blk_cfg.source_address, data->dma_rx.blk_cfg.dest_address,
-		   data->dma_rx.blk_cfg.block_size);
+	sys_cache_data_flush_range((void *)data->dma_rx.buffer, data->dma_rx.buffer_length);
+	ret = dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
+			 data->dma_rx.blk_cfg.source_address, data->dma_rx.blk_cfg.dest_address,
+			 data->dma_rx.blk_cfg.block_size);
+	if (ret) {
+		LOG_ERR("RX DMA reload failed: %d", ret);
+		async_evt_rx_err(data, ret);
+		return;
+	}
 
-	dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
+	ret = dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
+	if (ret) {
+		LOG_ERR("RX DMA start failed: %d", ret);
+		async_evt_rx_err(data, ret);
+		return;
+	}
 
 	/* Request next buffer */
 	async_evt_rx_buf_request(data);
@@ -634,8 +647,8 @@ static void uart_ameba_dma_replace_buffer(const struct device *dev)
 #endif
 }
 
-void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
-			  int status)
+static void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
+				 int status)
 {
 	const struct device *uart_dev = user_data;
 	struct uart_ameba_data *data = uart_dev->data;
@@ -658,6 +671,7 @@ void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_
 	/* true since this functions occurs when buffer if full */
 	data->dma_rx.counter = data->dma_rx.buffer_length;
 
+	sys_cache_data_invd_range((void *)data->dma_rx.buffer, data->dma_rx.counter);
 	async_evt_rx_rdy(data);
 
 	async_evt_rx_buf_release(data);
@@ -666,7 +680,7 @@ void uart_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_
 		/* replace the buffer when the current is full and not the same as the next one. */
 		uart_ameba_dma_replace_buffer(uart_dev);
 	} else {
-		LOG_DBG("%s no next buffer", __func__);
+		LOG_DBG("no next buffer");
 		data->dma_rx.enabled = false;
 #if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 		UART_INT_Clear(uart, RUART_BIT_TOICF | RUART_BIT_RETICF);
@@ -704,13 +718,12 @@ static int uart_ameba_async_tx(const struct device *dev, const uint8_t *tx_data,
 	}
 
 	data->dma_tx.buffer = (uint8_t *)tx_data;
-	data->dma_tx.buffer_length = buf_size;
 	data->dma_tx.timeout = timeout;
 
-	LOG_DBG("tx: l=%d", data->dma_tx.buffer_length);
+	LOG_DBG("tx: l=%d", buf_size);
 
 	/* Configure GDMA transfer */
-	if (((buf_size & 0x03) == 0) && (((u32)(tx_data) & 0x03) == 0)) {
+	if (((buf_size & 0x03) == 0) && (((uint32_t)(tx_data) & 0x03) == 0)) {
 		/* 4-bytes aligned, move 4 bytes each transfer */
 		data->dma_tx.dma_cfg.source_burst_length = 1;
 		data->dma_tx.dma_cfg.source_data_size = 4;
@@ -722,7 +735,7 @@ static int uart_ameba_async_tx(const struct device *dev, const uint8_t *tx_data,
 
 	/* set source address */
 	data->dma_tx.blk_cfg.source_address = (uint32_t)(data->dma_tx.buffer);
-	data->dma_tx.blk_cfg.block_size = data->dma_tx.buffer_length;
+	data->dma_tx.blk_cfg.block_size = buf_size;
 
 	ret = dma_config(data->dma_tx.dma_dev, data->dma_tx.dma_channel, &data->dma_tx.dma_cfg);
 
@@ -731,6 +744,8 @@ static int uart_ameba_async_tx(const struct device *dev, const uint8_t *tx_data,
 		return -EINVAL;
 	}
 
+	data->dma_tx.buffer_length = buf_size;
+
 	/* Start TX timer */
 	async_timer_start(&data->dma_tx.timeout_work, data->dma_tx.timeout);
 
@@ -738,6 +753,7 @@ static int uart_ameba_async_tx(const struct device *dev, const uint8_t *tx_data,
 	UART_TXDMAConfig(uart, data->dma_tx.dma_cfg.dest_burst_length);
 	UART_TXDMACmd(uart, ENABLE);
 
+	sys_cache_data_flush_range((void *)data->dma_tx.buffer, buf_size);
 	if (dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel)) {
 		LOG_ERR("UART err: TX DMA start failed!");
 		return -EFAULT;
@@ -753,18 +769,20 @@ static int uart_ameba_async_tx_abort(const struct device *dev)
 	struct dma_status stat;
 
 	if (tx_buffer_length == 0) {
-		return -EFAULT;
+		return -EALREADY;
 	}
 
 	(void)k_work_cancel_delayable(&data->dma_tx.timeout_work);
 
-	dma_suspend(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
-
-	if (!dma_get_status(data->dma_tx.dma_dev, data->dma_tx.dma_channel, &stat)) {
+	if (dma_suspend(data->dma_tx.dma_dev, data->dma_tx.dma_channel)) {
+		LOG_ERR("TX DMA suspend failed");
+	} else if (!dma_get_status(data->dma_tx.dma_dev, data->dma_tx.dma_channel, &stat)) {
 		data->dma_tx.counter = tx_buffer_length - stat.pending_length;
 	}
 
-	dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
+	if (dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel)) {
+		LOG_ERR("TX DMA stop failed");
+	}
 	async_evt_tx_abort(data);
 
 	return 0;
@@ -777,7 +795,7 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 	struct uart_ameba_data *data = dev->data;
 	UART_TypeDef *uart = config->uart;
 	int ret;
-	char rc = 0;
+	uint8_t rc = 0;
 
 	if (data->dma_rx.dma_dev == NULL) {
 		LOG_ERR("no dma device");
@@ -841,12 +859,15 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 	/* Enable RX DMA requests */
 	UART_RXDMAConfig(uart, data->dma_rx.dma_cfg.source_burst_length);
 	UART_RXDMACmd(uart, ENABLE);
-	data->dma_rx.enabled = true;
 
+	sys_cache_data_flush_range((void *)data->dma_rx.buffer, buf_size);
 	if (dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel)) {
 		LOG_ERR("UART ERR: RX DMA start failed!");
+		UART_RXDMACmd(uart, DISABLE);
 		return -EFAULT;
 	}
+
+	data->dma_rx.enabled = true;
 
 	/* Request next buffer */
 	async_evt_rx_buf_request(data);
@@ -854,8 +875,8 @@ static int uart_ameba_async_rx_enable(const struct device *dev, uint8_t *rx_buf,
 #if !defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	async_timer_start(&data->dma_rx.timeout_work, data->dma_rx.timeout);
 	UART_RxByteCntClear(uart);
-	last_dat_cnt = 0;
-	hang_cnt = 0;
+	data->last_dat_cnt = 0;
+	data->hang_cnt = 0;
 #endif
 
 	LOG_DBG("async rx enabled");
@@ -882,7 +903,7 @@ static int uart_ameba_async_rx_disable(const struct device *dev)
 
 	if (!data->dma_rx.enabled) {
 		async_evt_rx_disabled(data);
-		return -EFAULT;
+		return -EALREADY;
 	}
 
 #if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
@@ -946,19 +967,21 @@ static void uart_ameba_async_rx_timeout(struct k_work *work)
 	const struct uart_ameba_config *config = dev->config;
 	UART_TypeDef *uart = config->uart;
 
-	u32 ch = data->dma_rx.dma_channel;
-	u32 timeout = 0;
+	uint32_t ch = data->dma_rx.dma_channel;
+	uint32_t timeout = 0;
+	uint32_t byte_got;
+	int ret;
 
 	LOG_DBG("rx timeout");
 
-	u32 byte_got = UART_RxByteCntGet(uart);
+	byte_got = UART_RxByteCntGet(uart);
 
-	if (last_dat_cnt != byte_got) {
-		last_dat_cnt = byte_got;
-		hang_cnt = 0;
-	} else if (hang_cnt++ >= 3) {
+	if (data->last_dat_cnt != byte_got) {
+		data->last_dat_cnt = byte_got;
+		data->hang_cnt = 0;
+	} else if (data->hang_cnt++ >= 3) {
 		/* 3 can be modified according to 5 in uart_ameba_async_rx_enable */
-		hang_cnt = 0;
+		data->hang_cnt = 0;
 		/* rx idle for some time */
 		LOG_DBG("hang");
 
@@ -972,9 +995,10 @@ static void uart_ameba_async_rx_timeout(struct k_work *work)
 					break;
 				}
 			}
+
 			GDMA_Resume(0x0, ch);
 			/* If the ch is still active after timeout, resume is required */
-			if (timeout++ >= 500) {
+			if (timeout >= 500) {
 				LOG_ERR("Data hangs in GDMA FIFO");
 				return;
 			}
@@ -987,11 +1011,19 @@ static void uart_ameba_async_rx_timeout(struct k_work *work)
 
 		/* get remaining data in UART RX FIFO */
 		if (UART_Readable(uart) == 0) {
+			sys_cache_data_invd_range(
+				(void *)(data->dma_rx.buffer + data->dma_rx.offset),
+				data->dma_rx.counter - data->dma_rx.offset);
 			/* report rx ready event only if rx new data */
 			async_evt_rx_rdy(data);
 		} else {
+			sys_cache_data_invd_range(
+				(void *)(data->dma_rx.buffer + data->dma_rx.offset),
+				data->dma_rx.counter - data->dma_rx.offset);
 			GDMA_Abort(0x0, ch);
-			dma_stop(data->dma_rx.dma_dev, ch);
+			if (dma_stop(data->dma_rx.dma_dev, ch)) {
+				LOG_ERR("RX DMA stop failed");
+			}
 			UART_RXDMACmd(uart, DISABLE);
 			while (UART_Readable(uart)) {
 				UART_CharGet(uart, data->dma_rx.buffer + data->dma_rx.counter);
@@ -999,10 +1031,9 @@ static void uart_ameba_async_rx_timeout(struct k_work *work)
 			}
 			byte_got = UART_RxByteCntGet(uart);
 
-			if (data->dma_rx.counter != byte_got) {
-				LOG_DBG("rx cnt%d, byte_got %d", data->dma_rx.counter, byte_got);
-				assert_param(0);
-			}
+			__ASSERT(data->dma_rx.counter == byte_got,
+				 "rx cnt mismatch: counter=%u byte_got=%u",
+				 data->dma_rx.counter, byte_got);
 
 			/* report rx ready event only if rx new data */
 			async_evt_rx_rdy(data);
@@ -1023,14 +1054,26 @@ static void uart_ameba_async_rx_timeout(struct k_work *work)
 				LOG_DBG("reload: rx %dB to 0x%x", data->dma_rx.blk_cfg.block_size,
 					data->dma_rx.blk_cfg.dest_address);
 
-				dma_reload(data->dma_rx.dma_dev, ch,
-					   data->dma_rx.blk_cfg.source_address,
-					   data->dma_rx.blk_cfg.dest_address,
-					   data->dma_rx.blk_cfg.block_size);
+				sys_cache_data_flush_range((void *)data->dma_rx.buffer,
+							   data->dma_rx.buffer_length);
+				ret = dma_reload(data->dma_rx.dma_dev, ch,
+						 data->dma_rx.blk_cfg.source_address,
+						 data->dma_rx.blk_cfg.dest_address,
+						 data->dma_rx.blk_cfg.block_size);
+				if (ret) {
+					LOG_ERR("RX DMA reload failed: %d", ret);
+					async_evt_rx_err(data, ret);
+					return;
+				}
 
-				dma_start(data->dma_rx.dma_dev, ch);
+				ret = dma_start(data->dma_rx.dma_dev, ch);
+				if (ret) {
+					LOG_ERR("RX DMA start failed: %d", ret);
+					async_evt_rx_err(data, ret);
+					return;
+				}
 				UART_RxByteCntClear(uart);
-				last_dat_cnt = 0;
+				data->last_dat_cnt = 0;
 				UART_RXDMACmd(uart, ENABLE);
 			}
 		}
@@ -1079,9 +1122,14 @@ static int uart_ameba_async_init(const struct device *dev)
 #endif
 	k_work_init_delayable(&data->dma_tx.timeout_work, uart_ameba_async_tx_timeout);
 
+	/* Save DT-initialised slot values before memset wipes them. */
+	uint32_t rx_slot = data->dma_rx.dma_cfg.dma_slot;
+	uint32_t tx_slot = data->dma_tx.dma_cfg.dma_slot;
+
 	/* Configure dma rx config */
 	memset(&data->dma_rx.blk_cfg, 0, sizeof(data->dma_rx.blk_cfg));
 	memset(&data->dma_rx.dma_cfg, 0, sizeof(data->dma_rx.dma_cfg));
+	data->dma_rx.dma_cfg.dma_slot = rx_slot;
 	data->dma_rx.blk_cfg.source_address = (uint32_t)(&(uart->RBR_OR_UART_THR));
 	data->dma_rx.blk_cfg.dest_address = 0; /* dest not ready */
 	data->dma_rx.blk_cfg.source_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
@@ -1092,7 +1140,6 @@ static int uart_ameba_async_init(const struct device *dev)
 	data->dma_rx.blk_cfg.flow_control_mode = 0;
 
 	data->dma_rx.dma_cfg.head_block = &data->dma_rx.blk_cfg;
-	data->dma_rx.dma_cfg.dma_slot = UART_DEV_TABLE[config->uart_idx].Rx_HandshakeInterface;
 	data->dma_rx.dma_cfg.user_data = (void *)dev;
 	data->dma_rx.dma_cfg.dma_callback = uart_ameba_dma_rx_cb;
 	data->dma_rx.dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
@@ -1109,6 +1156,7 @@ static int uart_ameba_async_init(const struct device *dev)
 	/* Configure dma tx config */
 	memset(&data->dma_tx.blk_cfg, 0, sizeof(data->dma_tx.blk_cfg));
 	memset(&data->dma_tx.dma_cfg, 0, sizeof(data->dma_tx.dma_cfg));
+	data->dma_tx.dma_cfg.dma_slot = tx_slot;
 	data->dma_tx.blk_cfg.source_address = 0; /* not ready */
 	data->dma_tx.blk_cfg.dest_address = (uint32_t)(&(uart->RBR_OR_UART_THR));
 	data->dma_tx.blk_cfg.source_addr_adj = DMA_ADDR_ADJ_INCREMENT;
@@ -1118,7 +1166,6 @@ static int uart_ameba_async_init(const struct device *dev)
 	data->dma_tx.blk_cfg.flow_control_mode = 0;
 
 	data->dma_tx.dma_cfg.head_block = &data->dma_tx.blk_cfg;
-	data->dma_tx.dma_cfg.dma_slot = UART_DEV_TABLE[config->uart_idx].Tx_HandshakeInterface;
 	data->dma_tx.dma_cfg.user_data = (void *)dev;
 	data->dma_tx.dma_cfg.dma_callback = uart_ameba_dma_tx_cb;
 	data->dma_tx.dma_cfg.channel_direction = MEMORY_TO_PERIPHERAL;
@@ -1166,7 +1213,7 @@ static int uart_ameba_init(const struct device *dev)
 	config->irq_config_func(dev);
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API */
 
-#if CONFIG_UART_ASYNC_API
+#ifdef CONFIG_UART_ASYNC_API
 	return uart_ameba_async_init(dev);
 #endif
 	return 0;
@@ -1218,8 +1265,9 @@ static void uart_ameba_isr(const struct device *dev)
 #if defined(CONFIG_SERIAL_ASYNC_WITH_ERETI)
 	const struct uart_ameba_config *config = dev->config;
 	UART_TypeDef *uart = config->uart;
-	u32 ch = data->dma_rx.dma_channel;
-	u32 byte_got = UART_RxByteCntGet(uart);
+	uint32_t ch = data->dma_rx.dma_channel;
+	uint32_t byte_got = UART_RxByteCntGet(uart);
+	int ret;
 
 	if (UART_LineStatusGet(uart) & RUART_BIT_RE_TIMEOUT_INT) {
 		UART_INT_Clear(uart, RUART_BIT_RETICF);
@@ -1234,6 +1282,9 @@ static void uart_ameba_isr(const struct device *dev)
 			LOG_DBG("rx cnt turns %d", data->dma_rx.counter);
 		}
 
+		sys_cache_data_invd_range(
+			(void *)(data->dma_rx.buffer + data->dma_rx.offset),
+			data->dma_rx.counter - data->dma_rx.offset);
 		/* report rx ready event only if rx new data */
 		async_evt_rx_rdy(data);
 
@@ -1254,8 +1305,13 @@ static void uart_ameba_isr(const struct device *dev)
 			LOG_DBG("rx cnt turns %d", data->dma_rx.counter);
 		}
 
+		sys_cache_data_invd_range(
+			(void *)(data->dma_rx.buffer + data->dma_rx.offset),
+			data->dma_rx.counter - data->dma_rx.offset);
 		GDMA_Abort(0x0, ch);
-		dma_stop(data->dma_rx.dma_dev, ch);
+		if (dma_stop(data->dma_rx.dma_dev, ch)) {
+			LOG_ERR("RX DMA stop failed");
+		}
 		UART_RXDMACmd(uart, DISABLE);
 
 		/* get remaining data in UART RX FIFO */
@@ -1267,10 +1323,9 @@ static void uart_ameba_isr(const struct device *dev)
 
 		byte_got = UART_RxByteCntGet(uart);
 
-		if (data->dma_rx.counter != byte_got) {
-			LOG_ERR("fail: rx cnt%d, byte_got %d", data->dma_rx.counter, byte_got);
-			assert_param(0);
-		}
+		__ASSERT(data->dma_rx.counter == byte_got,
+			 "rx cnt mismatch: counter=%u byte_got=%u",
+			 data->dma_rx.counter, byte_got);
 
 		/* report rx ready event */
 		async_evt_rx_rdy(data);
@@ -1291,18 +1346,29 @@ static void uart_ameba_isr(const struct device *dev)
 			LOG_DBG("reload: rx %dB to 0x%x", data->dma_rx.blk_cfg.block_size,
 				data->dma_rx.blk_cfg.dest_address);
 
-			dma_reload(data->dma_rx.dma_dev, ch, data->dma_rx.blk_cfg.source_address,
-				   data->dma_rx.blk_cfg.dest_address,
-				   data->dma_rx.blk_cfg.block_size);
+			sys_cache_data_flush_range((void *)data->dma_rx.buffer,
+						   data->dma_rx.buffer_length);
+			ret = dma_reload(data->dma_rx.dma_dev, ch,
+					 data->dma_rx.blk_cfg.source_address,
+					 data->dma_rx.blk_cfg.dest_address,
+					 data->dma_rx.blk_cfg.block_size);
+			if (ret) {
+				LOG_ERR("RX DMA reload failed: %d", ret);
+				return;
+			}
 
-			dma_start(data->dma_rx.dma_dev, ch);
+			ret = dma_start(data->dma_rx.dma_dev, ch);
+			if (ret) {
+				LOG_ERR("RX DMA start failed: %d", ret);
+				return;
+			}
 			UART_RxByteCntClear(uart);
 			UART_RXDMACmd(uart, ENABLE);
 		}
 	}
 #else
 	(void)data;
-#endif /* CONFIG_SERIAL_ASYNC_WITH_ERETI */
+#endif /* CONFIG_SOC_SERIES_AMEBAG2 */
 #endif /* CONFIG_UART_ASYNC_API */
 
 	/* Clear errors */
@@ -1334,7 +1400,7 @@ static DEVICE_API(uart, uart_ameba_api) = {
 	.irq_update = uart_ameba_irq_update,
 	.irq_callback_set = uart_ameba_irq_callback_set,
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
-#if CONFIG_UART_ASYNC_API
+#ifdef CONFIG_UART_ASYNC_API
 	.callback_set = uart_ameba_async_callback_set,
 	.tx = uart_ameba_async_tx,
 	.tx_abort = uart_ameba_async_tx_abort,
@@ -1351,7 +1417,6 @@ static DEVICE_API(uart, uart_ameba_api) = {
                                                                                                    \
 	static const struct uart_ameba_config uart_ameba_config##n = {                             \
 		.uart = (UART_TypeDef *)DT_INST_REG_ADDR(n),                                       \
-		.uart_idx = n,                                                                     \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Realtek Semiconductor Corp.
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -24,8 +24,9 @@ LOG_MODULE_REGISTER(ameba_spi, CONFIG_SPI_LOG_LEVEL);
 #include "spi_context.h"
 
 #if CONFIG_SPI_AMEBA_DMA
-#include <zephyr/drivers/dma/dma_ameba_gdma.h>
+#include "dma_ameba_gdma.h"
 #include <zephyr/drivers/dma.h>
+#include <zephyr/cache.h>
 
 struct spi_dma_stream {
 	const struct device *dma_dev;
@@ -61,7 +62,7 @@ struct spi_ameba_config {
 	const struct pinctrl_dev_config *pcfg;
 
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
-	void (*irq_configure)();
+	void (*irq_configure)(void);
 #endif
 };
 
@@ -106,12 +107,11 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 
 	if (spi_context_tx_buf_on(ctx)) {
 		if (datalen <= 8) {
-			tx_frame = ctx->tx_buf ? *(uint8_t *)(data->ctx.tx_buf) : 0;
+			tx_frame = ctx->tx_buf ? *(const uint8_t *)(ctx->tx_buf) : 0;
 		} else if (datalen <= 16) {
-			tx_frame = ctx->tx_buf ? *(uint16_t *)(data->ctx.tx_buf) : 0;
+			tx_frame = ctx->tx_buf ? *(const uint16_t *)(ctx->tx_buf) : 0;
 		} else { /* if (datalen <= 32)  */
-			/* tx_frame = ctx->tx_buf ? *(uint32_t *)(data->ctx.tx_buf) : 0; */
-			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
+			LOG_ERR("Data Frame Size is supported from 4 ~ 16");
 			return -EINVAL;
 		}
 	}
@@ -131,8 +131,7 @@ static int spi_ameba_frame_exchange(const struct device *dev)
 		} else if (datalen <= 16) {
 			*(uint16_t *)data->ctx.rx_buf = rx_frame;
 		} else { /* if (datalen <= 32) */
-			/* (uint32_t *)data->ctx.rx_buf = rx_frame; */
-			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
+			LOG_ERR("Data Frame Size is supported from 4 ~ 16");
 			return -EINVAL;
 		}
 	}
@@ -152,10 +151,6 @@ static void spi_ameba_complete(const struct device *dev, int status)
 	uint32_t int_mask = SPI_GetINTConfig(spi);
 
 	SSI_INTConfig(spi, int_mask, DISABLE);
-
-#ifdef CONFIG_SPI_AMEBA_DMA
-	/* TODO */
-#endif
 
 	spi_context_complete(&data->ctx, dev, status);
 }
@@ -177,26 +172,20 @@ static void spi_ameba_receive_data(const struct device *dev)
 		rxlevel = SSI_GetRxCount(spi);
 
 		while (rxlevel--) {
-			if (spi_context_rx_buf_on(ctx)) {
-				if (data->ctx.rx_buf != NULL) {
-					if (datalen <= 8) {
-						/* 8~4 bits mode */
-						*(uint8_t *)data->ctx.rx_buf =
-							(uint8_t)SSI_ReadData(spi);
-					} else {
-						/* 16~9 bits mode */
-						*(uint16_t *)data->ctx.rx_buf =
-							(uint16_t)SSI_ReadData(spi);
-					}
+			if (spi_context_rx_buf_on(ctx) && data->ctx.rx_buf != NULL) {
+				if (datalen <= 8) {
+					/* 8~4 bits mode */
+					*(uint8_t *)data->ctx.rx_buf =
+						(uint8_t)SSI_ReadData(spi);
 				} else {
-					/* for Master mode, doing TX also will got RX data,
-					 * so drop the dummy data
-					 */
-					(void)SSI_ReadData(spi);
+					/* 16~9 bits mode */
+					*(uint16_t *)data->ctx.rx_buf =
+						(uint16_t)SSI_ReadData(spi);
 				}
-				/* spi_context_update_rx(ctx, dfs, 1); */
-			} else if (spi_context_rx_on(ctx)) {
-				/* fix for case: rx half end: buf1 is null
+			} else if (spi_context_rx_buf_on(ctx) || spi_context_rx_on(ctx)) {
+				/* for Master mode, doing TX also will got RX data,
+				 * so drop the dummy data
+				 * OR fix for case: rx half end: buf1 is null
 				 * but len1 !=0, skip len1 and rx into buf2
 				 */
 				(void)SSI_ReadData(spi);
@@ -217,7 +206,6 @@ static void spi_ameba_receive_data(const struct device *dev)
 		readable = SSI_Readable(spi);
 	}
 }
-
 static void spi_ameba_send_data(const struct device *dev)
 {
 	const struct spi_ameba_config *cfg = dev->config;
@@ -230,7 +218,9 @@ static void spi_ameba_send_data(const struct device *dev)
 	uint32_t datalen = data->datasize;  /* data len: 4 ~ 16 bits */
 	int dfs = ((datalen - 1) >> 3) + 1; /* frame size: 1, 2 bytes */
 
-	u32 writeable = SSI_Writeable(spi);
+	if (!SSI_Writeable(spi)) {
+		return;
+	}
 
 	if (spi_context_rx_on(ctx)) { /* fix for rx bigger than tx */
 		txmax = SSI_TX_FIFO_DEPTH - SSI_GetTxCount(spi) - SSI_GetRxCount(spi);
@@ -241,57 +231,41 @@ static void spi_ameba_send_data(const struct device *dev)
 		txmax = SSI_TX_FIFO_DEPTH - SSI_GetTxCount(spi);
 	}
 
-	if (writeable) {
-		/* Disable Tx FIFO Empty IRQ */
-		SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
+	/* Disable Tx FIFO Empty IRQ */
+	SSI_INTConfig(spi, SPI_BIT_TXEIM, DISABLE);
 
-		while (txmax) {
-			if (spi_context_tx_buf_on(ctx)) {
-				if (datalen <= 8) {
-					/* 4~8 bits mode */
-					if (data->ctx.tx_buf != NULL) {
-						txdata = *((uint8_t *)(data->ctx.tx_buf));
-					} else if (!spi_ameba_is_slave(data)) {
-						/* For master mode: Push a dummy to TX FIFO for Read
-						 */
-						txdata = (uint8_t)0; /* Dummy byte */
-					}
-				} else {
-					/* 9~16 bits mode */
-					if (data->ctx.tx_buf != NULL) {
-						txdata = *((uint16_t *)(data->ctx.tx_buf));
-					} else if (!spi_ameba_is_slave(data)) {
-						/* For master mode: Push a dummy to TX FIFO for Read
-						 */
-						txdata = (uint16_t)0; /* Dummy byte */
-					}
-				}
-				/* spi_context_update_tx(ctx, dfs, 1); */
-			} else if (spi_context_rx_on(ctx)) { /* rx bigger than tx */
-				/* No need to push more than necessary */
-				if ((int)(data->ctx.rx_len - data->fifo_diff) <= 0) {
-					break;
-				}
+	while (txmax) {
+		if (spi_context_tx_buf_on(ctx)) {
+			if (data->ctx.tx_buf != NULL) {
+				txdata = (datalen <= 8) ? *((const uint8_t *)(ctx->tx_buf))
+							: *((const uint16_t *)(ctx->tx_buf));
+			} else if (!spi_ameba_is_slave(data)) {
+				/* For master mode: Push a dummy to TX FIFO for Read */
 				txdata = 0U;
-
-			} else if (spi_context_tx_on(&data->ctx)) {
-				/* fix for txbuf is NULL but txlen != 0 */
-				txdata = 0U;
-			} else {
-				/* Nothing to push anymore */
+			}
+		} else if (spi_context_rx_on(ctx)) { /* rx bigger than tx */
+			/* No need to push more than necessary */
+			if ((int)(data->ctx.rx_len - data->fifo_diff) <= 0) {
 				break;
 			}
-
-			SSI_WriteData(spi, txdata);
-			spi_context_update_tx(ctx, dfs, 1);
-			data->fifo_diff++;
-
-			txmax--;
+			txdata = 0U;
+		} else if (spi_context_tx_on(&data->ctx)) {
+			/* fix for txbuf is NULL but txlen != 0 */
+			txdata = 0U;
+		} else {
+			/* Nothing to push anymore */
+			break;
 		}
 
-		/* Enable Tx FIFO Empty IRQ */
-		SSI_INTConfig(spi, SPI_BIT_TXEIM, ENABLE);
+		SSI_WriteData(spi, txdata);
+		spi_context_update_tx(ctx, dfs, 1);
+		data->fifo_diff++;
+
+		txmax--;
 	}
+
+	/* Enable Tx FIFO Empty IRQ */
+	SSI_INTConfig(spi, SPI_BIT_TXEIM, ENABLE);
 }
 
 static void spi_ameba_isr(struct device *dev)
@@ -304,22 +278,22 @@ static void spi_ameba_isr(struct device *dev)
 	uint32_t int_mask, int_status;
 
 	int_mask = SPI_GetINTConfig(spi);
-	LOG_DBG("[ISR] IntMask 0X%x \r\n", int_mask);
+	LOG_DBG("[ISR] IntMask 0X%x", int_mask);
 
 	int_status = SSI_GetIsr(spi);
 	SSI_SetIsrClean(spi, int_status);
 
 	if (int_status & (SPI_BIT_TXOIS | SPI_BIT_RXUIS | SPI_BIT_RXOIS | SPI_BIT_TXUIS)) {
-		LOG_DBG("[ISR] IntStatus %x\n", int_status);
+		LOG_DBG("[ISR] IntStatus %x", int_status);
 	}
 
 	if (int_status & SPI_BIT_RXFIS) {
-		LOG_DBG("[ISR] RXFIS\r\n");
+		LOG_DBG("[ISR] RXFIS");
 		spi_ameba_receive_data(dev);
 	}
 
 	if (int_status & SPI_BIT_TXEIS) {
-		LOG_DBG("[ISR] TXEIS\r\n");
+		LOG_DBG("[ISR] TXEIS");
 		spi_ameba_send_data(dev);
 	}
 
@@ -373,11 +347,11 @@ static void spi_ameba_dma_callback(const struct device *dma_dev, void *arg, uint
 	} else {
 		/* identify the origin of this callback */
 		if (channel == spi_dma_data->dma_tx.dma_channel) {
-			LOG_INF("dma cb tx");
+			LOG_DBG("dma cb tx");
 			spi_dma_data->status_flags |= SPI_AMEBA_DMA_TX_DONE_FLAG;
 
 			if (spi_dma_data->transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
-				LOG_INF("cb for tx only");
+				LOG_DBG("cb for tx only");
 				spi_dma_data->status_flags |= SPI_AMEBA_DMA_RX_DONE_FLAG;
 			}
 			SSI_SetDmaEnable(spi, DISABLE, SPI_BIT_TDMAE);
@@ -387,7 +361,7 @@ static void spi_ameba_dma_callback(const struct device *dma_dev, void *arg, uint
 				LOG_ERR("Stop tx ext dma failed !!");
 			}
 		} else if (channel == spi_dma_data->dma_rx.dma_channel) {
-			LOG_INF("dma cb rx");
+			LOG_DBG("dma cb rx");
 			spi_dma_data->status_flags |= SPI_AMEBA_DMA_RX_DONE_FLAG;
 
 			SSI_SetDmaEnable(spi, DISABLE, SPI_BIT_RDMAE);
@@ -395,6 +369,12 @@ static void spi_ameba_dma_callback(const struct device *dma_dev, void *arg, uint
 			if (dma_stop(spi_dma_data->dma_rx.dma_dev,
 				     spi_dma_data->dma_rx.dma_channel) < 0) {
 				LOG_ERR("Stop tx ext dma failed !!");
+			}
+
+			if (spi_dma_data->dma_rx.blk_cfg.dest_addr_adj == DMA_ADDR_ADJ_INCREMENT) {
+				sys_cache_data_invd_range(
+					(void *)spi_dma_data->dma_rx.blk_cfg.dest_address,
+					spi_dma_data->dma_rx.blk_cfg.block_size);
 			}
 		} else {
 			LOG_ERR("DMA callback channel %d is not valid.", channel);
@@ -466,7 +446,7 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 
 	spi_dma->blk_cfg.flow_control_mode = 0;
 
-	spi_dma->blk_cfg.source_address = (u32)&cfg->SPIx->SPI_DRx;
+	spi_dma->blk_cfg.source_address = (uint32_t)&cfg->SPIx->SPI_DRx;
 	spi_dma->blk_cfg.source_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 
 	if (spi_context_rx_buf_on(&data->ctx)) {
@@ -477,7 +457,7 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 		spi_dma->blk_cfg.dest_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 
 		pdata = (uint8_t *)spi_dma->blk_cfg.dest_address;
-		LOG_INF("spi dma rx dummy: %p", &spi_dma_rx_dummy);
+		LOG_DBG("spi dma rx dummy: %p", &spi_dma_rx_dummy);
 	}
 
 	spi_dma->blk_cfg.block_size = length;
@@ -486,31 +466,31 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 		spi_dma->dma_cfg.source_burst_length = 4;
 		spi_dma->dma_cfg.source_data_size = 2;
 
-		if (((u32)(length) & 0x03) == 0 && (((u32)(pdata) & 0x03) == 0)) {
-			LOG_DBG("4-bytes aligned\n");
+		if (((uint32_t)(length) & 0x03) == 0 && (((uint32_t)(pdata) & 0x03) == 0)) {
+			LOG_DBG("4-bytes aligned");
 			/* 4-bytes aligned, move 4 bytes each transfer */
 			spi_dma->dma_cfg.dest_burst_length = 4;
 			spi_dma->dma_cfg.dest_data_size = 4;
-		} else if (((length & 0x01) == 0) && (((u32)(pdata) & 0x01) == 0)) {
-			LOG_DBG("not 4-bytes aligned\n");
+		} else if (((length & 0x01) == 0) && (((uint32_t)(pdata) & 0x01) == 0)) {
+			LOG_DBG("not 4-bytes aligned");
 			/* 2-bytes aligned, move 2 bytes each transfer */
 			spi_dma->dma_cfg.dest_burst_length = 8;
 			spi_dma->dma_cfg.dest_data_size = 2;
 		} else {
-			LOG_ERR("pTxData=%p,  Length=%u\n", pdata, length);
+			LOG_ERR("pTxData=%p,  Length=%u", pdata, length);
 			return -EINVAL;
 		}
 	} else {
 		spi_dma->dma_cfg.source_burst_length = 4;
 		spi_dma->dma_cfg.source_data_size = 1;
 
-		if (((u32)(length) & 0x03) == 0 && (((u32)(pdata) & 0x03) == 0)) {
-			LOG_DBG("4-bytes aligned\n");
+		if (((uint32_t)(length) & 0x03) == 0 && (((uint32_t)(pdata) & 0x03) == 0)) {
+			LOG_DBG("4-bytes aligned");
 			/* 4-bytes aligned, move 4 bytes each transfer */
 			spi_dma->dma_cfg.dest_burst_length = 1;
 			spi_dma->dma_cfg.dest_data_size = 4;
 		} else {
-			LOG_DBG("not 4-bytes aligned\n");
+			LOG_DBG("not 4-bytes aligned");
 			/* 2-bytes aligned, move 2 bytes each transfer */
 			spi_dma->dma_cfg.dest_burst_length = 4;
 			spi_dma->dma_cfg.dest_data_size = 1;
@@ -519,13 +499,17 @@ static int spi_ameba_dma_receive(const struct device *dev, uint8_t *pdata, size_
 
 	ret = dma_config(data->dma_rx.dma_dev, data->dma_rx.dma_channel, &(spi_dma->dma_cfg));
 	if (ret < 0) {
-		LOG_ERR("dma_config %p failed %d\n", data->dma_rx.dma_dev, ret);
+		LOG_ERR("dma_config %p failed %d", data->dma_rx.dma_dev, ret);
 		return ret;
+	}
+
+	if (spi_dma->blk_cfg.dest_addr_adj == DMA_ADDR_ADJ_INCREMENT) {
+		sys_cache_data_flush_range((void *)spi_dma->blk_cfg.dest_address, length);
 	}
 
 	ret = dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 	if (ret < 0) {
-		LOG_ERR("dma_start %p failed %d\n", data->dma_rx.dma_dev, ret);
+		LOG_ERR("dma_start %p failed %d", data->dma_rx.dma_dev, ret);
 		return ret;
 	}
 
@@ -559,7 +543,7 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 
 	spi_dma->blk_cfg.flow_control_mode = 0;
 
-	spi_dma->blk_cfg.dest_address = (u32)&cfg->SPIx->SPI_DRx;
+	spi_dma->blk_cfg.dest_address = (uint32_t)&cfg->SPIx->SPI_DRx;
 	spi_dma->blk_cfg.dest_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 	spi_dma->blk_cfg.block_size = length;
 
@@ -571,7 +555,7 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 		spi_dma->blk_cfg.source_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 
 		pdata = (uint8_t *)spi_dma->blk_cfg.source_address;
-		LOG_INF("spi dma tx dummy: %p", &spi_dma_tx_dummy);
+		LOG_DBG("spi dma tx dummy: %p", &spi_dma_tx_dummy);
 	}
 
 	spi_dma->blk_cfg.block_size = length;
@@ -579,18 +563,18 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 	LOG_DBG("length:%u datalen:%u", length, datalen);
 	if (datalen > 8) {
 		/* 16~9 bits mode */
-		if (((length & 0x03) == 0) && (((u32)(pdata) & 0x03) == 0)) {
-			LOG_DBG("4-bytes aligned\n");
+		if (((length & 0x03) == 0) && (((uint32_t)(pdata) & 0x03) == 0)) {
+			LOG_DBG("4-bytes aligned");
 			/* 4-bytes aligned, move 4 bytes each transfer */
 			spi_dma->dma_cfg.source_burst_length = 4;
 			spi_dma->dma_cfg.source_data_size = 4;
-		} else if (((length & 0x01) == 0) && (((u32)(pdata) & 0x01) == 0)) {
-			LOG_DBG("not 4-bytes aligned\n");
+		} else if (((length & 0x01) == 0) && (((uint32_t)(pdata) & 0x01) == 0)) {
+			LOG_DBG("not 4-bytes aligned");
 			/* 2-bytes aligned, move 2 bytes each transfer */
 			spi_dma->dma_cfg.source_burst_length = 8;
 			spi_dma->dma_cfg.source_data_size = 2;
 		} else {
-			LOG_ERR("pTxData=%p,  Length=%u\n", pdata, length);
+			LOG_ERR("pTxData=%p,  Length=%u", pdata, length);
 			return -EINVAL;
 		}
 
@@ -599,13 +583,13 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 
 	} else {
 		/*  8~4 bits mode */
-		if (((length & 0x03) == 0) && (((u32)(pdata) & 0x03) == 0)) {
-			LOG_DBG("4-bytes aligned\n");
+		if (((length & 0x03) == 0) && (((uint32_t)(pdata) & 0x03) == 0)) {
+			LOG_DBG("4-bytes aligned");
 			/* 4-bytes aligned, move 4 bytes each transfer */
 			spi_dma->dma_cfg.source_burst_length = 1;
 			spi_dma->dma_cfg.source_data_size = 4;
 		} else {
-			LOG_DBG("not 4-bytes aligned\n");
+			LOG_DBG("not 4-bytes aligned");
 			/* 2-bytes aligned, move 2 bytes each transfer */
 			spi_dma->dma_cfg.source_burst_length = 4;
 			spi_dma->dma_cfg.source_data_size = 1;
@@ -617,13 +601,17 @@ static int spi_ameba_dma_send(const struct device *dev, const uint8_t *pdata, si
 
 	ret = dma_config(data->dma_tx.dma_dev, data->dma_tx.dma_channel, &(spi_dma->dma_cfg));
 	if (ret < 0) {
-		LOG_ERR("dma_config %p failed %d\n", data->dma_tx.dma_dev, ret);
+		LOG_ERR("dma_config %p failed %d", data->dma_tx.dma_dev, ret);
 		return ret;
+	}
+
+	if (spi_dma->blk_cfg.source_addr_adj == DMA_ADDR_ADJ_INCREMENT) {
+		sys_cache_data_flush_range((void *)spi_dma->blk_cfg.source_address, length);
 	}
 
 	ret = dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 	if (ret < 0) {
-		LOG_ERR("dma_start %p failed %d\n", data->dma_tx.dma_dev, ret);
+		LOG_ERR("dma_start %p failed %d", data->dma_tx.dma_dev, ret);
 		return ret;
 	}
 
@@ -683,9 +671,80 @@ static int spi_dma_move_buffers(const struct device *dev, size_t len)
 
 	return spi_dma_move_tx_buffers(dev, len);
 }
-#endif /* CONFIG_SPI_AMEBA_DMA */
 
-#ifdef CONFIG_SPI_AMEBA_DMA
+static int spi_ameba_dma_chunk_transfer(const struct device *dev, uint32_t transfer_dir)
+{
+	struct spi_ameba_data *data = dev->data;
+	const struct spi_ameba_config *cfg = dev->config;
+	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
+	uint32_t dma_len;
+	uint8_t frame_size_bytes;
+	int ret;
+
+	data->status_flags = 0;
+
+	if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
+		dma_len = spi_context_max_continuous_chunk(&data->ctx);
+		LOG_DBG("%s dma trx frame number:%u", __func__, dma_len);
+		ret = spi_dma_move_buffers(dev, dma_len);
+		if (ret != 0) {
+			return ret;
+		}
+	} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
+		dma_len = data->ctx.tx_len;
+		LOG_DBG("%s dma tx frame number:%u", __func__, dma_len);
+		ret = spi_dma_move_tx_buffers(dev, dma_len);
+		if (ret != 0) {
+			return ret;
+		}
+	} else {
+		LOG_ERR("Not support rx only mode for dma");
+		return -ENOTSUP;
+	}
+
+	if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
+		SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_RDMAE);
+		SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_TDMAE);
+	} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
+		SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_TDMAE);
+	} else {
+		LOG_ERR("Not support rx only mode for dma");
+		return -ENOTSUP;
+	}
+
+	ret = spi_ameba_wait_dma_rx_tx_done(dev);
+	if (ret != 0) {
+		return ret;
+	}
+	LOG_DBG("%s dma trx done", __func__);
+
+	/* wait until spi is no more busy (spi TX fifo is really empty) */
+	while ((!(SSI_GetStatus(spi) & SPI_BIT_TFE)) ||
+	       (SSI_GetStatus(spi) & SPI_BIT_BUSY)) {
+		/* Wait until last frame transfer complete. */
+	}
+
+	LOG_DBG("%s trx done: tfe and bus idle", __func__);
+
+	frame_size_bytes = (SPI_WORD_SIZE_GET(data->ctx.config->operation)) <= 8 ? 1 : 2;
+	if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
+		spi_context_update_tx(&data->ctx, frame_size_bytes, dma_len);
+		spi_context_update_rx(&data->ctx, frame_size_bytes, dma_len);
+	} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
+		spi_context_update_tx(&data->ctx, frame_size_bytes, dma_len);
+	} else {
+		LOG_ERR("Not support rx only mode for dma");
+		return -ENOTSUP;
+	}
+
+	if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG &&
+	    !spi_context_tx_on(&data->ctx) && spi_context_rx_on(&data->ctx)) {
+		LOG_ERR("dma dev is not enabled");
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
 static int transceive_dma(const struct device *dev, const struct spi_config *spi_cfg,
 			  const struct spi_buf_set *tx_bufs, const struct spi_buf_set *rx_bufs,
 			  bool asynchronous, spi_callback_t cb, void *userdata)
@@ -693,9 +752,6 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 	struct spi_ameba_data *data = dev->data;
 	const struct spi_ameba_config *cfg = dev->config;
 	SPI_TypeDef *spi = (SPI_TypeDef *)cfg->SPIx;
-	uint32_t transfer_dir;
-	uint32_t dma_len;
-	uint8_t frame_size_bytes;
 	int ret;
 
 	if (!tx_bufs && !rx_bufs) {
@@ -729,96 +785,20 @@ static int transceive_dma(const struct device *dev, const struct spi_config *spi
 		goto end;
 	}
 
-	LOG_INF("dma mode");
+	LOG_DBG("dma mode");
 
-	transfer_dir = data->transfer_dir;
-	if (spi_ameba_dma_enabled(dev)) {
-		while (data->ctx.rx_len > 0 || data->ctx.tx_len > 0) {
-			data->status_flags = 0;
-
-			if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
-				dma_len = spi_context_max_continuous_chunk(&data->ctx);
-				LOG_INF("%s dma trx frame number:%u", __func__, dma_len);
-				ret = spi_dma_move_buffers(dev, dma_len);
-				if (ret != 0) {
-					goto dma_error;
-				}
-			} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
-				LOG_DBG("%s dma tx frame number:%u", __func__, dma_len);
-				dma_len = data->ctx.tx_len;
-				ret = spi_dma_move_tx_buffers(dev, dma_len);
-			} else {
-				LOG_ERR("Not support rx only mode for dma");
-				ret = -ENOTSUP;
-				goto end;
-			}
-
-			if (ret != 0) {
-				break;
-			}
-
-			if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
-				SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_RDMAE);
-				SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_TDMAE);
-			} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
-				SSI_SetDmaEnable(spi, ENABLE, SPI_BIT_TDMAE);
-			} else {
-				LOG_ERR("Not support rx only mode for dma");
-				ret = -ENOTSUP;
-				goto end;
-			}
-
-			ret = spi_ameba_wait_dma_rx_tx_done(dev);
-			if (ret != 0) {
-				break;
-			}
-			LOG_INF("%s dma trx done", __func__);
-
-			/* wait until spi is no more busy (spi TX fifo is really empty) */
-			while ((!(SSI_GetStatus(spi) & SPI_BIT_TFE)) ||
-			       (SSI_GetStatus(spi) & SPI_BIT_BUSY)) {
-				/* Wait until last frame transfer complete. */
-			}
-
-			LOG_INF("%s trx done: tfe and bus idle", __func__);
-
-			frame_size_bytes =
-				(SPI_WORD_SIZE_GET(data->ctx.config->operation)) <= 8 ? 1 : 2;
-			if (transfer_dir == SPI_AMEBA_FULL_DUPLEX_FLAG) {
-				spi_context_update_tx(&data->ctx, frame_size_bytes, dma_len);
-				spi_context_update_rx(&data->ctx, frame_size_bytes, dma_len);
-			} else if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG) {
-				spi_context_update_tx(&data->ctx, frame_size_bytes, dma_len);
-			} else {
-				LOG_ERR("Not support rx only mode for dma");
-				ret = -ENOTSUP;
-				goto dma_error;
-				/* spi_context_update_rx(&data->ctx, frame_size_bytes,
-				 * dma_len);
-				 */
-			}
-
-			if (transfer_dir == SPI_AMEBA_HALF_DUPLEX_TX_FLAG &&
-			    !spi_context_tx_on(&data->ctx) && spi_context_rx_on(&data->ctx)) {
-				LOG_ERR("dma dev is not enabled");
-				ret = -ENOTSUP;
-				goto dma_error;
-			}
-		}
-
-		if (ret < 0) {
-			goto dma_error;
-		}
-	} else {
+	if (!spi_ameba_dma_enabled(dev)) {
 		LOG_ERR("dma dev is not enabled");
 		ret = -ENOTSUP;
 		goto end;
 	}
 
-	/* check after trx cb done
-	 *	while ((!(SSI_GetStatus(spi) & SPI_BIT_TFE)) || (SSI_GetStatus(spi) &
-	 *  SPI_BIT_BUSY));
-	 */
+	while (data->ctx.rx_len > 0 || data->ctx.tx_len > 0) {
+		ret = spi_ameba_dma_chunk_transfer(dev, data->transfer_dir);
+		if (ret != 0) {
+			goto dma_error;
+		}
+	}
 
 dma_error:
 	SSI_SetDmaEnable(spi, DISABLE, SPI_BIT_TDMAE);
@@ -827,8 +807,6 @@ dma_error:
 	(void)dma_stop(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 
 	(void)dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
-
-	/* spi_context_complete(&data->ctx, dev, ret); */
 
 end:
 	spi_context_cs_control(&data->ctx, false);
@@ -879,7 +857,7 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 		data->fifo_diff = 0U;
 
 		if (data->datasize > 16 || data->datasize < 4) {
-			LOG_ERR("Data Frame Size is supported from 4 ~ 16 \r\n");
+			LOG_ERR("Data Frame Size is supported from 4 ~ 16");
 			ret = -EINVAL;
 			goto end;
 		}
@@ -895,7 +873,7 @@ static int transceive(const struct device *dev, const struct spi_config *spi_cfg
 			int_mask = (SPI_BIT_TXEIM | SPI_BIT_RXFIM);
 		}
 
-		LOG_DBG("Set int_mask 0x%x \r\n", int_mask);
+		LOG_DBG("Set int_mask 0x%x", int_mask);
 		SSI_INTConfig(spi, int_mask, ENABLE);
 	}
 
@@ -951,13 +929,15 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	}
 
 	/* enables SPI peripheral */
-	if (clock_control_on(config->clock_dev, config->clock_subsys)) {
+	int clk_ret = clock_control_on(config->clock_dev, config->clock_subsys);
+
+	if (clk_ret && clk_ret != -EALREADY) {
 		LOG_ERR("Could not enable SPI clock");
 		return -EIO;
 	}
 
 	if (data->initialized && spi_context_configured(ctx, spi_cfg)) {
-		LOG_DBG("Already configured. No need to do it again \r\n");
+		LOG_DBG("Already configured. No need to do it again");
 		return 0;
 	}
 
@@ -992,11 +972,11 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	if (spi_ameba_is_slave(data)) {
 		SSI_SetRole(spi, SSI_SLAVE);
 		spi_init_struct.SPI_Role = SSI_SLAVE;
-		LOG_INF("SPI ROLE: SSI_SLAVE \r\n");
+		LOG_DBG("SPI ROLE: SSI_SLAVE");
 	} else {
 		SSI_SetRole(spi, SSI_MASTER);
 		spi_init_struct.SPI_Role = SSI_MASTER;
-		LOG_INF(" SPI ROLE: SSI_MASTER \r\n");
+		LOG_DBG(" SPI ROLE: SSI_MASTER");
 	}
 
 	SSI_Init(spi, &spi_init_struct);
@@ -1011,7 +991,7 @@ static int spi_ameba_configure(const struct device *dev, const struct spi_config
 	if (!(spi_ameba_is_slave(data))) {
 		/* set frequency */
 		bus_freq = 100000000;
-		LOG_DBG("%s %u freq%u\r\n", __func__, __LINE__, spi_cfg->frequency);
+		LOG_DBG("%s %u freq%u", __func__, __LINE__, spi_cfg->frequency);
 		SSI_SetBaudDiv(spi, bus_freq / spi_cfg->frequency);
 	}
 
@@ -1029,7 +1009,7 @@ static int spi_ameba_init(const struct device *dev)
 	int ret;
 
 	/* spi@40121000 or spi@40122000 */
-	LOG_INF("Initializing spi: %s ", dev->name);
+	LOG_DBG("Initializing spi: %s", dev->name);
 
 	/* check clock device */
 	if (!cfg->clock_dev) {
@@ -1045,7 +1025,7 @@ static int spi_ameba_init(const struct device *dev)
 
 #ifdef CONFIG_SPI_AMEBA_INTERRUPT
 	/* register ISR and enable IRQn */
-	cfg->irq_configure(dev);
+	cfg->irq_configure();
 #endif
 
 #ifdef CONFIG_SPI_AMEBA_DMA
@@ -1130,8 +1110,8 @@ static DEVICE_API(spi, ameba_spi_api) = {
 
 /* define macro for dma_rx or dma_tx */
 #define SPI_DMA_CHANNEL(index, dir)                                                                \
-	.dma_##dir = {COND_CODE_1(DT_INST_DMAS_HAS_NAME(index, dir),               \
-					(SPI_DMA_CHANNEL_INIT(index, dir)),           \
+	.dma_##dir = {COND_CODE_1(DT_INST_DMAS_HAS_NAME(index, dir),                               \
+					(SPI_DMA_CHANNEL_INIT(index, dir)),                        \
 					(NULL)) },
 
 #else
@@ -1143,7 +1123,7 @@ static DEVICE_API(spi, ameba_spi_api) = {
 	PINCTRL_DT_INST_DEFINE(n);                                                                 \
                                                                                                    \
 	IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, \
-				(AMEBA_SPI_IRQ_CONFIGURE(n)));                       \
+				(AMEBA_SPI_IRQ_CONFIGURE(n)));                                     \
                                                                                                    \
 	static struct spi_ameba_data spi_ameba_data_##n = {                                        \
 		SPI_CONTEXT_INIT_LOCK(spi_ameba_data_##n, ctx),                                    \
@@ -1157,7 +1137,7 @@ static DEVICE_API(spi, ameba_spi_api) = {
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, idx),               \
 		IF_ENABLED(CONFIG_SPI_AMEBA_INTERRUPT, \
-			(.irq_configure = spi_ameba_irq_configure_##n,)) };                       \
+			(.irq_configure = spi_ameba_irq_configure_##n,)) };                        \
 	DEVICE_DT_INST_DEFINE(n, &spi_ameba_init, NULL, &spi_ameba_data_##n,                       \
 			      &spi_ameba_config_##n, POST_KERNEL, CONFIG_SPI_INIT_PRIORITY,        \
 			      &ameba_spi_api);

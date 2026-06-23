@@ -10,11 +10,10 @@
 #include <soc.h>
 #include <ameba_soc.h>
 
+#include "dma_ameba_gdma.h"
 #include <zephyr/drivers/dma.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/dma/dma_ameba_gdma.h>
-#include <zephyr/cache.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(dma_ameba_gdma, CONFIG_DMA_LOG_LEVEL);
 
@@ -49,12 +48,15 @@ struct dma_ameba_data {
 	/* define Bitmap variable for channel request */
 	ATOMIC_DEFINE(channels_atomic, DT_INST_PROP(0, dma_channels));
 	struct dma_ameba_channel *channel_status;
+#ifdef CONFIG_DMA_AMEBA_LLI
+	struct GDMA_CH_LLI *lli_pool;
+#endif
 };
 
 struct dma_ameba_config {
 	uint32_t base;
 	uint8_t channel_num;
-	uint8_t instane_id;
+	uint8_t instance_id;
 	void (*config_irq)(const struct device *dev);
 	struct device *src_dev;
 	const struct device *clock_dev;
@@ -109,37 +111,6 @@ static inline int dma_ameba_reload_type_get(struct dma_config *config_dma)
 	return type;
 }
 
-static inline void dma_ameba_cache_handle(const struct device *dev, uint32_t channel)
-{
-	struct dma_ameba_data *data = (struct dma_ameba_data *)dev->data;
-	uint32_t temp_chnl_dir = data->channel_status[channel].chnl_direction;
-	uint32_t temp_block_size = data->channel_status[channel].block_size;
-	uint32_t *temp_src_addr = (uint32_t *)(data->channel_status[channel].src_addr);
-	uint32_t *temp_dst_addr = (uint32_t *)(data->channel_status[channel].dst_addr);
-
-	if (((u32)temp_src_addr & (CONFIG_DCACHE_LINE_SIZE - 1)) ||
-	    ((u32)temp_dst_addr & (CONFIG_DCACHE_LINE_SIZE - 1))) {
-		LOG_WRN("The transfer address and cache line must be aligned, src: %x; dst: %x; "
-			"cache line size= %d",
-			(u32)temp_src_addr, (u32)temp_dst_addr, CONFIG_DCACHE_LINE_SIZE);
-	}
-	/* If the source or destination is memory, data consistency needs to be ensured. */
-	if (temp_chnl_dir == MEMORY_TO_MEMORY) {
-		sys_cache_data_flush_range(temp_src_addr, temp_block_size);
-		sys_cache_data_flush_and_invd_range(temp_dst_addr, temp_block_size);
-	} else if (temp_chnl_dir == MEMORY_TO_PERIPHERAL) {
-		sys_cache_data_flush_range(temp_src_addr, temp_block_size);
-	} else if (temp_chnl_dir == PERIPHERAL_TO_MEMORY) {
-		sys_cache_data_flush_and_invd_range(temp_dst_addr, temp_block_size);
-	} else {
-		/*
-		 * PERIPHERAL_TO_PERIPHERAL transfer.
-		 * Neither source nor destination is memory,
-		 * so no cache maintenance is required.
-		 */
-	}
-}
-
 static int dma_ameba_blockcfg_update(const struct device *dev, uint32_t channel)
 {
 	const struct dma_ameba_config *config = (const struct dma_ameba_config *)dev->config;
@@ -185,20 +156,21 @@ static int dma_ameba_blockcfg_update(const struct device *dev, uint32_t channel)
 		return -EPERM;
 	} else if (data->channel_status[channel].cur_dma_blk_cfg->source_gather_en) {
 		GDMA_SourceGather(
-			config->instane_id, channel,
+			config->instance_id, channel,
 			data->channel_status[channel].cur_dma_blk_cfg->source_gather_count,
 			data->channel_status[channel].cur_dma_blk_cfg->source_gather_interval);
-	} else {
+	} else if (data->channel_status[channel].cur_dma_blk_cfg->dest_scatter_en) {
 		GDMA_DestinationScatter(
-			config->instane_id, channel,
+			config->instance_id, channel,
 			data->channel_status[channel].cur_dma_blk_cfg->dest_scatter_count,
 			data->channel_status[channel].cur_dma_blk_cfg->dest_scatter_interval);
 	}
+	/* else: normal DMA mode without scatter/gather - do nothing */
 #endif
 	/* 3. Initialization. */
-	GDMA_SetChnlPriority(config->instane_id, channel,
+	GDMA_SetChnlPriority(config->instance_id, channel,
 			     data->channel_status[channel].chnl_priority);
-	GDMA_Init(config->instane_id, channel, &data->channel_status[channel].gdma_struct);
+	GDMA_Init(config->instance_id, channel, &data->channel_status[channel].gdma_struct);
 
 	data->channel_status[channel].block_size =
 		data->channel_status[channel].gdma_struct.GDMA_BlockSize;
@@ -221,10 +193,10 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	 * when transmitting to the second block in reverse order.
 	 */
 	if (data->channel_status[channel].block_num == data->channel_status[channel].block_id + 2) {
-		GDMA_ChCleanAutoReload(config->instane_id, channel, CLEAN_RELOAD_SRC_DST);
+		GDMA_ChCleanAutoReload(config->instance_id, channel, CLEAN_RELOAD_SRC_DST);
 	}
-	/* 1.DMA interrupt type.*/
-	isr_type = GDMA_ClearINT(config->instane_id, channel);
+	/* 1. DMA interrupt type.*/
+	isr_type = GDMA_ClearINT(config->instance_id, channel);
 
 	if (isr_type & BlockType) {
 		LOG_DBG("dma block %d transfer complete.", data->channel_status[channel].block_id);
@@ -238,25 +210,20 @@ static void dma_ameba_isr_handler(const struct device *dev, uint32_t channel)
 	if (isr_type == ErrType) {
 		err = -EIO;
 	}
-	/* 2. If the cache is opened, we need to ensure that the cache data and memory data
-	 * on the destination address are consistent.
-	 */
-	if (data->channel_status[channel].chnl_direction == MEMORY_TO_MEMORY ||
-	    data->channel_status[channel].chnl_direction == PERIPHERAL_TO_MEMORY) {
-		sys_cache_data_flush_range((void *)(data->channel_status[channel].dst_addr &
-						    (~(CONFIG_DCACHE_LINE_SIZE - 1))),
-					   data->channel_status[channel].block_size);
+	/* 2. Configure dma transfer if there are multiple DMA configuration blocks */
+	if (data->channel_status[channel].cur_dma_blk_cfg == NULL) {
+		LOG_ERR("cur_dma_blk_cfg is NULL");
+		return;
 	}
-	/*3.config dma transfer if there are multiple DMA configuration blocks*/
 	if (data->channel_status[channel].cur_dma_blk_cfg->next_block != NULL) {
 		/*update dma configuration and re-init dma*/
 		data->channel_status[channel].cur_dma_blk_cfg =
 			data->channel_status[channel].cur_dma_blk_cfg->next_block;
-		GDMA_Cmd(config->instane_id, channel, DISABLE);
+		GDMA_Cmd(config->instance_id, channel, DISABLE);
 		dma_ameba_blockcfg_update(dev, channel);
-		GDMA_Cmd(config->instane_id, channel, ENABLE);
+		GDMA_Cmd(config->instance_id, channel, ENABLE);
 	} else {
-		/* 4. Execute user call back function.*/
+		/* 3. Execute user call back function.*/
 		if (data->channel_status[channel].callback) {
 			data->channel_status[channel].callback(
 				dev, data->channel_status[channel].user_data, channel, err);
@@ -368,9 +335,9 @@ static int dma_ameba_config_basic(struct dma_ameba_data *data, uint32_t channel,
 }
 
 #ifdef CONFIG_DMA_AMEBA_LLI
-/* 3. Extract linked list mode configuration */
+/* 3. Configure multi-block (LLI) transfer */
 static int dma_ameba_config_lli(struct dma_ameba_data *data, uint32_t channel,
-				struct dma_config *config_dma)
+				struct dma_config *config_dma, struct GDMA_CH_LLI *lli_pool)
 {
 	struct dma_block_config *cur_block = config_dma->head_block;
 	struct dma_ameba_channel *ch = &data->channel_status[channel];
@@ -380,18 +347,18 @@ static int dma_ameba_config_lli(struct dma_ameba_data *data, uint32_t channel,
 		return -EINVAL;
 	}
 
-	BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE > 0,
-		     "CONFIG_HEAP_MEM_POOL_SIZE must be configured in the .conf file");
-
-	ch->gdma_struct.GDMA_LlpSrcEn = config_dma->source_chaining_en;
-	ch->gdma_struct.GDMA_LlpDstEn = config_dma->dest_chaining_en;
-
-	ch->link_node = (struct GDMA_CH_LLI *)k_malloc(config_dma->block_count *
-						       sizeof(struct GDMA_CH_LLI));
-	if (!ch->link_node) {
-		LOG_ERR("Failed to allocate LLI memory");
-		return -ENOMEM;
+	if (config_dma->block_count > CONFIG_DMA_AMEBA_LLI_MAX_DESC) {
+		LOG_ERR("block_count %d exceeds max descriptor %d",
+			config_dma->block_count, CONFIG_DMA_AMEBA_LLI_MAX_DESC);
+		return -EINVAL;
 	}
+
+	ch->gdma_struct.GDMA_LlpSrcEn =
+		(config_dma->head_block->source_addr_adj == DMA_ADDR_ADJ_INCREMENT);
+	ch->gdma_struct.GDMA_LlpDstEn =
+		(config_dma->head_block->dest_addr_adj == DMA_ADDR_ADJ_INCREMENT);
+
+	ch->link_node = lli_pool;
 
 	for (int i = 0; i < config_dma->block_count && cur_block; i++) {
 		if (ch->gdma_struct.GDMA_LlpSrcEn) {
@@ -421,7 +388,6 @@ static int dma_ameba_config_lli(struct dma_ameba_data *data, uint32_t channel,
 }
 #endif
 
-/* Refactored Main Function */
 static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 			       struct dma_config *config_dma)
 {
@@ -435,13 +401,9 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 		return ret;
 	}
 
-	if (config_dma->source_chaining_en || config_dma->dest_chaining_en) {
-		LOG_WRN("realtek block chain is linked-list mode");
-	}
-
 	/* 2. Init GDMA struct and generic properties */
 	GDMA_StructInit(&data->channel_status[channel].gdma_struct);
-	data->channel_status[channel].gdma_struct.GDMA_Index = config->instane_id;
+	data->channel_status[channel].gdma_struct.GDMA_Index = config->instance_id;
 	data->channel_status[channel].gdma_struct.GDMA_ChNum = channel;
 	data->channel_status[channel].gdma_struct.GDMA_DIR = config_dma->channel_direction;
 	data->channel_status[channel].gdma_struct.GDMA_SrcAddr =
@@ -469,10 +431,10 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 			config_dma->head_block->dest_reload_en;
 	}
 
-	/* 4. Linked-list mode */
+	/* 4. Multi-block (LLI) transfer mode */
 #ifdef CONFIG_DMA_AMEBA_LLI
-	if (config_dma->source_chaining_en || config_dma->dest_chaining_en) {
-		ret = dma_ameba_config_lli(data, channel, config_dma);
+	if (config_dma->block_count > 1) {
+		ret = dma_ameba_config_lli(data, channel, config_dma, data->lli_pool);
 		if (ret != 0) {
 			return ret;
 		}
@@ -485,23 +447,24 @@ static int dma_ameba_configure(const struct device *dev, uint32_t channel,
 		LOG_ERR("Cannot enable source gather and dest scatter at the same time");
 		return -EPERM;
 	} else if (config_dma->head_block->source_gather_en) {
-		GDMA_SourceGather(config->instane_id, channel,
+		GDMA_SourceGather(config->instance_id, channel,
 				  config_dma->head_block->source_gather_count,
 				  config_dma->head_block->source_gather_interval);
-	} else {
-		GDMA_DestinationScatter(config->instane_id, channel,
+	} else if (config_dma->head_block->dest_scatter_en) {
+		GDMA_DestinationScatter(config->instance_id, channel,
 					config_dma->head_block->dest_scatter_count,
 					config_dma->head_block->dest_scatter_interval);
 	}
+	/* else: normal DMA mode without scatter/gather - do nothing */
 #endif
 
 	/* 6. Initialization and channel status recording */
 	data->channel_status[channel].gdma_struct.GDMA_IsrType =
 		(TransferType | BlockType | ErrType);
-	GDMA_Init(config->instane_id, channel, &data->channel_status[channel].gdma_struct);
-	GDMA_SetChnlPriority(config->instane_id, channel, config_dma->channel_priority);
+	GDMA_Init(config->instance_id, channel, &data->channel_status[channel].gdma_struct);
+	GDMA_SetChnlPriority(config->instance_id, channel, config_dma->channel_priority);
 	if (data->channel_status[channel].link_node != NULL) {
-		GDMA_SetLLP(config->instane_id, channel, config_dma->block_count,
+		GDMA_SetLLP(config->instance_id, channel, config_dma->block_count,
 			    data->channel_status[channel].link_node, config_dma->cyclic);
 	}
 
@@ -532,9 +495,8 @@ static int dma_ameba_start(const struct device *dev, uint32_t channel)
 		LOG_ERR("channel id must be < (%d)", config->channel_num);
 		return -EINVAL;
 	}
-	dma_ameba_cache_handle(dev, channel);
 	/* channel enable */
-	GDMA_Cmd(config->instane_id, channel, ENABLE);
+	GDMA_Cmd(config->instance_id, channel, ENABLE);
 
 	data->channel_status[channel].busy = true;
 
@@ -550,17 +512,14 @@ static int dma_ameba_stop(const struct device *dev, uint32_t channel)
 		LOG_ERR("channel id must be < (%d)", config->channel_num);
 		return -EINVAL;
 	}
-	/* channel enable */
-	GDMA_Cmd(config->instane_id, channel, DISABLE);
+	/* channel disable */
+	GDMA_Cmd(config->instance_id, channel, DISABLE);
 
 	data->channel_status[channel].busy = false;
 
 #ifdef CONFIG_DMA_AMEBA_LLI
-	/** @note free link list node */
-	if (data->channel_status[channel].link_node) {
-		k_free(data->channel_status[channel].link_node);
-		data->channel_status[channel].link_node = NULL;
-	}
+	/* Reset link_node to indicate no active LLI transfer */
+	data->channel_status[channel].link_node = NULL;
 #endif
 
 	return 0;
@@ -577,12 +536,17 @@ static int dma_ameba_get_status(const struct device *dev, uint32_t channel,
 		return -EINVAL;
 	}
 
+	if (!status) {
+		LOG_ERR("status is NULL");
+		return -EINVAL;
+	}
+
 	status->busy = data->channel_status[channel].busy;
 	/* In the actual test, only the total amount of data can be read
 	 * if it is greater than 2048 Bytes.
 	 */
 	status->pending_length = data->channel_status[channel].block_size -
-				 GDMA_GetBlkSize(config->instane_id, channel);
+				 GDMA_GetBlkSize(config->instance_id, channel);
 	status->dir = data->channel_status[channel].chnl_direction;
 
 	return 0;
@@ -603,16 +567,14 @@ static int dma_ameba_reload(const struct device *dev, uint32_t channel, uint32_t
 	data->channel_status[channel].dst_addr = dst;
 	data->channel_status[channel].block_size = size;
 
-	dma_ameba_cache_handle(dev, channel);
-
-	GDMA_Cmd(config->instane_id, channel, DISABLE);
-	GDMA_SetSrcAddr(config->instane_id, channel, src);
-	GDMA_SetDstAddr(config->instane_id, channel, dst);
+	GDMA_Cmd(config->instance_id, channel, DISABLE);
+	GDMA_SetSrcAddr(config->instance_id, channel, src);
+	GDMA_SetDstAddr(config->instance_id, channel, dst);
 	/* The size required by the gdma hardware must be aligned
 	 * with the source transmission width.
 	 */
 	size = size >> data->channel_status[channel].src_trans_width;
-	GDMA_SetBlkSize(config->instane_id, channel, (u32)size);
+	GDMA_SetBlkSize(config->instance_id, channel, (uint32_t)size);
 
 	return 0;
 }
@@ -632,7 +594,7 @@ static int dma_ameba_suspend(const struct device *dev, uint32_t channel)
 		return -EINVAL;
 	}
 
-	GDMA_Suspend(config->instane_id, channel);
+	GDMA_Suspend(config->instance_id, channel);
 
 	data->channel_status[channel].busy = false;
 
@@ -654,7 +616,7 @@ static int dma_ameba_resume(const struct device *dev, uint32_t channel)
 		return -EINVAL;
 	}
 
-	GDMA_Resume(config->instane_id, channel);
+	GDMA_Resume(config->instance_id, channel);
 
 	data->channel_status[channel].busy = true;
 
@@ -690,7 +652,7 @@ static int dma_ameba_init(const struct device *dev)
 	}
 
 	ret = clock_control_on(config->clock_dev, config->clock_subsys);
-	if (ret < 0) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not initialize clock (%d)", ret);
 		return ret;
 	}
@@ -702,6 +664,7 @@ static int dma_ameba_init(const struct device *dev)
 	data->dma_ctx.dma_channels = config->channel_num;
 	data->dma_ctx.magic = DMA_MAGIC;
 	data->dma_ctx.atomic = data->channels_atomic;
+
 	config->config_irq(dev);
 
 	return 0;
@@ -743,7 +706,7 @@ static DEVICE_API(dma, dma_ameba_api) = {
 		LISTIFY(DT_INST_PROP(n, dma_channels),                                             \
 				DMA_AMEBA_IRQ_CONNECT_CHANNEL,                                     \
 				(;),                                                               \
-				n);         \
+				n);                                                                \
 	}
 
 /*
@@ -764,12 +727,12 @@ static DEVICE_API(dma, dma_ameba_api) = {
 	LISTIFY(DT_INST_PROP(n, dma_channels),                                                     \
 			DMA_AMEBA_DEFINE_IRQ_HANDLER,                                              \
 			(;),                                                                       \
-			n);                  \
+			n);                                                                        \
                                                                                                    \
 	DMA_AMEBA_IRQ_CONNECT(n);                                                                  \
                                                                                                    \
 	static const struct dma_ameba_config dma_config_##n = {                                    \
-		.instane_id = n,                                                                   \
+		.instance_id = n,                                                                  \
 		.base = DT_INST_REG_ADDR(n),                                                       \
 		.channel_num = DT_INST_PROP(n, dma_channels),                                      \
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
@@ -777,8 +740,12 @@ static DEVICE_API(dma, dma_ameba_api) = {
 		.config_irq = dma_ameba_config_irq_##n,                                            \
 	};                                                                                         \
 	static struct dma_ameba_channel dma_ameba_##n##_channels[DT_INST_PROP(n, dma_channels)];   \
+	IF_ENABLED(CONFIG_DMA_AMEBA_LLI,                                                           \
+		(static struct GDMA_CH_LLI lli_pool_##n[DT_INST_PROP(n, dma_channels) *            \
+						CONFIG_DMA_AMEBA_LLI_MAX_DESC];))                  \
 	static struct dma_ameba_data dma_data_##n = {                                              \
 		.channel_status = dma_ameba_##n##_channels,                                        \
+		IF_ENABLED(CONFIG_DMA_AMEBA_LLI, (.lli_pool = lli_pool_##n,))                      \
 	};                                                                                         \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(n, &dma_ameba_init, NULL, &dma_data_##n, &dma_config_##n,            \

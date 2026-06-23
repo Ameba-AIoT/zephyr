@@ -12,6 +12,8 @@
 
 &adc {
 	pinctrl-0 = <&adc_in4_pa15 &adc_in5_pa14>;
+	pinctrl-names = "default";
+	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
 

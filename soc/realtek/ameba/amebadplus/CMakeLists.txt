@@ -7,12 +7,14 @@ zephyr_include_directories(.)
 if(CONFIG_MCUBOOT)
   zephyr_linker_sources(ROM_START SORT_KEY 0x0 loader_section.ld)
   zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 loader_ram_section.ld)
-  zephyr_sources(mcuboot_action_hook.c)
+  zephyr_sources(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_action_hook.c)
 else()
   zephyr_sources(soc.c)
+  zephyr_library_sources_ifdef(CONFIG_PM ${CMAKE_CURRENT_LIST_DIR}/../common/pm.c)
 endif()
 
-zephyr_linker_sources(SECTIONS boot_section.ld)
+zephyr_linker_sources(RAMFUNC_SECTION ${CMAKE_CURRENT_LIST_DIR}/../common/ram_function_section.ld)
+zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
 set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
 
@@ -32,7 +34,7 @@ endif()
 file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/*.bin")
 
 if(BIN_FILES)
-  if (CONFIG_BOOTLOADER_MCUBOOT)
+  if (CONFIG_BOOTLOADER_MCUBOOT OR CONFIG_TFM_BL2)
   # 1. Create directories
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project/km4)
@@ -65,33 +67,32 @@ if(BIN_FILES)
     #      that needed to be executed exactly after ${ZEPHYR_BASE}/cmake/mcuboot.cmake
     set_target_properties(zephyr_property_target PROPERTIES SIGNING_SCRIPT
       ${CMAKE_CURRENT_LIST_DIR}/../common/primary_image.cmake)
-    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix amebadplus_app)
+    set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix app)
     set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name amebadplus)
     set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image
       ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km0_image2_all.bin)
-  else ()
-    if(CONFIG_MCUBOOT)
-      # Generate container key from manifest(raw key)
-      if(CONFIG_AMEBA_USING_MANIFEST_KEY)
-        if (CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
-          set(algorithm ed25519)
-        elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
-          set(algorithm secp256r1)
-        endif()
-        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project)
-        file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebadplus/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebadplus_gcc_project/)
-        execute_process(COMMAND_ERROR_IS_FATAL ANY
-          COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
-                  --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
-                  --algorithm ${algorithm}
-                  --image image2
-          WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project
-        )
+  elseif (CONFIG_MCUBOOT)
+    # Generate container key from manifest(raw key)
+    if(CONFIG_AMEBA_USING_MANIFEST_KEY)
+      if (CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
+        set(algorithm ed25519)
+      elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
+        set(algorithm secp256r1)
       endif()
-      #Invoke mcuboot bootloader generation in merge_bin.py
-      list(APPEND PYTHON_SCRIPT_ARGS --mcuboot)
+      file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project)
+      file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebadplus/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/amebadplus_gcc_project/)
+      execute_process(COMMAND_ERROR_IS_FATAL ANY
+        COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
+                --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
+                --algorithm ${algorithm}
+                --image image2
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project
+      )
     endif()
-
+    #Invoke mcuboot bootloader generation using cmake
+    include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_image.cmake)
+  else()
+    #For ameba loader and app using ameba loader
     add_custom_target(raw.map ALL
       DEPENDS ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
     )

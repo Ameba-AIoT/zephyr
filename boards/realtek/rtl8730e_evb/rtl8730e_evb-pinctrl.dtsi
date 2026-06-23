@@ -1,0 +1,86 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/amebasmart-pinctrl.h>
+
+&pinctrl {
+	compatible = "realtek,ameba-pinctrl";
+
+	/* PB23 is LOGUART RX, PB24 is LOGUART TX (both pull-up internally) */
+	loguart_default: loguart_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 23, AMEBA_LOGUART)>,  /* RX */
+				 <AMEBA_PINMUX('B', 24, AMEBA_LOGUART)>;  /* TX */
+			bias-pull-up;
+		};
+	};
+
+	/* UART0: PA3=TX, PA2=RX (PINMUX_S0) */
+	uart0_default: uart0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 3, AMEBA_UART)>,  /* TX */
+				 <AMEBA_PINMUX('A', 2, AMEBA_UART)>;  /* RX */
+			bias-pull-up;
+		};
+	};
+
+	/* UART1: PA5=TX, PA4=RX (PINMUX_S0) */
+	uart1_default: uart1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 5, AMEBA_UART)>,  /* TX */
+				 <AMEBA_PINMUX('A', 4, AMEBA_UART)>;  /* RX */
+			bias-pull-up;
+		};
+	};
+
+	/*
+	 * SPI0 (0x400E8000): PB17=CS, PB18=CLK, PB19=MOSI, PB20=MISO
+	 */
+	spi0_default: spi0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 18, AMEBA_SPI)>,
+				 <AMEBA_PINMUX('B', 19, AMEBA_SPI)>,
+				 <AMEBA_PINMUX('B', 20, AMEBA_SPI)>;
+			bias-pull-up;
+		};
+		group2 {
+			pinmux = <AMEBA_PINMUX('B', 17, AMEBA_SPI)>;
+			bias-pull-up;
+		};
+	};
+
+	/*
+	 * SPI1 (0x400E9000): PB13=CS, PB12=CLK, PB10=MOSI, PB11=MISO
+	 */
+	spi1_default: spi1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 12, AMEBA_SPI)>,
+				 <AMEBA_PINMUX('B', 10, AMEBA_SPI)>,
+				 <AMEBA_PINMUX('B', 11, AMEBA_SPI)>;
+			bias-pull-up;
+		};
+		group2 {
+			pinmux = <AMEBA_PINMUX('B', 13, AMEBA_SPI)>;
+			bias-pull-up;
+		};
+	};
+
+	i2c0_default: i2c0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A',  9, AMEBA_I2C)>,  /* SDA */
+				 <AMEBA_PINMUX('A', 10, AMEBA_I2C)>;  /* SCL */
+			bias-pull-up;
+		};
+	};
+
+	i2c1_default: i2c1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('A', 20, AMEBA_I2C)>,  /* SDA */
+				 <AMEBA_PINMUX('A', 19, AMEBA_I2C)>;  /* SCL */
+			bias-pull-up;
+		};
+	};
+};

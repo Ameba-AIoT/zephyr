@@ -10,3 +10,6 @@ family:
       - name: amebag2
         socs:
           - name: rtl8721f
+      - name: amebasmart
+        socs:
+          - name: rtl8730e

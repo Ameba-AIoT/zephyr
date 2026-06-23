@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Realtek Semiconductor Corp.
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -20,19 +20,21 @@
 #include <zephyr/irq.h>
 #include "i2s_ameba.h"
 
-#include <zephyr/drivers/dma/dma_ameba_gdma.h>
+#include "dma_ameba_gdma.h"
+#include <zephyr/cache.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(i2s_ameba);
 
 #define NUM_DMA_BLOCKS_RX_PREP 2
 #define MAX_TX_DMA_BLOCKS      1
-#define CONFIG_I2S_DEBUG       0
+#define I2S_AMEBA_DEBUG       0
 
 static const struct i2s_config *i2s_ameba_config_get(const struct device *dev, enum i2s_dir dir);
 static void i2s_ameba_tx_sport_fifo_empty_irq(const struct device *dev, bool enable);
 
-static inline void i2s_purge_stream_buffers(struct stream *stream, struct k_mem_slab *mem_slab,
+static inline void i2s_purge_stream_buffers(struct i2s_ameba_stream *stream,
+					    struct k_mem_slab *mem_slab,
 					    bool in_drop, bool out_drop)
 {
 	void *buffer;
@@ -54,7 +56,7 @@ uint32_t i2s_ameba_tx_fifo_empty_handler(struct device *dev)
 {
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	AUDIO_SPORT_TypeDef *SPORTx = cfg->i2s;
 
 	if (data->fifo_num == 0 || data->fifo_num == 1) {
@@ -84,7 +86,7 @@ sport_end:
 		AUDIO_SP_Deinit(cfg->index, SP_DIR_TX);
 	} else {
 		/* If state == RUNNING, it means i2s TX underrun. */
-		LOG_ERR("I2S FIFO empty with an error state %d.\n", stream->state);
+		LOG_ERR("I2S FIFO empty with an error state %d.", stream->state);
 		stream->state = I2S_STATE_ERROR;
 	}
 	return 0;
@@ -119,19 +121,18 @@ static void i2s_ameba_tx_sport_fifo_empty_irq(const struct device *dev, bool ena
 static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 
-	/* TODO: dma abort has some errors to fix. */
+	/* Safe: called from DMA completion callback or when DMA is not running. */
 	if (dma_stop(data->dma_tx.dma_dev, data->dma_tx.dma_channel) < 0) {
 		LOG_ERR("Stop tx dma failed !!");
 	}
 
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
-	if (data->fifo_num == 2 || data->fifo_num == 3) {
-		if (dma_stop(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel) < 0) {
-			LOG_ERR("Stop tx ext dma failed !!");
-		}
+	if ((data->fifo_num == 2 || data->fifo_num == 3) &&
+	    (dma_stop(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel) < 0)) {
+		LOG_ERR("Stop tx ext dma failed !!");
 	}
 #endif
 
@@ -143,7 +144,7 @@ static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 		i2s_purge_stream_buffers(stream, data->tx.cfg.mem_slab, true, true);
 		stream->state = I2S_STATE_READY;
 	} else {
-		LOG_DBG("DMA DONE. Wait SPORT FIFO-EMPTY.\n");
+		LOG_DBG("DMA DONE. Wait SPORT FIFO-EMPTY.");
 		i2s_ameba_tx_sport_fifo_empty_irq(dev, 1);
 	}
 }
@@ -151,19 +152,18 @@ static void i2s_tx_stream_disable(const struct device *dev, bool drop)
 static void i2s_rx_stream_disable(const struct device *dev, bool in_drop, bool out_drop)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->rx;
+	struct i2s_ameba_stream *stream = &data->rx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 
-	/* TODO: dma abort has some errors to fix. */
+	/* Safe: called from DMA completion callback or when DMA is not running. */
 	if (dma_stop(data->dma_rx.dma_dev, data->dma_rx.dma_channel) < 0) {
 		LOG_ERR("Stop rx dma failed !!");
 	}
 
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
-	if (data->fifo_num == 2 || data->fifo_num == 3) {
-		if (dma_stop(data->dma_rx_ext.dma_dev, data->dma_rx_ext.dma_channel) < 0) {
-			LOG_ERR("Stop rx ext dma failed !!");
-		}
+	if ((data->fifo_num == 2 || data->fifo_num == 3) &&
+	    (dma_stop(data->dma_rx_ext.dma_dev, data->dma_rx_ext.dma_channel) < 0)) {
+		LOG_ERR("Stop rx ext dma failed !!");
 	}
 #endif
 
@@ -179,7 +179,7 @@ static void i2s_rx_stream_disable(const struct device *dev, bool in_drop, bool o
 static int i2s_ameba_tx_dequeue_next_buffer(const struct device *dev, uint8_t *blocks_queued)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	void *buffer = NULL;
 	int ret = -EINVAL;
 	unsigned int key;
@@ -218,12 +218,12 @@ static int i2s_ameba_tx_dequeue_next_buffer(const struct device *dev, uint8_t *b
 	return ret;
 }
 
-void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
+static void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
 			 int status)
 {
 	struct device *dev = user_data;
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	void *buffer = NULL;
 	int ret;
@@ -291,23 +291,33 @@ void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t
 		buffer = (void *)ret;
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 		if (IS_REORDER_CH(data->reorder_mode)) {
-			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (u32)buffer,
-				   (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, upper_block_size);
+			sys_cache_data_flush_range(buffer, stream->cfg.block_size);
+			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (uint32_t)buffer,
+				   (uint32_t)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, upper_block_size);
 			/* dma_start */
 			dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 			dma_reload(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel,
-				   (u32)buffer + upper_block_size,
-				   (u32)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR, bottom_block_size);
+				   (uint32_t)buffer + upper_block_size,
+				   (uint32_t)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR, bottom_block_size);
 			/* dma_start */
 			dma_start(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel);
-		} else
-#endif
-		{
-			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (u32)buffer,
-				   (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, stream->cfg.block_size);
+		} else {
+			sys_cache_data_flush_range(buffer, stream->cfg.block_size);
+			dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel,
+				   (uint32_t)buffer,
+				   (uint32_t)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR,
+				   stream->cfg.block_size);
 			/* dma_start */
 			dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 		}
+#else
+		sys_cache_data_flush_range(buffer, stream->cfg.block_size);
+		dma_reload(data->dma_tx.dma_dev, data->dma_tx.dma_channel, (uint32_t)buffer,
+				(uint32_t)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR, stream->cfg.block_size);
+		/* dma_start */
+		dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
+#endif
+
 		if (blocks_queued || (stream->free_tx_dma_blocks < MAX_TX_DMA_BLOCKS)) {
 		} else {
 			i2s_tx_stream_disable(dev, false);
@@ -321,12 +331,12 @@ void i2s_ameba_dma_tx_cb(const struct device *dma_dev, void *user_data, uint32_t
 	}
 }
 
-void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
+static void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t channel,
 			 int status)
 {
 	struct device *dev = user_data;
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->rx;
+	struct i2s_ameba_stream *stream = &data->rx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	void *buffer;
 	int ret = 0;
@@ -359,6 +369,7 @@ void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t
 		ret = k_msgq_get(&stream->in_queue, &buffer, K_NO_WAIT);
 		__ASSERT_NO_MSG(ret == 0);
 
+		sys_cache_data_invd_range(buffer, stream->cfg.block_size);
 		/* put buffer to output queue */
 		ret = k_msgq_put(&stream->out_queue, &buffer, K_NO_WAIT);
 		if (ret != 0) {
@@ -380,21 +391,27 @@ void i2s_ameba_dma_rx_cb(const struct device *dma_dev, void *user_data, uint32_t
 				/* reload DMA */
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 				if (IS_REORDER_CH(data->reorder_mode)) {
+					sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 					dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
-						   (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
-						   (u32)buffer, upper_block_size);
+						   (uint32_t)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
+						   (uint32_t)buffer, upper_block_size);
 					dma_reload(data->dma_rx_ext.dma_dev,
 						   data->dma_rx_ext.dma_channel,
-						   (u32)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR,
-						   (u32)buffer + upper_block_size,
+						   (uint32_t)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR,
+						   (uint32_t)buffer + upper_block_size,
 						   bottom_block_size);
-				} else
-#endif
-				{
+				} else {
+					sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 					dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
-						   (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
-						   (u32)buffer, stream->cfg.block_size);
+						   (uint32_t)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
+						   (uint32_t)buffer, stream->cfg.block_size);
 				}
+#else
+				sys_cache_data_flush_range(buffer, stream->cfg.block_size);
+				dma_reload(data->dma_rx.dma_dev, data->dma_rx.dma_channel,
+						(uint32_t)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR,
+						(uint32_t)buffer, stream->cfg.block_size);
+#endif
 				/* put buffer in input queue */
 				ret = k_msgq_put(&stream->in_queue, &buffer, K_NO_WAIT);
 				if (ret != 0) {
@@ -445,7 +462,7 @@ static int i2s_ameba_enable_clock(const struct device *dev)
 	return 0;
 }
 
-static int i2s_ameba_start_state_check(struct stream *stream)
+static int i2s_ameba_start_state_check(struct i2s_ameba_stream *stream)
 {
 	int retry = 3;
 
@@ -458,7 +475,7 @@ static int i2s_ameba_start_state_check(struct stream *stream)
 	}
 
 	if ((stream->state != I2S_STATE_READY) && (stream->state != I2S_STATE_NOT_READY)) {
-		LOG_ERR("Stream state (%d) is error for configure.\n", stream->state);
+		LOG_ERR("Stream state (%d) is error for configure.", stream->state);
 		return -EIO;
 	}
 	return 0;
@@ -470,7 +487,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *const cfg = dev->config;
 	uint8_t sp_dir;
-	struct stream *stream;
+	struct i2s_ameba_stream *stream;
 	int ret = 0;
 
 	ret = i2s_ameba_start_state_check(&data->tx);
@@ -503,7 +520,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	memcpy(&stream->cfg, i2s_cfg, sizeof(struct i2s_config));
 
 	if (i2s_cfg->frame_clk_freq == 0U) {
-		LOG_ERR("Invalid frame_clk_freq %u", i2s_cfg->frame_clk_freq);
+		LOG_WRN("Invalid frame_clk_freq %u", i2s_cfg->frame_clk_freq);
 		if (dir == I2S_DIR_TX) {
 			data->tx.state = I2S_STATE_NOT_READY;
 		} else {
@@ -680,7 +697,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	}
 
 	if ((i2s_cfg->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK) {
-		/* Single i2s-loopback cannot be slave-mode (alaways need clock). */
+		/* Single i2s-loopback cannot be slave-mode (always need clock). */
 		slave = false;
 	}
 
@@ -762,7 +779,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 static const struct i2s_config *i2s_ameba_config_get(const struct device *dev, enum i2s_dir dir)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream;
+	struct i2s_ameba_stream *stream;
 
 	if (dir == I2S_DIR_RX) {
 		stream = &data->rx;
@@ -777,7 +794,7 @@ static const struct i2s_config *i2s_ameba_config_get(const struct device *dev, e
 	return &stream->cfg;
 }
 
-static int i2s_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
+static int i2s_tx_dma_config(const struct device *dev, uint8_t *pdata, uint32_t length)
 {
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *cfg = dev->config;
@@ -790,7 +807,7 @@ static int i2s_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
+	i2s_dma->blk_cfg.dest_address = (uint32_t)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
 	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_tx_cb;
 
@@ -804,18 +821,18 @@ static int i2s_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 
 	/* Cofigure GDMA transfer */
 	/* 24bits or 16bits mode */
-	if (((length & 0x03) == 0) && (((u32)(pdata) & 0x03) == 0)) {
+	if (((length & 0x03) == 0) && (((uint32_t)(pdata) & 0x03) == 0)) {
 		/* 4-bytes aligned, move 4 bytes each transfer */
 		i2s_dma->dma_cfg.source_burst_length = 4;
 		i2s_dma->dma_cfg.source_data_size = 4;
 		i2s_dma->blk_cfg.block_size = length;
-	} else if (((length & 0x01) == 0) && (((u32)(pdata) & 0x01) == 0)) {
+	} else if (((length & 0x01) == 0) && (((uint32_t)(pdata) & 0x01) == 0)) {
 		/* 2-bytes aligned, move 2 bytes each transfer */
 		i2s_dma->dma_cfg.source_burst_length = 8;
 		i2s_dma->dma_cfg.source_data_size = 2;
 		i2s_dma->blk_cfg.block_size = length;
 	} else {
-		LOG_ERR("Alignment Err.\n");
+		LOG_ERR("Alignment Err.");
 		return -EINVAL;
 	}
 
@@ -834,7 +851,7 @@ static int i2s_tx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	return dma_config(i2s_dma->dma_dev, i2s_dma->dma_channel, &i2s_dma->dma_cfg);
 }
 
-static int i2s_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
+static int i2s_rx_dma_config(const struct device *dev, uint8_t *pdata, uint32_t length)
 {
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *cfg = dev->config;
@@ -847,7 +864,7 @@ static int i2s_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
+	i2s_dma->blk_cfg.source_address = (uint32_t)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
 	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_rx_cb;
 
@@ -879,7 +896,7 @@ static int i2s_rx_dma_config(const struct device *dev, u8 *pdata, u32 length)
 }
 
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
-static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 length)
+static int i2s_tx_dma_pair_config(const struct device *dev, uint8_t *pdata, uint32_t length)
 {
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *cfg = dev->config;
@@ -894,7 +911,7 @@ static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
+	i2s_dma->blk_cfg.dest_address = (uint32_t)&cfg->i2s->SP_TX_FIFO_0_WR_ADDR;
 	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_tx_cb;
 
@@ -929,7 +946,7 @@ static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	memcpy(&i2s_dma_ext->dma_cfg, &i2s_dma->dma_cfg, sizeof(struct dma_config));
 	i2s_dma_ext->dma_cfg.head_block = &i2s_dma_ext->blk_cfg;
 	memcpy(&i2s_dma_ext->blk_cfg, &i2s_dma->blk_cfg, sizeof(struct dma_block_config));
-	i2s_dma_ext->blk_cfg.dest_address = (u32)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR;
+	i2s_dma_ext->blk_cfg.dest_address = (uint32_t)&cfg->i2s->SP_TX_FIFO_1_WR_ADDR;
 	i2s_dma_ext->dma_cfg.dma_slot = handshake_index_ext;
 	i2s_dma_ext->blk_cfg.block_size = (data->fifo_num == 2) ? (length / 3) : (length / 2);
 	i2s_dma_ext->blk_cfg.source_address = (uint32_t)pdata + i2s_dma->blk_cfg.block_size;
@@ -947,7 +964,7 @@ static int i2s_tx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	return ret;
 }
 
-static int i2s_rx_dma_pair_config(const struct device *dev, u8 *pdata, u32 length)
+static int i2s_rx_dma_pair_config(const struct device *dev, uint8_t *pdata, uint32_t length)
 {
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *cfg = dev->config;
@@ -962,7 +979,7 @@ static int i2s_rx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	memset(&i2s_dma->blk_cfg, 0, sizeof(struct dma_block_config));
 	i2s_dma->dma_cfg.head_block = &i2s_dma->blk_cfg;
 
-	i2s_dma->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
+	i2s_dma->blk_cfg.source_address = (uint32_t)&cfg->i2s->SP_RX_FIFO_0_RD_ADDR;
 	i2s_dma->dma_cfg.dma_slot = handshake_index;
 	i2s_dma->dma_cfg.dma_callback = i2s_ameba_dma_rx_cb;
 
@@ -994,7 +1011,7 @@ static int i2s_rx_dma_pair_config(const struct device *dev, u8 *pdata, u32 lengt
 	memcpy(&i2s_dma_ext->dma_cfg, &i2s_dma->dma_cfg, sizeof(struct dma_config));
 	i2s_dma_ext->dma_cfg.head_block = &i2s_dma_ext->blk_cfg;
 	memcpy(&i2s_dma_ext->blk_cfg, &i2s_dma->blk_cfg, sizeof(struct dma_block_config));
-	i2s_dma_ext->blk_cfg.source_address = (u32)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR;
+	i2s_dma_ext->blk_cfg.source_address = (uint32_t)&cfg->i2s->SP_RX_FIFO_1_RD_ADDR;
 	i2s_dma_ext->dma_cfg.dma_slot = data->dma_rx.dma_cfg.dma_slot1;
 	i2s_dma_ext->blk_cfg.block_size = (data->fifo_num == 2) ? (length / 3) : (length / 2);
 	i2s_dma_ext->blk_cfg.dest_address = (uint32_t)pdata + i2s_dma->blk_cfg.block_size;
@@ -1018,7 +1035,7 @@ static int i2s_tx_stream_start(const struct device *dev)
 	int ret = 0;
 	void *buffer;
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 
 	/* retrieve buffer from input queue */
@@ -1042,7 +1059,8 @@ static int i2s_tx_stream_start(const struct device *dev)
 	}
 
 	if (IS_REORDER_NULL(data->reorder_mode)) {
-		if (i2s_tx_dma_config(dev, (u8 *)buffer, (uint32_t)stream->cfg.block_size) < 0) {
+		if (i2s_tx_dma_config(dev, (uint8_t *)buffer,
+				      (uint32_t)stream->cfg.block_size) < 0) {
 			LOG_ERR("i2s tx dma config failed.");
 			/* Cannot TX. Recover free_tx_dma_blocks. Call prepare will clear up
 			 * allocated buffers.
@@ -1050,16 +1068,18 @@ static int i2s_tx_stream_start(const struct device *dev)
 			stream->free_tx_dma_blocks = MAX_TX_DMA_BLOCKS;
 			return -EIO;
 		}
+		sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 		dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 	}
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 	else if (IS_REORDER_CH(data->reorder_mode)) {
-		if (i2s_tx_dma_pair_config(dev, (u8 *)buffer, (uint32_t)stream->cfg.block_size) <
-		    0) {
+		if (i2s_tx_dma_pair_config(dev, (uint8_t *)buffer,
+					   (uint32_t)stream->cfg.block_size) < 0) {
 			LOG_ERR("i2s tx dma pair config failed.");
 			stream->free_tx_dma_blocks = MAX_TX_DMA_BLOCKS;
 			return -EIO;
 		}
+		sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 		dma_start(data->dma_tx.dma_dev, data->dma_tx.dma_channel);
 		dma_start(data->dma_tx_ext.dma_dev, data->dma_tx_ext.dma_channel);
 	}
@@ -1079,7 +1099,7 @@ static int i2s_rx_stream_start(const struct device *dev)
 	int ret = 0, i = 0;
 	void *buffer;
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->rx;
+	struct i2s_ameba_stream *stream = &data->rx;
 	const struct i2s_ameba_cfg *cfg = dev->config;
 	uint8_t num_of_bufs;
 	const struct i2s_config *stream_cfg_rx = i2s_ameba_config_get(dev, I2S_DIR_RX);
@@ -1105,7 +1125,8 @@ static int i2s_rx_stream_start(const struct device *dev)
 	/* put buffer in input queue */
 	ret = k_msgq_put(&stream->in_queue, &buffer, K_NO_WAIT);
 	if (ret != 0) {
-		LOG_ERR("failed to put buffer in input queue, ret1 %d", ret);
+		LOG_ERR("failed to put buffer in input queue, ret %d", ret);
+		k_mem_slab_free(stream->cfg.mem_slab, buffer);
 		return ret;
 	}
 
@@ -1116,20 +1137,23 @@ static int i2s_rx_stream_start(const struct device *dev)
 	}
 
 	if (IS_REORDER_NULL(data->reorder_mode)) {
-		if (i2s_rx_dma_config(dev, (u8 *)buffer, (uint32_t)stream->cfg.block_size) < 0) {
+		if (i2s_rx_dma_config(dev, (uint8_t *)buffer,
+				      (uint32_t)stream->cfg.block_size) < 0) {
 			LOG_ERR("i2s rx dma config failed.");
 			/* Cannot rx. Call prepare will clear up allocated buffers.*/
 			return -EIO;
 		}
+		sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 		dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 	}
 #if defined(CONFIG_I2S_CHANNEL_EXT) && CONFIG_I2S_CHANNEL_EXT
 	else if (IS_REORDER_CH(data->reorder_mode)) {
-		if (i2s_rx_dma_pair_config(dev, (u8 *)buffer, (uint32_t)stream->cfg.block_size) <
-		    0) {
+		if (i2s_rx_dma_pair_config(dev, (uint8_t *)buffer,
+					   (uint32_t)stream->cfg.block_size) < 0) {
 			LOG_ERR("i2s rx dma pair config failed.");
 			return -EIO;
 		}
+		sys_cache_data_flush_range(buffer, stream->cfg.block_size);
 		dma_start(data->dma_rx.dma_dev, data->dma_rx.dma_channel);
 		dma_start(data->dma_rx_ext.dma_dev, data->dma_rx_ext.dma_channel);
 	}
@@ -1158,7 +1182,7 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir, enum i2
 {
 	struct i2s_ameba_data *data = dev->data;
 	const struct i2s_ameba_cfg *cfg = dev->config;
-	struct stream *stream;
+	struct i2s_ameba_stream *stream;
 	unsigned int key;
 	int ret = 0;
 
@@ -1204,16 +1228,8 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir, enum i2
 			break;
 		}
 
-		/*
-		 * BUG to fix: DMA cannot abort. Use STOPPING flow temprarily.
-		 *		stream->state = I2S_STATE_READY;
-		 *		if (dir == I2S_DIR_TX) {
-		 *			i2s_tx_stream_disable(dev, true);
-		 *		} else {
-		 *			i2s_rx_stream_disable(dev, true, true);
-		 *		}
-		 *		break;
-		 * Following are the work around codes!
+		/* DMA cannot abort mid-transfer; for RUNNING state fall through to
+		 * STOPPING flow so DMA completes the current block naturally.
 		 */
 		if (stream->state == I2S_STATE_RUNNING) {
 			/* Stop as the I2S_TRIGGER_STOP. */
@@ -1232,8 +1248,10 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir, enum i2
 		}
 
 		while (stream->state == I2S_STATE_STOPPING) {
-			/* block here to wait DROP process done. */
+			/* Release IRQ lock so DMA callback can fire and update state. */
+			irq_unlock(key);
 			k_sleep(K_MSEC(1));
+			key = irq_lock();
 		}
 		if (stream->state != I2S_STATE_READY) {
 			return -EIO;
@@ -1296,13 +1314,12 @@ static int i2s_ameba_trigger(const struct device *dev, enum i2s_dir dir, enum i2
 static void i2s_ameba_reorder_rx_mem_block_by_ch(const struct device *dev, void *buffer)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->rx;
+	struct i2s_ameba_stream *stream = &data->rx;
 	const struct i2s_config *stream_cfg = i2s_ameba_config_get(dev, I2S_DIR_RX);
-	u8 *ptemp_block = NULL;
-	u8 *pdata = (u8 *)buffer, *ptemp = NULL;
+	uint8_t *ptemp_block = NULL;
+	uint8_t *pdata = (uint8_t *)buffer, *ptemp = NULL;
 	int temp_total = 0;
 	int upper_bytes = 0, bottom_bytes = 0;
-	/* <channels * word_size / bits_per_byte> */
 	int upper_unit = 0, bottom_unit = 0;
 	int size = stream->cfg.block_size;
 
@@ -1331,18 +1348,22 @@ static void i2s_ameba_reorder_rx_mem_block_by_ch(const struct device *dev, void 
 	BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE > 0,
 		     "CONFIG_HEAP_MEM_POOL_SIZE must be configured in .conf");
 	ptemp_block = k_malloc(upper_bytes);
+	if (ptemp_block == NULL) {
+		LOG_ERR("Failed to allocate memory");
+		return;
+	}
 	ptemp = ptemp_block;
 	memcpy(ptemp, pdata, upper_bytes);
 
-	ptemp = (u8 *)buffer + upper_bytes;
+	ptemp = (uint8_t *)buffer + upper_bytes;
 	temp_total = bottom_unit;
 	while (temp_total < bottom_bytes) {
 		pdata += upper_unit;
-#if CONFIG_I2S_DEBUG
-		assert_param((pdata >= (u8 *)buffer) &&
-			     (pdata < ((u8 *)buffer + upper_bytes + bottom_bytes)));
-		assert_param((ptemp >= (u8 *)buffer) &&
-			     (ptemp < ((u8 *)buffer + upper_bytes + bottom_bytes)));
+#if I2S_AMEBA_DEBUG
+		assert_param((pdata >= (uint8_t *)buffer) &&
+			     (pdata < ((uint8_t *)buffer + upper_bytes + bottom_bytes)));
+		assert_param((ptemp >= (uint8_t *)buffer) &&
+			     (ptemp < ((uint8_t *)buffer + upper_bytes + bottom_bytes)));
 #endif
 		memcpy(pdata, ptemp, bottom_unit);
 		pdata += bottom_unit;
@@ -1351,12 +1372,12 @@ static void i2s_ameba_reorder_rx_mem_block_by_ch(const struct device *dev, void 
 	}
 
 	temp_total = 0;
-	pdata = (u8 *)buffer;
+	pdata = (uint8_t *)buffer;
 	ptemp = ptemp_block;
 	while (temp_total < upper_bytes) {
-#if CONFIG_I2S_DEBUG
-		assert_param((pdata >= (u8 *)buffer) &&
-			     (pdata < ((u8 *)buffer + upper_bytes + bottom_bytes)));
+#if I2S_AMEBA_DEBUG
+		assert_param((pdata >= (uint8_t *)buffer) &&
+			     (pdata < ((uint8_t *)buffer + upper_bytes + bottom_bytes)));
 		assert_param((ptemp >= ptemp_block) && (ptemp < ptemp_block + upper_bytes));
 #endif
 		memcpy(pdata, ptemp, upper_unit);
@@ -1372,17 +1393,15 @@ static void i2s_ameba_reorder_tx_mem_block_by_ch(const struct device *dev, void 
 						 size_t size)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	const struct i2s_config *stream_cfg = i2s_ameba_config_get(dev, I2S_DIR_TX);
-	u8 *ptemp_block = NULL;
-	u8 *pdata = (u8 *)mem_block, *ptemp = NULL;
+	uint8_t *ptemp_block = NULL;
+	uint8_t *pdata = (uint8_t *)mem_block, *ptemp = NULL;
 	int temp_total = 0;
 	int upper_bytes = 0, bottom_bytes = 0;
-	/* <channels * word_size / bits_per_byte> */
 	int upper_unit = 0, bottom_unit = 0;
 
 	if (size != stream->cfg.block_size) {
-		/* Assert here: padding if not aligned. */
 		LOG_ERR("Write Invalid size! size: %d, block: %d.", size, stream->cfg.block_size);
 	}
 
@@ -1414,13 +1433,17 @@ static void i2s_ameba_reorder_tx_mem_block_by_ch(const struct device *dev, void 
 	BUILD_ASSERT(CONFIG_HEAP_MEM_POOL_SIZE > 0,
 		     "CONFIG_HEAP_MEM_POOL_SIZE must be configured in .conf");
 	ptemp_block = k_malloc(upper_bytes);
+	if (ptemp_block == NULL) {
+		LOG_ERR("Failed to allocate memory");
+		return;
+	}
 	ptemp = ptemp_block;
 
-	/* bottom_bytes / bottom_unit times, e.g. block_size = 4096, u16, ch = 8, need 256 times. */
+	/* bottom_bytes / bottom_unit times (e.g. block_size=4096, uint16_t, ch=8 -> 256 times). */
 	while (temp_total < upper_bytes) {
-#if CONFIG_I2S_DEBUG
-		assert_param((pdata >= (u8 *)mem_block) &&
-			     (pdata < ((u8 *)mem_block + upper_bytes + bottom_bytes)));
+#if I2S_AMEBA_DEBUG
+		assert_param((pdata >= (uint8_t *)mem_block) &&
+			     (pdata < ((uint8_t *)mem_block + upper_bytes + bottom_bytes)));
 		assert_param((ptemp >= ptemp_block) && (ptemp < ptemp_block + upper_bytes));
 #endif
 		memcpy(ptemp, pdata, upper_unit);
@@ -1429,27 +1452,27 @@ static void i2s_ameba_reorder_tx_mem_block_by_ch(const struct device *dev, void 
 		temp_total += upper_unit;
 	}
 
-	pdata = (u8 *)mem_block + upper_bytes + bottom_bytes;
-	ptemp = (u8 *)mem_block + upper_bytes + bottom_bytes;
+	pdata = (uint8_t *)mem_block + upper_bytes + bottom_bytes;
+	ptemp = (uint8_t *)mem_block + upper_bytes + bottom_bytes;
 	temp_total = bottom_unit;
 	pdata -= (bottom_unit + upper_unit);
 	ptemp -= bottom_unit;
-	/* upper_bytes / upper_unit times, e.g. block_size = 4096, u16, ch = 8, need 256 times. */
+	/* upper_bytes / upper_unit times (e.g. block_size=4096, uint16_t, ch=8 -> 256 times). */
 	while (temp_total < bottom_bytes) {
 		pdata -= bottom_unit;
 		ptemp -= bottom_unit;
-#if CONFIG_I2S_DEBUG
-		assert_param((pdata >= (u8 *)mem_block) &&
-			     (pdata < ((u8 *)mem_block + upper_bytes + bottom_bytes)));
-		assert_param((ptemp >= (u8 *)mem_block) &&
-			     (ptemp < ((u8 *)mem_block + upper_bytes + bottom_bytes)));
+#if I2S_AMEBA_DEBUG
+		assert_param((pdata >= (uint8_t *)mem_block) &&
+			     (pdata < ((uint8_t *)mem_block + upper_bytes + bottom_bytes)));
+		assert_param((ptemp >= (uint8_t *)mem_block) &&
+			     (ptemp < ((uint8_t *)mem_block + upper_bytes + bottom_bytes)));
 #endif
 		memcpy(ptemp, pdata, bottom_unit);
 		pdata -= upper_unit;
 		temp_total += bottom_unit;
 	}
 
-	pdata = (u8 *)mem_block;
+	pdata = (uint8_t *)mem_block;
 	ptemp = ptemp_block;
 	memcpy(pdata, ptemp, upper_bytes);
 
@@ -1460,7 +1483,7 @@ static void i2s_ameba_reorder_tx_mem_block_by_ch(const struct device *dev, void 
 static int i2s_ameba_read(const struct device *dev, void **mem_block, size_t *size)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->rx;
+	struct i2s_ameba_stream *stream = &data->rx;
 
 	void *buffer;
 	int status;
@@ -1495,7 +1518,7 @@ static int i2s_ameba_read(const struct device *dev, void **mem_block, size_t *si
 static int i2s_ameba_write(const struct device *dev, void *mem_block, size_t size)
 {
 	struct i2s_ameba_data *data = dev->data;
-	struct stream *stream = &data->tx;
+	struct i2s_ameba_stream *stream = &data->tx;
 	int ret = 0;
 
 	if (stream->state != I2S_STATE_READY && stream->state != I2S_STATE_RUNNING) {
@@ -1519,12 +1542,6 @@ static int i2s_ameba_write(const struct device *dev, void *mem_block, size_t siz
 		return ret;
 	}
 
-	/*
-	 * TODO: if dma compelete with no next-block, i2s_ameba_write now.
-	 * i2s_fifo_timer is running and status != STOPPING
-	 * Give data to reload new dma!
-	 */
-
 	return ret;
 }
 
@@ -1542,13 +1559,10 @@ static int i2s_ameba_initialize(const struct device *dev)
 	struct i2s_ameba_data *data = dev->data;
 	int ret;
 
-	/*float ppm = 234.35;*/
-	/*float cal_ppm = 0;*/
-
 	/* Enable I2S clock propagation */
 	ret = i2s_ameba_enable_clock(dev);
 	if (ret < 0) {
-		LOG_ERR("%s: clock enabling failed: %d", __func__, ret);
+		LOG_ERR("clock enabling failed: %d", ret);
 		return -EIO;
 	}
 
@@ -1563,33 +1577,11 @@ static int i2s_ameba_initialize(const struct device *dev)
 	case PLL_CLOCK_45P1584M:
 		RCC_PeriphClockSource_SPORT(cfg->i2s, CKSL_I2S_CPUPLL);
 		PLL_I2S_CLK_DIV(cfg->index, ENABLE, 1U);
-
-		/*if (cfg->pll_tune == 0) {
-		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_AUTO);
-		 *} else if (cfg->pll_tune == 1) {
-		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_AUTO);
-		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_FASTER);
-		 *} else if (cfg->pll_tune == 2) {
-		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_AUTO);
-		 *	cal_ppm = PLL_I2S_45P1584M_ClkTune(ppm, PLL_SLOWER);
-		 *}
-		 */
 		break;
 
 	case PLL_CLOCK_98P304M:
 		RCC_PeriphClockSource_SPORT(cfg->i2s, CKSL_I2S_CPUPLL);
 		PLL_I2S_CLK_DIV(cfg->index, ENABLE, 0U);
-
-		/*if (cfg->pll_tune == 0) {
-		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_AUTO);
-		 *} else if (cfg->pll_tune == 1) {
-		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_AUTO);
-		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_FASTER);
-		 *} else if (cfg->pll_tune == 2) {
-		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_AUTO);
-		 *	cal_ppm = PLL_I2S_98P304M_ClkTune(ppm, PLL_SLOWER);
-		 *}
-		 */
 		break;
 
 	case I2S_CLOCK_XTAL40M:
@@ -1597,7 +1589,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 		break;
 
 	default:
-		LOG_ERR("invalid clcok");
+		LOG_ERR("invalid clock");
 		return -EINVAL;
 	}
 
@@ -1606,7 +1598,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 		    CONFIG_I2S_TX_BLOCK_COUNT);
 	k_msgq_init(&data->rx.out_queue, (char *)data->rx_out_msgs, sizeof(void *),
 		    CONFIG_I2S_RX_BLOCK_COUNT);
-	/* Alawys only 1 on rx.in_queue for dma. Alaways only 1 on tx.out_queue for dma. */
+	/* Always only 1 on rx.in_queue for dma. Always only 1 on tx.out_queue for dma. */
 	k_msgq_init(&data->rx.in_queue, (char *)data->rx_in_msgs, sizeof(void *), 1);
 	k_msgq_init(&data->tx.out_queue, (char *)data->tx_out_msgs, sizeof(void *), 1);
 

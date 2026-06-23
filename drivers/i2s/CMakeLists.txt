@@ -6,6 +6,7 @@ zephyr_library()
 
 zephyr_library_sources(i2s_common.c)
 zephyr_library_sources_ifdef(CONFIG_I2S_AMEBA		i2s_ameba.c)
+zephyr_library_include_directories_ifdef(CONFIG_I2S_AMEBA ${ZEPHYR_BASE}/drivers/dma)
 zephyr_library_sources_ifdef(CONFIG_I2S_SAM_SSC		i2s_sam_ssc.c)
 zephyr_library_sources_ifdef(CONFIG_USERSPACE		i2s_handlers.c)
 zephyr_library_sources_ifdef(CONFIG_I2S_STM32		i2s_ll_stm32.c)
