@@ -10,6 +10,7 @@
 #ifndef _ASMLANGUAGE
 
 #include <zephyr/sys/util.h>
+#include "cmsis_cpu.h"
 
 #endif /* _ASMLANGUAGE */
 

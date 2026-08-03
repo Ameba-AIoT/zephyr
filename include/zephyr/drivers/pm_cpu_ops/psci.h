@@ -8,7 +8,11 @@
 #define ZEPHYR_INCLUDE_DRIVERS_PM_CPU_OPS_PSCI_H_
 
 #include <zephyr/types.h>
+#if defined(CONFIG_ARM64)
 #include <zephyr/arch/arm64/arm-smccc.h>
+#elif defined(CONFIG_HAS_ARM_SMCCC)
+#include <zephyr/arch/arm/arm-smccc.h>
+#endif
 #include <stddef.h>
 #include <zephyr/device.h>
 
@@ -28,6 +32,19 @@ extern "C" {
 		((ver) & PSCI_VERSION_MINOR_MASK)
 
 uint32_t psci_version(void);
+
+/**
+ * @brief Function to call PSCI CPU_SUSPEND
+ *
+ * This function is API for CPU_SUSPEND PSCI SMC call.
+ *
+ * @param state CPU Power state
+ * @param entry_point The address entry when returning from suspend
+ *
+ * @retval 0 if enter suspend successfully, others for failure
+ */
+
+int psci_cpu_suspend(uint32_t state, uintptr_t entry_point);
 
 #ifdef __cplusplus
 }

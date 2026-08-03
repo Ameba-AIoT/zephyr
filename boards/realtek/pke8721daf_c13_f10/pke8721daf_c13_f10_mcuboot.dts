@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "pke8721daf_c13_f10_common.dts"
+
+/{
+	chosen {
+		zephyr,code-partition = &slot0_partition;
+		zephyr,uart-mcumgr = &uart0;
+	};
+};
+
+/* 4MB flash */
+/delete-node/ &flash0;
+&spic {
+	flash0: flash@F7FF000 {
+		compatible = "soc-nv-flash";
+		erase-block-size = <DT_SIZE_K(4)>;
+		write-block-size = <4>;
+		reg = <FLASH_BASE DT_SIZE_M(4)>;
+		status = "okay";
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			boot_partition: partition@0 {
+				label = "bootloader";
+				reg = <BOOT_SLOT_BASE BOOT_SLOT_SIZE>;
+				read-only;
+			};
+
+			slot0_partition: partition@40000 {
+				label = "image-0";
+				reg = <APP_SLOT0_OFFSET APP_SLOT_SIZE>;
+			};
+
+			slot1_partition: partition@C0000 {
+				label = "image-1";
+				reg = <APP_SLOT1_OFFSET APP_SLOT_SIZE>;
+			};
+
+			storage_partition: partition@250000 {
+				label = "storage";
+				reg = <0x00250000 0x00006000>;
+			};
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-0 = <&uart0_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&spic {
+	status = "okay";
+};

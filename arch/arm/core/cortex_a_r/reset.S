@@ -47,8 +47,25 @@ GTEXT(soc_reset_hook)
  * setting up the system for running C code.
  *
  */
+#if defined(CONFIG_AARCH32_ARMV8_R)
+/*
+ * ARMv8-R AArch32 cores use RVBAR (Reset Vector Base Address Register) to
+ * determine the CPU start address on reset.  RVBAR only stores bits [31:5];
+ * bits [4:0] are RES0.  This means the reset
+ * vector address is implicitly rounded down to a 32-byte boundary.
+ *
+ * If __start is not 32-byte aligned, any firmware or boot-loader that
+ * programs RVBAR from the ELF entry point will silently truncate the
+ * address, causing the CPU to begin executing at the wrong location.
+ */
+	.section .text._reset_section, "ax"
+	.align 5
+z_arm_reset:
+__start:
+#else
 SECTION_SUBSEC_FUNC(TEXT, _reset_section, z_arm_reset)
 SECTION_SUBSEC_FUNC(TEXT, _reset_section, __start)
+#endif
 #if defined(CONFIG_AARCH32_ARMV8_R)
     /* Check if we are starting in HYP mode */
     mrs r0, cpsr
@@ -81,6 +98,75 @@ SECTION_SUBSEC_FUNC(TEXT, _reset_section, __start)
 
 EL1_Reset_Handler:
 
+#endif
+
+    /*
+     * ---------------------------------------------------------------
+     * Early banked-SP safe initialisation (ALL cores, runs immediately
+     * after EL1_Reset_Handler regardless of primary/secondary split).
+     *
+     * When a secondary core (Core1) is kicked from TF-A's mailbox it
+     * arrives here in secure SVC mode.  TF-A may leave SP_UND, SP_ABT,
+     * SP_SYS, SP_IRQ and SP_FIQ with stale values from a previous boot
+     * cycle (preserved in PSRAM across warm resets).  Any exception that
+     * fires before the per-CPU stacks are loaded from boot_params will
+     * use those stale pointers, corrupt DRAM and double-fault.
+     *
+     * Fix: point all exception-mode SPs to the cpu-0 stack tops as safe
+     * temporaries the instant we enter the kernel, before any instruction
+     * that could raise an exception (DRAM load, cache op, VFP, etc.).
+     * Primary core overrides them unconditionally in _primary_core;
+     * secondary core overrides them again in _secondary_core once
+     * boot_params are ready.
+     *
+     * Use cpu-1 stack tops here (second slot = base + 2*SIZE) so that
+     * secondary core does not collide with cpu-0 which also uses
+     * base + 1*SIZE.  Primary core always overwrites these in
+     * _primary_core with the correct cpu-0 values before any C code runs.
+     *
+     * FPU access is also enabled here so that the UND handler
+     * (CONFIG_FPU_SHARING) can execute vmrs/vmsr without re-triggering
+     * UND during this early window.
+     * ---------------------------------------------------------------
+     */
+    mov r0, #0
+
+    msr CPSR_c, #(MODE_FIQ | I_BIT | F_BIT)
+    ldr sp, =(z_arm_fiq_stack + 2 * CONFIG_ARMV7_FIQ_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_IRQ | I_BIT | F_BIT)
+    ldr sp, =(z_interrupt_stacks + 2 * CONFIG_ISR_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_ABT | I_BIT | F_BIT)
+    ldr sp, =(z_arm_abort_stack + 2 * CONFIG_ARMV7_EXCEPTION_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_UND | I_BIT | F_BIT)
+    ldr sp, =(z_arm_undef_stack + 2 * CONFIG_ARMV7_EXCEPTION_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_SYS | I_BIT | F_BIT)
+    ldr sp, =(z_arm_sys_stack + 2 * CONFIG_ARMV7_SYS_STACK_SIZE)
+    mov lr, r0
+
+    /* Return to SVC mode (same as TF-A delivered us) with I+F masked */
+    msr CPSR_c, #(MODE_SVC | I_BIT | F_BIT)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+#if defined(CONFIG_FPU) && defined(CONFIG_CPU_HAS_VFP)
+    mrc p15, 0, r0, c1, c0, 2
+    orr r0, r0, #(CPACR_CP10(CPACR_FA) | CPACR_CP11(CPACR_FA))
+    mcr p15, 0, r0, c1, c0, 2
+    isb
+    mov r0, #FPEXC_EN
+    vmsr fpexc, r0
 #endif
 
 #if defined(CONFIG_DCLS)
@@ -209,63 +295,170 @@ EL1_Reset_Handler:
     mcr p15, 1, r0, c9, c1, 0
 #endif
 
+    /*
+     * Invalidate I-cache for all cores (primary and secondary) before the
+     * voting and literal-pool reads that follow.
+     * After a warm reset SCTLR.I==1 (I-cache enabled, inherited from the
+     * previous run).  All banked SP/SPSR have been set to safe values above,
+     * so any prefetch/cache exception here is handled correctly.
+     * ICIALLU is a NOP when SCTLR.I==0, so it is always safe to execute.
+     */
+    mov r0, #0
+    mcr p15, 0, r0, c7, c5, 0    /* ICIALLU: invalidate entire I-cache */
+    dsb
+    isb
+
     ldr r0, =arm_cpu_boot_params
 
 #if CONFIG_MP_MAX_NUM_CPUS > 1
     /*
-     * This code uses voting locks, like arch/arm64/core/reset.S, to determine primary CPU.
-     */
-
-    /*
-     * Get the "logic" id defined by cpu_node_list statically for voting lock self-identify.
-     * It is worth noting that this is NOT the final logic id (arch_curr_cpu()->id)
+     * Determine primary/secondary CPU by MPID.
+     *
+     * On RTL8730E the CPU topology is fixed: Core0 (MPID==0) is always
+     * primary; Core1 (MPID==1) is always secondary, started via PSCI
+     * cpu_on by Core0.  The voting algorithm used in the generic code
+     * reads boot_params.mpid as a "claimed" sentinel, but after a warm
+     * reset PSRAM retains the previous run's Core1 MPID, causing Core0
+     * to conclude that another core already claimed primary and go
+     * secondary — leaving no primary and deadlocking the system.
+     *
+     * Fix: replace the voting algorithm with a direct MPID check.
+     * MPIDR[23:0] == 0 → primary core (Core0).
+     * MPIDR[23:0] != 0 → secondary core (Core1 via PSCI cpu_on).
+     *
+     * For the PSCI cpu_on path Core0 has already set boot_params.mpid
+     * to Core1's MPID before releasing Core1, so the spin-loop in
+     * _secondary_core_spin still works correctly — we only skip the
+     * unreliable voting part.
      */
     get_cpu_logic_id r1, r2, r3, r4 // r1: MPID, r2: logic id
 
-    add r4, r0, #BOOT_PARAM_VOTING_OFFSET
+    cmp r1, #0                              /* MPID == 0 → primary */
+    bne _secondary_core                     /* MPID != 0 → secondary */
 
-    /* signal our desire to vote */
-    mov r5, #1
-    strb r5, [r4, r2]
-    mov r7, #0
-    ldr r3, [r0, #BOOT_PARAM_MPID_OFFSET]
-    cmn r3, #1
-    beq 1f
+    /* Primary core (Core0): jump directly to _primary_core. */
+    b _primary_core
 
-    /* some core already won, release */
-    strb r7, [r4, r2]
-    b _secondary_core
+    /* Invalidate the I-cache and D-cache before spinning on boot_params.
+     * The primary core may have written code and data (including boot_params)
+     * after secondary reset; stale I-cache lines would cause us to execute
+     * wrong instructions (e.g. ldr literal-pool yields garbage function
+     * pointer), and stale D-cache lines would make us read the wrong stack
+     * pointers from boot_params even after the primary core flushed its cache.
+     */
+    mcr p15, 0, r0, c7, c5, 0    /* ICIALLU: invalidate entire I-cache */
+    dsb
+    isb
 
-    /* suggest current core then release */
-1:  str r1, [r0, #BOOT_PARAM_MPID_OFFSET]
-    strb r7, [r4, r2]
-    dmb
-
-    /* then wait until every core else is done voting */
-    mov r5, #0
-2:  ldrb r3, [r4, r5]
-    tst r3, #255
-    /* wait */
-    bne 2b
-    add r5, r5, #1
-    cmp r5, #CONFIG_MP_MAX_NUM_CPUS
-    bne 2b
-
-    /* check if current core won */
-    dmb
-    ldr r3, [r0, #BOOT_PARAM_MPID_OFFSET]
-    cmp r3, r1
-    beq _primary_core
-    /* fallthrough secondary */
-
-    /* loop until our turn comes */
+    /* loop until our turn comes:
+     * Invalidate the boot_params D-cache line on every iteration so we always
+     * see the value written by the primary core.
+     *
+     * NOTE: _secondary_core is also the target of the fast-path branch above
+     * (b _secondary_core when voting detects another core already won).
+     * All secondary-specific initialisation therefore lives HERE, inside the
+     * label, so every secondary code path receives it regardless of which
+     * voting branch was taken.
+     */
 _secondary_core:
-    dmb
+    /*
+     * Secondary core arrives here from TF-A in SVC mode with only SP_SVC
+     * initialised by TF-A.  All other banked SPs (FIQ, IRQ, ABT, UND, SYS)
+     * are uninitialised reset values.  If any exception fires during the
+     * boot_params spin-loop below (e.g. FPU trap), the handler will use
+     * those garbage SPs, corrupt memory, and double-fault.
+     *
+     * Use cpu-1 stack tops (second slot of each per-CPU array) as safe
+     * temporaries.  This avoids colliding with cpu-0 which uses the same
+     * stack arrays but at [cpu0_top = base + SIZE].  cpu-1 top is at
+     * [base + 2*SIZE].  They will be replaced by the exact boot_params
+     * values at label 2: below.
+     *
+     * Keep I+F masked so real IRQ/FIQ cannot nest here.
+     */
+    mov r0, #0
+
+    msr CPSR_c, #(MODE_FIQ | I_BIT | F_BIT)
+    ldr sp, =(z_arm_fiq_stack + 2 * CONFIG_ARMV7_FIQ_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_IRQ | I_BIT | F_BIT)
+    ldr sp, =(z_interrupt_stacks + 2 * CONFIG_ISR_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_ABT | I_BIT | F_BIT)
+    ldr sp, =(z_arm_abort_stack + 2 * CONFIG_ARMV7_EXCEPTION_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_UND | I_BIT | F_BIT)
+    ldr sp, =(z_arm_undef_stack + 2 * CONFIG_ARMV7_EXCEPTION_STACK_SIZE)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+    msr CPSR_c, #(MODE_SYS | I_BIT | F_BIT)
+    ldr sp, =(z_arm_sys_stack + 2 * CONFIG_ARMV7_SYS_STACK_SIZE)
+    mov lr, r0
+
+    /* Return to SVC mode with I+F masked */
+    msr CPSR_c, #(MODE_SVC | I_BIT | F_BIT)
+    mov lr, r0
+    msr spsr_cxsf, r0
+
+#if defined(CONFIG_FPU) && defined(CONFIG_CPU_HAS_VFP)
+    /*
+     * Enable FPU (CP10/CP11) access in CPACR before the spin-loop so that
+     * any VFP instruction inside an exception handler (CONFIG_FPU_SHARING
+     * makes the UND handler execute vmrs/vmsr/vstmia) does NOT re-raise
+     * Undefined Instruction → double-fault.
+     */
+    mrc p15, 0, r0, c1, c0, 2
+    orr r0, r0, #(CPACR_CP10(CPACR_FA) | CPACR_CP11(CPACR_FA))
+    mcr p15, 0, r0, c1, c0, 2
+    isb
+    mov r0, #FPEXC_EN
+    vmsr fpexc, r0
+    /* restore r0 = arm_cpu_boot_params (clobbered above) */
+    ldr r0, =arm_cpu_boot_params
+#endif
+
+    /*
+     * Pre-initialise TPIDRURO to point at _kernel.cpus[1] so that
+     * get_cpu() inside any exception handler that fires during the
+     * spin-loop below returns a valid (non-NULL) cpu pointer instead
+     * of 0.  A NULL cpu pointer causes get_cpu to compute address 0
+     * for the nested-count field, which is a null-pointer dereference
+     * → Data Abort → exception cascade / double-fault.
+     *
+     * _kernel.cpus is at _kernel+___kernel_t_cpus_OFFSET (= 0).
+     * cpu-1 slot is at _kernel + sizeof(struct _cpu) * 1.
+     * We use the symbol _kernel and a compile-time constant offset
+     * (___cpu_t_arch_OFFSET + sizeof is not directly available here,
+     * so we derive it from the linker symbol _kernel and the known
+     * per-CPU struct stride, which equals CONFIG_MP_MAX_NUM_CPUS-1
+     * relative offset between kernel+0 and the first cpu).
+     * Simpler: use the extern symbol directly via a per-cpu array.
+     *
+     * Architecture TPIDRURO encoding: bits [31:2] = &_cpu, bits[1:0]=0.
+     */
+    ldr r3, =_kernel                 /* r3 = &_kernel = &_kernel.cpus[0] */
+    /* stride = (_kernel size 0x68) / CONFIG_MP_MAX_NUM_CPUS; for 2 CPUs = 0x34 */
+    add r3, r3, #0x34                /* r3 = &_kernel.cpus[1] */
+    mcr p15, 0, r3, c13, c0, 3      /* TPIDRURO = &_kernel.cpus[1] */
+
+_secondary_core_spin:
+    ldr r2, =arm_cpu_boot_params
+    mcr p15, 0, r2, c7, c6, 1   /* DCIMVAC: invalidate boot_params cache line */
+    add r2, r2, #64
+    mcr p15, 0, r2, c7, c6, 1   /* invalidate second line if struct spans two */
+    dsb
+    isb
     ldr r2, [r0, #BOOT_PARAM_MPID_OFFSET]
     cmp r1, r2
-    bne _secondary_core
-
-    /* we can now load our stack pointer values and move on */
+    bne _secondary_core_spin
+    /* boot_params is fresh in memory (just invalidated); load stack pointers */
     ldr r4, =arch_secondary_cpu_init
     ldr r5, [r0, #BOOT_PARAM_FIQ_SP_OFFSET]
     ldr r6, [r0, #BOOT_PARAM_IRQ_SP_OFFSET]

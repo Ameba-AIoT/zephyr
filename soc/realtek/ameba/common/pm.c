@@ -12,6 +12,7 @@
 #include <zephyr/arch/common/pm_s2ram.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/sys_io.h>
 
 LOG_MODULE_REGISTER(soc_pm, LOG_LEVEL_DBG);
 
@@ -57,7 +58,6 @@ const struct pm_state_info *pm_policy_next_state(uint8_t cpu, int32_t ticks)
 		out_state = state;
 	}
 
-	printf("state: %d\n", out_state->state);
 	return out_state;
 }
 #endif
@@ -75,15 +75,16 @@ SRAM_ONLY_TEXT_SECTION
 void pm_sleep_ram_for_wfe(struct CPU_BackUp_TypeDef *bk)
 {
 	ARG_UNUSED(bk);
-
-	/*NOTE: Img2EntryFun0 maybe changed in some soc before this function called
-	 *      Here simply reset to correct value making it workaround
+#if defined(CONFIG_SOC_SERIES_AMEBADPLUS)
+	/* On AmebaDplus, lib_pmc.a overwrites Img2EntryFun0.RamWakeupFun with
+	 * SOCPS_WakeFromPG_KM4 before sleep. Restore to z_arm_reset so the
+	 * MCUboot wake path calls arch_pm_s2ram_resume() correctly.
 	 */
 	extern RAM_START_FUNCTION Img2EntryFun0;
 	extern void z_arm_reset(void);
 	Img2EntryFun0.RamWakeupFun = z_arm_reset;
 	Img2EntryFun0.VectorNS = (uint32_t)NewVectorTable;
-
+#endif
 	arch_pm_s2ram_suspend(pm_sleep_wfe);
 }
 #endif
@@ -132,7 +133,7 @@ void pm_s2ram_mark_set(void)
 /* This function is only invoked in mcuboot image because system resume from mcuboot */
 bool pm_s2ram_mark_check_and_clear(void)
 {
-	if (HAL_READ32(SYSTEM_CTRL_BASE, REG_LSYS_BOOT_CFG) & LSYS_BIT_BOOT_WAKE_FROM_PS_HS) {
+	if (sys_read32(SYSTEM_CTRL_BASE + REG_LSYS_BOOT_CFG) & LSYS_BIT_BOOT_WAKE_FROM_PS_HS) {
 		/* DO NOT clear the flag here because some post-wake code rely on it in lib_pmc.a*/
 		return true;
 	}

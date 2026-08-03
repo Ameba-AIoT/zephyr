@@ -1,0 +1,30 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Realtek Ameba MIPI-DSI host controller.
+
+  Drives the on-SoC DSI/D-PHY block that feeds the LCDC video output.  The
+  panel is described as a child node on the mipi-dsi bus; its display timings
+  drive both the DSI link rate and the LCDC scan-out.  The host shares a single
+  clock gate with the LCDC (CKE=LCDCMIPI_CLOCK, FEN=LCDC), referenced through
+  the rcc node.
+
+compatible: "realtek,ameba-mipi-dsi"
+
+include: [mipi-dsi-host.yaml]
+
+properties:
+  reg:
+    required: true
+
+  clocks:
+    required: true
+
+  realtek,frame-rate:
+    type: int
+    required: true
+    description: |
+      Target panel refresh rate in Hz.  Drives the D-PHY high-speed
+      data-lane frequency calculation.  Must be set explicitly in the
+      board overlay to match the connected panel's timing.

@@ -182,6 +182,9 @@ _idle_state_cleared:
 	bl z_soc_irq_get_active
 #endif /* !CONFIG_ARM_CUSTOM_INTERRUPT_CONTROLLER */
 	push {r0, r1}
+#if CONFIG_GIC_VER == 2 && defined(CONFIG_SMP)
+	bic	r0, r0, #0x1c00		/* mask out GICC_IAR.CPUID [12:10] */
+#endif
 	lsl r0, r0, #3	/* table is 8-byte wide */
 
 	/*
@@ -295,6 +298,9 @@ _idle_state_cleared:
 #endif /* !CONFIG_ARM_CUSTOM_INTERRUPT_CONTROLLER */
 
 	push {r0, r1}
+#if CONFIG_GIC_VER == 2 && defined(CONFIG_SMP)
+	bic	r0, r0, #0x1c00		/* mask out GICC_IAR.CPUID [12:10] */
+#endif
 	lsl r0, r0, #3	/* table is 8-byte wide */
 
 	/*

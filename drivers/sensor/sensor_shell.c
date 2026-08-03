@@ -67,20 +67,31 @@ static const char *const sensor_channel_name[SENSOR_CHAN_COMMON_COUNT] = {
 	[SENSOR_CHAN_PRESS] = "press",
 	[SENSOR_CHAN_PROX] = "prox",
 	[SENSOR_CHAN_HUMIDITY] = "humidity",
+	[SENSOR_CHAN_AMBIENT_LIGHT] = "ambient_light",
 	[SENSOR_CHAN_LIGHT] = "light",
 	[SENSOR_CHAN_IR] = "ir",
 	[SENSOR_CHAN_RED] = "red",
 	[SENSOR_CHAN_GREEN] = "green",
 	[SENSOR_CHAN_BLUE] = "blue",
 	[SENSOR_CHAN_ALTITUDE] = "altitude",
+	[SENSOR_CHAN_PM_1_0_CF] = "pm_1_0_cf",
+	[SENSOR_CHAN_PM_2_5_CF] = "pm_2_5_cf",
+	[SENSOR_CHAN_PM_10_CF] = "pm_10_cf",
 	[SENSOR_CHAN_PM_1_0] = "pm_1_0",
 	[SENSOR_CHAN_PM_2_5] = "pm_2_5",
 	[SENSOR_CHAN_PM_10] = "pm_10",
+	[SENSOR_CHAN_PM_0_3_COUNT] = "pm_0_3_count",
+	[SENSOR_CHAN_PM_0_5_COUNT] = "pm_0_5_count",
+	[SENSOR_CHAN_PM_1_0_COUNT] = "pm_1_0_count",
+	[SENSOR_CHAN_PM_2_5_COUNT] = "pm_2_5_count",
+	[SENSOR_CHAN_PM_5_COUNT] = "pm_5_0_count",
+	[SENSOR_CHAN_PM_10_COUNT] = "pm_10_count",
 	[SENSOR_CHAN_DISTANCE] = "distance",
 	[SENSOR_CHAN_CO2] = "co2",
 	[SENSOR_CHAN_O2] = "o2",
 	[SENSOR_CHAN_VOC] = "voc",
 	[SENSOR_CHAN_GAS_RES] = "gas_resistance",
+	[SENSOR_CHAN_FLOW_RATE] = "flow_rate",
 	[SENSOR_CHAN_VOLTAGE] = "voltage",
 	[SENSOR_CHAN_VSHUNT] = "vshunt",
 	[SENSOR_CHAN_CURRENT] = "current",
@@ -114,6 +125,7 @@ static const char *const sensor_channel_name[SENSOR_CHAN_COMMON_COUNT] = {
 	[SENSOR_CHAN_GAME_ROTATION_VECTOR] = "game_rotation_vector",
 	[SENSOR_CHAN_GRAVITY_VECTOR] = "gravity_vector",
 	[SENSOR_CHAN_GBIAS_XYZ] = "gbias_xyz",
+	[SENSOR_CHAN_ENCODER_COUNT] = "encoder_count",
 	[SENSOR_CHAN_ALL] = "all",
 };
 
@@ -136,6 +148,7 @@ static const char *const sensor_attribute_name[SENSOR_ATTR_COMMON_COUNT] = {
 	[SENSOR_ATTR_BATCH_DURATION] = "batch_dur",
 	[SENSOR_ATTR_GAIN] = "gain",
 	[SENSOR_ATTR_RESOLUTION] = "resolution",
+	[SENSOR_ATTR_CHIP_ID] = "chip_id",
 };
 
 enum sample_stats_state {
@@ -216,6 +229,8 @@ static const struct {
 	TRIGGER_DATA_ENTRY(SENSOR_TRIG_STATIONARY, stationary, NULL),
 	TRIGGER_DATA_ENTRY(SENSOR_TRIG_FIFO_WATERMARK, fifo_wm, NULL),
 	TRIGGER_DATA_ENTRY(SENSOR_TRIG_FIFO_FULL, fifo_full, NULL),
+	TRIGGER_DATA_ENTRY(SENSOR_TRIG_TILT, tilt, NULL),
+	TRIGGER_DATA_ENTRY(SENSOR_TRIG_OVERFLOW, overflow, NULL),
 };
 
 /**
@@ -323,7 +338,8 @@ static int parse_sensor_value(const char *val_str, struct sensor_value *out)
 	return 0;
 }
 
-void sensor_shell_processing_callback(int result, uint8_t *buf, uint32_t buf_len, void *userdata)
+void sensor_shell_processing_callback(int result, uint8_t *buf, uint32_t buf_len,
+				      void *userdata)
 {
 	struct sensor_shell_processing_context *ctx = userdata;
 	const struct sensor_decoder_api *decoder;
@@ -662,7 +678,7 @@ static void cmd_sensor_attr_get_handler(const struct shell *sh, const struct dev
 		parse_named_int(channel_name, sensor_channel_name, ARRAY_SIZE(sensor_channel_name));
 	int attr = parse_named_int(attr_name, sensor_attribute_name,
 				   ARRAY_SIZE(sensor_attribute_name));
-	struct sensor_value value = {0};
+	struct sensor_value value[3] = {{0}, {0}, {0}};
 	int rc;
 
 	if (channel < 0) {
@@ -674,7 +690,7 @@ static void cmd_sensor_attr_get_handler(const struct shell *sh, const struct dev
 		return;
 	}
 
-	rc = sensor_attr_get(dev, channel, attr, &value);
+	rc = sensor_attr_get(dev, channel, attr, &value[0]);
 
 	if (rc != 0) {
 		if (rc == -EINVAL && !print_missing_attribute) {
@@ -685,9 +701,11 @@ static void cmd_sensor_attr_get_handler(const struct shell *sh, const struct dev
 		return;
 	}
 
-	shell_info(sh, "%s(channel=%s, attr=%s) value=%.6f", dev->name,
+	shell_info(sh, "%s(channel=%s, attr=%s) value=%.6f value=%.6f value=%.6f", dev->name,
 		   sensor_channel_name[channel], sensor_attribute_name[attr],
-		   sensor_value_to_double(&value));
+		   sensor_value_to_double(&value[0]),
+		   sensor_value_to_double(&value[1]),
+		   sensor_value_to_double(&value[2]));
 }
 
 static int cmd_sensor_attr_get(const struct shell *sh, size_t argc, char *argv[])

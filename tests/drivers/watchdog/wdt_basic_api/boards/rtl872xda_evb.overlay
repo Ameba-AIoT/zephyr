@@ -8,6 +8,16 @@
 	aliases {
 		watchdog0 = &wdg;
 	};
+
+	/*
+	 * Retention RAM (RRAM) survives WDG global reset.
+	 * RETENTION_RAM_BASE=0x41008E00, RRAM_USER_RSVD at offset 0x124 (16 bytes).
+	 */
+	rram_wdt: memory@41008f24 {
+		compatible = "zephyr,memory-region";
+		reg = <0x41008f24 0x10>;
+		zephyr,memory-region = "rram_wdt";
+	};
 };
 
 &wdg {

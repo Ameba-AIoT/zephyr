@@ -1,0 +1,69 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations here work for all pke8721daf_c13_f10 variants(like mcuboot)
+
+ZEPHYR_USER := zephyr,user
+
+config RUNTIME_NMI
+	default y
+
+config CORTEX_M_SYSTICK
+	default y
+
+# Enable hardware stack protection
+config HW_STACK_PROTECTION
+	default y
+
+# enable rcc
+config CLOCK_CONTROL
+	default y
+
+# enable uart
+config SERIAL
+	default y
+
+# enable console for stdout
+config CONSOLE
+	default y
+
+config UART_CONSOLE
+	default y
+
+# enable GPIO
+config GPIO
+	default y
+
+config NOCACHE_MEMORY
+	default y
+
+if PM
+
+choice PM_POLICY
+	default PM_POLICY_CUSTOM
+endchoice
+
+config PM_S2RAM
+	default y
+	select PM_S2RAM_CUSTOM_MARKING
+
+endif # PM
+
+if BOOTLOADER_MCUBOOT
+
+config FLASH_BASE_ADDRESS
+	hex
+	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),primary-logic-base)
+
+endif
+
+config BUILD_WITH_TFM
+	default y if TRUSTED_EXECUTION_NONSECURE
+
+if TFM_BL2
+
+config FLASH_BASE_ADDRESS
+	hex
+	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),primary-logic-addr)
+
+endif

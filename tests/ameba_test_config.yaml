@@ -1,0 +1,103 @@
+# Twister test-level config for Realtek Ameba boards.
+#
+# Self-contained (twister --test-config takes ONE file, and scl has no
+# !include support), so smoke + acceptance are duplicated from
+# zephyr/tests/test_config.yaml and ameba_daily is layered on top.
+#
+# Usage:
+#   zephyr/scripts/twister --test-config zephyr/tests/ameba_test_config.yaml \
+#       --level ameba_daily -T zephyr/tests -T applications ...
+#
+# Level chain (strict inheritance):
+#   smoke  ->  acceptance (+ kernel.*)  ->  ameba_daily (+ drivers + apps)
+#
+# How ameba_daily scenarios auto-scope PER BOARD (four filters, strongest first)
+#   0. upstream platform_allow: — if it omits rtl* the test NEVER runs here even
+#      with an rtl overlay (why dma.scatter_gather / dma.chan_link_transfer /
+#      gpio.hogs / clock_control_api_default are intentionally absent).
+#   1. depends_on: <periph> vs the board .yaml `supported:` list — drops
+#      can/i2s/pwm on rtl8730e_evb (amebasmart), etc.
+#   2. zephyr/tests/drivers/<t>/boards/<board>.overlay presence — Realtek's
+#      committed overlays are the real per-board whitelist.
+#   3. harness_config.fixture — the loopback / SD entries below only RUN when the
+#      hardware-map DUT declares the matching `fixtures:`; otherwise they are
+#      filtered to "skipped", never failed. So no separate "wired" level is
+#      needed — the hwmap fixtures field controls run vs skip.
+#
+# `adds:` entries are regex fullmatch (not fnmatch globs). Re-validate after
+# edits with:  twister -y --test-config zephyr/tests/ameba_test_config.yaml \
+#                 --level ameba_daily -p <board> -T zephyr/tests -T applications
+# and confirm each new scenario appears in <outdir>/testplan.json.
+
+platforms:
+  override_default_platforms: false
+  increased_platform_scope: true
+
+levels:
+  - name: smoke
+    description: >
+      A plan to be used verifying basic zephyr features on hardware.
+    adds:
+      - kernel.threads.*
+      - kernel.timer.behavior
+      - arch.interrupt
+      - boards.*
+      - drivers.gpio.1pin
+      - drivers.console.uart
+      - drivers.entropy
+
+  - name: acceptance
+    description: >
+      More coverage
+    inherits:
+      - smoke
+    adds:
+      - kernel.*
+
+  - name: ameba_daily
+    description: >
+      Daily Realtek Ameba regression: acceptance (smoke + kernel.*) plus every
+      driver-API test that applies to the board, plus the Realtek application
+      builds. Loopback/SD tests are gated by the hardware-map `fixtures:` field.
+    inherits:
+      - acceptance
+    adds:
+      # --- driver API, no external wiring (auto-scoped by filters 1-2) ---
+      - drivers.adc
+      - drivers.counter.basic_api
+      - drivers.dma.chan_blen_transfer
+      - drivers.dma.loop_transfer
+      - drivers.gpio.get_direction
+      - drivers.flash.common.default
+      - drivers.i2c.api
+      - drivers.i2s
+      - drivers.i2s.speed
+      - drivers.pwm
+      - drivers.rtc.rtc_api
+      - drivers.rtc.rtc_api.rtc_counter
+      - drivers.rtc.rtc_api_helpers
+      - drivers.rtc.rtc_utils
+      - drivers.sensor.temp_sensor
+      - drivers.uart.basic_api
+      - drivers.uart.basic_api.poll
+      - drivers.uart.basic_api.shell
+      - drivers.uart.async_rx
+      - drivers.watchdog
+      - drivers.watchdog.reset_none
+      - drivers.can.api
+      - drivers.can.api.rtr
+      - drivers.can.timing
+      # --- loopback / SD: RUN only if the hwmap DUT declares fixtures:
+      #     gpio_loopback / gpio_external_pull_down / spi_loopback /
+      #     pwm_loopback / fixture_sdhc ---
+      - drivers.gpio.2pin
+      - drivers.gpio.1pin.external_pull_down
+      - drivers.spi.loopback
+      - drivers.uart.async_api
+      - drivers.pwm.loopback
+      - drivers.i2s.gpio_loopback
+      - drivers.i2s.speed.gpio_loopback
+      - drivers.sdhc.sdhc_api
+      # --- Realtek application builds (harness: console) ---
+      - app.thread.basic
+      - app.with_mcuboot.sysbuild

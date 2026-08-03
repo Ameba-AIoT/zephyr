@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "rtl8730e_evb_st7701s.dtsi"
+/* #include "rtl8730e_evb_gh7002.dtsi" */
+
+/ {
+	chosen {
+		zephyr,display = &lcdc;
+	};
+};
+
+&mipi_dsi {
+	status = "okay";
+	realtek,frame-rate = <60>;
+};

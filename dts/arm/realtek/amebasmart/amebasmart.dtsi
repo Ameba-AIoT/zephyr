@@ -8,10 +8,12 @@
 #include <freq.h>
 #include <arm/armv7-a.dtsi>
 #include <zephyr/dt-bindings/interrupt-controller/arm-gic.h>
+#include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/clock/amebasmart_clock.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/dma/ameba_dma.h>
 #include <zephyr/dt-bindings/pinctrl/amebasmart-pinctrl.h>
+#include <zephyr/dt-bindings/power/amebasmart_power.h>
 
 / {
 
@@ -21,11 +23,43 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		cpu@0 {
+		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a32";
 			reg = <0>;
 		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a32";
+			reg = <1>;
+		};
+	};
+
+	/*
+	 * Kept at root (not under /cpus): the GIC driver iterates /cpus children
+	 * and calls DT_REG_ADDR on each, which a reg-less power-state node breaks.
+	 * cpu-power-states references these by phandle, so the location is free.
+	 * residency / latency are board estimates.
+	 */
+	power-states {
+		pm_cg: pm_cg {
+			compatible = "zephyr,power-state";
+			power-state-name = "suspend-to-idle";
+			min-residency-us = <3000>;
+			exit-latency-us = <2000>;
+		};
+		pm_pg: pm_pg {
+			compatible = "zephyr,power-state";
+			power-state-name = "suspend-to-ram";
+			min-residency-us = <5000>;
+			exit-latency-us = <2500>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
 	};
 
 	soc {
@@ -64,6 +98,13 @@
 			dma-channels = <8>;
 			dma-buf-addr-alignment = <32>;
 			dma-buf-size-alignment = <32>;
+			status = "disabled";
+		};
+
+		usb: usb@40080000 {
+			compatible = "realtek,ameba-usb";
+			reg = <0x40080000 0x20000>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			status = "disabled";
 		};
 
@@ -180,6 +221,7 @@
 			clocks = <&rcc AMEBA_TIM0_CLK>;
 			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clock-frequency = <32768>;
+			wakeup-source-id = <WAKE_SRC_TIMER0>;
 			status = "disabled";
 		};
 
@@ -263,6 +305,7 @@
 			#gpio-cells = <2>;
 			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			port = <0>;
+			wakeup-source-id = <WAKE_SRC_GPIOA>;
 			status = "disabled";
 		};
 
@@ -273,6 +316,7 @@
 			#gpio-cells = <2>;
 			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			port = <1>;
+			wakeup-source-id = <WAKE_SRC_GPIOB>;
 			status = "disabled";
 		};
 
@@ -283,6 +327,7 @@
 			#gpio-cells = <2>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			port = <2>;
+			wakeup-source-id = <WAKE_SRC_GPIOC>;
 			status = "disabled";
 		};
 
@@ -292,6 +337,18 @@
 			clocks = <&rcc AMEBA_RTC_CLK>;
 			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			alarms-count = <1>;
+			wakeup-source-id = <WAKE_SRC_RTC>;
+			status = "disabled";
+		};
+
+		adc: adc@42012000 {
+			compatible = "realtek,ameba-adc";
+			reg = <0x42012000 0xac>;
+			clocks = <&rcc AMEBA_ADC_CLK>, <&rcc AMEBA_CTC_CLK>;
+			clock-names = "adc", "ctc";
+			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			channel-count = <6>;
+			#io-channel-cells = <1>;
 			status = "disabled";
 		};
 
@@ -308,6 +365,32 @@
 				erase-block-size = <DT_SIZE_K(4)>;
 				write-block-size = <4>;
 			};
+		};
+
+		mipi_dsi: mipi-dsi@400ea000 {
+			compatible = "realtek,ameba-mipi-dsi";
+			reg = <0x400ea000 0x1000>;
+			clocks = <&rcc AMEBA_LCDC_CLK>;
+			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		lcdc: lcdc@400d8000 {
+			compatible = "realtek,ameba-lcdc-dsi";
+			reg = <0x400d8000 0x8000>;
+			clocks = <&rcc AMEBA_LCDC_CLK>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			status = "disabled";
+		};
+
+		wdg: watchdog@410004c0 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x410004c0 0x10>;
+			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			early-int-cnt = <500>;
+			status = "disabled";
 		};
 
 		gic: interrupt-controller@a0101000 {
@@ -336,6 +419,11 @@
 		device_type = "memory";
 		compatible = "mmio-sram";
 		reg = <0x60300000 0x500000>;
+	};
+
+	bt: bt {
+		compatible = "realtek,ameba-bt-hci";
+		status = "disabled";
 	};
 
 };

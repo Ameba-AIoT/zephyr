@@ -5,6 +5,7 @@
  */
 
 /**
+ * @file
  * @brief Driver for Realtek Ameba Clock Control
  */
 
@@ -26,13 +27,6 @@
 #define AMEBA_RCC_CKD_GRP_INVALID 2
 
 typedef void (*clk_src_func)(uint32_t src);
-
-/*
-static uint32_t clk_div_group[] = {
-	REG_LSYS_CKD_GRP0,
-	REG_LSYS_CKD_GRP1,
-};
-*/
 
 struct ameba_clk_ctrl_reg {
 	uint8_t parent;
@@ -63,6 +57,7 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 {
 	uint32_t clk_idx = (uint32_t)sub_system;
 	const struct ameba_clk_ctrl_reg *phandle;
+	bool already_enabled;
 
 	ARG_UNUSED(dev);
 
@@ -71,11 +66,16 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 	}
 
 	phandle = &(ameba_clk_ctrl_reg_array[clk_idx]);
-	if (phandle->cke && RCC_PeriphClockEnableChk(phandle->cke)) {
-		return -EALREADY;
-	}
+	already_enabled = phandle->cke && RCC_PeriphClockEnableChk(phandle->cke);
 
-	/* Enable clock and walk up the parent chain */
+	/*
+	 * Always walk the parent chain, even if the leaf clock is already
+	 * enabled: a parent/bus clock further up the chain may still be
+	 * disabled, leaving the peripheral with an incomplete clock path.
+	 * Accessing such a peripheral's registers hangs the bus with no CPU
+	 * fault. Still report -EALREADY so callers that special-case it
+	 * (e.g. to skip re-initialization) keep working.
+	 */
 	do {
 		if (clk_idx >= AMEBA_CLK_MAX) {
 			break;
@@ -91,7 +91,7 @@ static int ameba_clock_on(const struct device *dev, clock_control_subsys_t sub_s
 		clk_idx = phandle->parent;
 	} while (clk_idx != AMEBA_RCC_NO_PARENT);
 
-	return 0;
+	return already_enabled ? -EALREADY : 0;
 }
 
 /**

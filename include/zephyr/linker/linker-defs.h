@@ -25,13 +25,22 @@
 #include <zephyr/sys/util.h>
 #include <zephyr/offsets.h>
 
-/* We need to dummy out DT_NODE_HAS_STATUS when building the unittests.
+/* We need to dummy out DT_NODE_HAS_STATUS and DT_NODE_HAS_STATUS_OKAY when
+ * building the unittests.
  * Including devicetree.h would require generating dummy header files
  * to match what gen_defines creates, so it's easier to just dummy out
- * DT_NODE_HAS_STATUS. These are undefined at the end of the file.
+ * DT_NODE_HAS_STATUS and DT_NODE_HAS_STATUS_OKAY. These are undefined at the
+ * end of the file.
  */
 #ifdef ZTEST_UNITTEST
+#ifdef DT_NODE_HAS_STATUS
+#undef DT_NODE_HAS_STATUS
+#endif
 #define DT_NODE_HAS_STATUS(node, status) 0
+
+#ifdef DT_NODE_HAS_STATUS_OKAY
+#undef DT_NODE_HAS_STATUS_OKAY
+#endif
 #define DT_NODE_HAS_STATUS_OKAY(node) 0
 #else
 #include <zephyr/devicetree.h>
@@ -122,11 +131,11 @@ extern char __kernel_ram_start[];
 extern char __kernel_ram_end[];
 extern char __kernel_ram_size[];
 
-/* Used by z_bss_zero or arch-specific implementation */
+/* Used by arch_bss_zero or arch-specific implementation */
 extern char __bss_start[];
 extern char __bss_end[];
 
-/* Used by z_data_copy() or arch-specific implementation */
+/* Used by arch_data_copy() or arch-specific implementation */
 #ifdef CONFIG_XIP
 extern char __data_region_load_start[];
 extern char __data_region_start[];
@@ -181,18 +190,6 @@ extern char __gcov_bss_size[];
 
 /* end address of image, used by newlib for the heap */
 extern char _end[];
-
-#if (DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_ccm)))
-extern char __ccm_data_load_start[];
-extern char __ccm_start[];
-extern char __ccm_data_start[];
-extern char __ccm_data_end[];
-extern char __ccm_bss_start[];
-extern char __ccm_bss_end[];
-extern char __ccm_noinit_start[];
-extern char __ccm_noinit_end[];
-extern char __ccm_end[];
-#endif
 
 #if (DT_NODE_HAS_STATUS_OKAY(DT_CHOSEN(zephyr_itcm)))
 extern char __itcm_start[];

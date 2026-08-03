@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2014 Wind River Systems, Inc.
- * Copyright (c) 2023 Arm Limited
+ * Copyright 2023, 2025 Arm Limited and/or its affiliates <open-source-office@arm.com>
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,7 +17,7 @@
 #define ZEPHYR_INCLUDE_ARCH_ARM_ERROR_H_
 
 #include <zephyr/arch/arm/syscall.h>
-#include <zephyr/arch/arm/exception.h>
+#include <zephyr/arch/exception.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -39,11 +39,12 @@ do {\
 	__asm__ volatile( \
 		"mov r0, %[_reason]\n" \
 		"svc %[id]\n" \
+		IF_ENABLED(CONFIG_ARM_BTI, ("bti\n")) \
 		:: [_reason] "r" (reason_p), [id] "i" (_SVC_CALL_RUNTIME_EXCEPT) \
 		: "r0", "memory"); \
 } while (false)
-#elif defined(CONFIG_ARMV7_R) || defined(CONFIG_AARCH32_ARMV8_R) \
-	|| defined(CONFIG_ARMV7_A)
+#elif defined(CONFIG_ARM_A_PROFILE_AARCH32) || defined(CONFIG_ARMV7_R) \
+	|| defined(CONFIG_AARCH32_ARMV8_R)
 /*
  * In order to support using svc for an exception while running in an
  * isr, stack $lr_svc before calling svc.  While exiting the isr,
@@ -59,6 +60,7 @@ do { \
 		"push {lr}\n\t" \
 		"cpsie i\n\t" \
 		"svc %[id]\n\t" \
+		IF_ENABLED(CONFIG_ARM_BTI, ("bti\n\t")) \
 		"pop {lr}\n\t" \
 		: \
 		: "r" (r0), [id] "i" (_SVC_CALL_RUNTIME_EXCEPT) \

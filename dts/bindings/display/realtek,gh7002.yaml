@@ -1,0 +1,53 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  GH7002 1024x600 MIPI-DSI panel controller (Driver IC: gh7002-01, Screen: hj7001-02).
+
+  2-lane MIPI-DSI, RGB888 output at 60 Hz. Reset pin is active-low: pulled LOW
+  for 15 ms, then released; the panel needs 120 ms after reset release before
+  the first init command.
+
+  Example DTS node (AmebaSmart EVB, PA_14 reset):
+
+    &mipi_dsi {
+        status = "okay";
+        realtek,frame-rate = <60>;
+
+        gh7002: gh7002@0 {
+            compatible = "realtek,gh7002";
+            reg = <0x0>;
+            reset-gpios = <&gpioa 14 GPIO_ACTIVE_LOW>;
+            data-lanes = <2>;
+            pixel-format = <MIPI_DSI_PIXFMT_RGB888>;
+            width = <1024>;
+            height = <600>;
+            status = "okay";
+
+            display-timings {
+                compatible = "zephyr,panel-timing";
+                hsync-len = <10>;
+                hback-porch = <60>;
+                hfront-porch = <120>;
+                vsync-len = <10>;
+                vback-porch = <10>;
+                vfront-porch = <12>;
+                hsync-active = <0>;
+                vsync-active = <0>;
+                de-active = <1>;
+                pixelclk-active = <0>;
+            };
+        };
+    };
+
+compatible: "realtek,gh7002"
+
+include: [mipi-dsi-device.yaml, display-controller.yaml]
+
+properties:
+  reset-gpios:
+    type: phandle-array
+    description: |
+      Active-low hardware reset. The GPIO is driven HIGH then LOW for 15 ms,
+      then released HIGH; the panel requires 120 ms after de-assertion before
+      the first init command.

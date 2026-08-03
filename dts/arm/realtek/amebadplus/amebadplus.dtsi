@@ -15,7 +15,6 @@
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
-#include <zephyr/dt-bindings/usb/ameba_usb_ep.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/power/amebadplus_power.h>
 
@@ -92,9 +91,12 @@
 			zephyr,memory-region = "KM4_IMG1_ENTRY";
 		};
 
-		sram0_ns: memory@0x20037020 {
+		/* NS SRAM base must match NS_RAM_ALIAS_BASE in TF-M flash_layout.h.
+		 * S=192KB: NS_BASE=0x2003B040, NS_SIZE=0x20068000-0x2003B040=179.9KB~0x2CFC0
+		 * Use 0x2cc00 (179KB) to stay safe. */
+		sram0_ns: memory@2003b040 {
 			compatible = "mmio-sram";
-			reg = <0x20037020 0x00030000>;
+			reg = <0x2003b040 0x0002cc00>;
 		};
 
 		psram: memory@60000000 {
@@ -336,6 +338,7 @@
 			compatible = "realtek,ameba-adc";
 			reg = <0x41011000 0xb8>;
 			clocks = <&rcc AMEBA_ADC_CLK>;
+			clock-names = "adc";
 			interrupts = <47 0>;
 			channel-count = <7>;
 			#io-channel-cells = <1>;

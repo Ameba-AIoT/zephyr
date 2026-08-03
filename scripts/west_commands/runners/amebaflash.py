@@ -20,7 +20,7 @@ def _get_flash_module():
     This prevents FileNotFoundError during CI tests when the HAL is missing.
     """
     flash_path = (
-        Path(ZEPHYR_BASE) / "../" / "modules" / "hal" / "realtek" / "ameba" / "scripts" / "flash.py"
+        Path(ZEPHYR_BASE).parent / "modules" / "hal" / "realtek" / "ameba" / "scripts" / "flash.py"
     )
 
     if not flash_path.exists():

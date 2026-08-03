@@ -28,7 +28,9 @@ LOG_MODULE_REGISTER(adc_ameba, CONFIG_ADC_LOG_LEVEL);
 struct adc_ameba_config {
 	const uint8_t channel_count;
 	const struct device *clock;
-	const clock_control_subsys_t clock_subsys;
+	const clock_control_subsys_t adc_clk;
+	const clock_control_subsys_t ctc_clk;
+	bool has_ctc_clk;
 	const struct pinctrl_dev_config *pcfg;
 };
 
@@ -135,12 +137,22 @@ static int adc_ameba_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	if (clock_control_on(config->clock, config->clock_subsys)) {
+	int ret = clock_control_on(config->clock, config->adc_clk);
+
+	if (ret && ret != -EALREADY) {
 		LOG_ERR("Could not enable ADC clock");
 		return -EIO;
 	}
 
-	int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+	if (config->has_ctc_clk) {
+		ret = clock_control_on(config->clock, config->ctc_clk);
+		if (ret && ret != -EALREADY) {
+			LOG_ERR("Could not enable CTC clock");
+			return -EIO;
+		}
+	}
+
+	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 
 	if (ret < 0) {
 		return ret;
@@ -148,6 +160,7 @@ static int adc_ameba_init(const struct device *dev)
 
 	ADC_StructInit(&adc_init_struct);
 	adc_init_struct.ADC_OpMode = ADC_AUTO_MODE;
+	adc_init_struct.ADC_CvlistLen = ADC_EXT_CH_NUM;
 	ADC_Init(&adc_init_struct);
 	ADC_Cmd(ENABLE);
 
@@ -165,7 +178,11 @@ PINCTRL_DT_INST_DEFINE(0);
 static const struct adc_ameba_config adc_config = {
 	.channel_count = DT_PROP(DT_DRV_INST(0), channel_count),
 	.clock = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(0)),
-	.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(0, idx),
+	.adc_clk = (clock_control_subsys_t)DT_INST_CLOCKS_CELL_BY_NAME(0, adc, idx),
+	COND_CODE_1(DT_INST_CLOCKS_HAS_NAME(0, ctc),
+		    (.ctc_clk = (clock_control_subsys_t)DT_INST_CLOCKS_CELL_BY_NAME(0, ctc, idx),
+		     .has_ctc_clk = true,),
+		    ())
 	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(0),
 };
 

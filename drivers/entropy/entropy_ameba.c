@@ -67,8 +67,7 @@ static int entropy_ameba_init(const struct device *dev)
 	}
 
 	int ret = clock_control_on(config->clock_dev, config->clock_subsys);
-
-	if (ret != 0 && ret != -EALREADY) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable TRNG clock");
 		return -EIO;
 	}

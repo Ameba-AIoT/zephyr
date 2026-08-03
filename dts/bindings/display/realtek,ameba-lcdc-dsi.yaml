@@ -1,0 +1,23 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Realtek Ameba LCDC display controller, MIPI-DSI output path (AmebaSmart).
+
+  Width/height are declared on this node (display-controller.yaml) and on the
+  panel node under the MIPI-DSI bus.  Use a preprocessor macro in the board
+  overlay to define them once and assign to both nodes.
+
+compatible: "realtek,ameba-lcdc-dsi"
+
+include: [display-controller.yaml]
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  clocks:
+    required: true

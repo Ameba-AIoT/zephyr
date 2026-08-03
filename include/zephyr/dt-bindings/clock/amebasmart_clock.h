@@ -142,6 +142,9 @@ extern "C" {
 /** LCDC clock in HS domain */
 #define AMEBA_LCDC_CLK    41
 
+/** HPERI root clock in HS domain (parent gate of LCDC/MIPI and other HS IPs) */
+#define AMEBA_HPERI_CLK   4
+
 /** IPSEC clock in HS domain */
 #define AMEBA_IPSEC_CLK   42
 
@@ -433,9 +436,25 @@ extern "C" {
  */
 #define AMEBA_LCDC_PERIPHS                                                                         \
 	[AMEBA_LCDC_CLK] = {                                                                       \
-		.parent = AMEBA_RCC_NO_PARENT,                                                     \
+		.parent = AMEBA_HPERI_CLK,                                                         \
 		.cke = APBPeriph_LCDCMIPI_CLOCK,                                                   \
 		.fen = APBPeriph_LCDC,                                                             \
+	},
+
+/**
+ * @brief HPERI root clock peripheral mapping.
+ *
+ * HPERI is the high-speed-domain root that gates the LCDC/MIPI block (and other
+ * HS IPs).  It is modelled as the LCDC clock's parent so clock_control_on() for
+ * the LCDC walks up and brings HPERI online first, making the LCDC self-
+ * sufficient regardless of MIPI-DSI attach ordering.  The FEN side is NULL: only
+ * the CKE bit (HPERI_CLOCK) gates it.
+ */
+#define AMEBA_HPERI_PERIPHS                                                                        \
+	[AMEBA_HPERI_CLK] = {                                                                      \
+		.parent = AMEBA_RCC_NO_PARENT,                                                     \
+		.cke = APBPeriph_HPERI_CLOCK,                                                      \
+		.fen = APBPeriph_NULL,                                                             \
 	},
 
 /**
@@ -486,6 +505,7 @@ extern "C" {
 	AMEBA_SPI_PERIPHS                                                                          \
 	AMEBA_GDMA_PERIPHS                                                                         \
 	AMEBA_LCDC_PERIPHS                                                                         \
+	AMEBA_HPERI_PERIPHS                                                                        \
 	AMEBA_IPSEC_PERIPHS                                                                        \
 	AMEBA_TIM_PERIPHS                                                                          \
 	AMEBA_SPORT_PERIPHS                                                                        \

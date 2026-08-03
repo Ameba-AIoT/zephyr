@@ -40,6 +40,11 @@ LOG_MODULE_REGISTER(flexspi_hyperflash, CONFIG_FLASH_LOG_LEVEL);
 
 #define HYPERFLASH_ERASE_VALUE                  (0xFF)
 
+#define FLEXSPI_HYPERFLASH_SOC_NV_FLASH_COMPAT(node_id) \
+	COND_CODE_1(DT_NODE_HAS_COMPAT(node_id, soc_nv_flash), (node_id), ())
+#define FLEXSPI_HYPERFLASH_SOC_NV_FLASH_NODE(node_id) \
+	DT_INST_FOREACH_CHILD_STATUS_OKAY(node_id, FLEXSPI_HYPERFLASH_SOC_NV_FLASH_COMPAT)
+
 /* Hyper flash support SDR and DDR, from the FlexSPI controller point of view,
  * if DDR enabled, commands in LUT need to be DDR command and root clock is
  * double of Serial clock (clock output to flash).
@@ -265,7 +270,9 @@ struct flash_flexspi_hyperflash_data {
 	struct device controller;
 	flexspi_device_config_t config;
 	flexspi_port_t port;
+#if defined(CONFIG_FLASH_PAGE_LAYOUT)
 	struct flash_pages_layout layout;
+#endif
 	struct flash_parameters flash_parameters;
 };
 
@@ -613,7 +620,7 @@ static const struct flash_parameters *flash_flexspi_hyperflash_get_parameters(
 	return &data->flash_parameters;
 }
 
-
+#if defined(CONFIG_FLASH_PAGE_LAYOUT)
 static void flash_flexspi_hyperflash_pages_layout(const struct device *dev,
 		const struct flash_pages_layout **layout,
 		size_t *layout_size)
@@ -623,6 +630,7 @@ static void flash_flexspi_hyperflash_pages_layout(const struct device *dev,
 	*layout = &data->layout;
 	*layout_size = 1;
 }
+#endif
 
 static int flash_flexspi_hyperflash_init(const struct device *dev)
 {
@@ -711,13 +719,16 @@ static DEVICE_API(flash, flash_flexspi_hyperflash_api) = {
 		flash_flexspi_hyperflash_data_##n = {			\
 		.config = FLASH_FLEXSPI_DEVICE_CONFIG(n),		\
 		.port = DT_INST_REG_ADDR(n),				\
-		.layout = {						\
+		IF_ENABLED(CONFIG_FLASH_PAGE_LAYOUT,	\
+		(.layout = {						\
 			.pages_count = DT_INST_PROP(n, size) / 8	\
 				/ SPI_HYPERFLASH_SECTOR_SIZE,		\
 			.pages_size = SPI_HYPERFLASH_SECTOR_SIZE,	\
-		},							\
+		},))							\
 		.flash_parameters = {					\
-			.write_block_size = DT_INST_PROP(n, write_block_size), \
+			.write_block_size = DT_PROP(			\
+				FLEXSPI_HYPERFLASH_SOC_NV_FLASH_NODE(n),\
+				write_block_size),		\
 			.erase_value = HYPERFLASH_ERASE_VALUE,		\
 		},							\
 	};								\

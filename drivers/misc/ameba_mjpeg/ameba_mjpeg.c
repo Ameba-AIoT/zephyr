@@ -36,32 +36,32 @@ static uint32_t to_pp_pix_format(enum mjpeg_pix_fmt fmt) {
 	uint32_t pp_fmt = PP_PIX_FMT_RGB16_CUSTOM;
 
 	switch (fmt) {
-		case PIX_RGB16_CUSTOM: 
-			pp_fmt = PP_PIX_FMT_RGB16_CUSTOM;
-			break;
-		case PIX_RGB16_5_5_5:
-			pp_fmt = PP_PIX_FMT_RGB16_5_5_5;
-			break;
-		case PIX_RGB16_5_6_5:
-			pp_fmt = PP_PIX_FMT_RGB16_5_6_5;
-			break;
-		case PIX_BGR16_5_5_5:
-			pp_fmt = PP_PIX_FMT_BGR16_5_5_5;
-			break;
-		case PIX_BGR16_5_6_5:
-			pp_fmt = PP_PIX_FMT_BGR16_5_6_5;
-			break;
-		case PIX_RGB32_CUSTOM:
-			pp_fmt = PP_PIX_FMT_RGB32_CUSTOM;
-			break;
-		case PIX_RGB32:
-			pp_fmt = PP_PIX_FMT_RGB32;
-			break;
-		case PIX_BGR32:
-			pp_fmt = PP_PIX_FMT_BGR32;
-			break;
-		default:
-			break;
+	case PIX_RGB16_CUSTOM:
+		pp_fmt = PP_PIX_FMT_RGB16_CUSTOM;
+		break;
+	case PIX_RGB16_5_5_5:
+		pp_fmt = PP_PIX_FMT_RGB16_5_5_5;
+		break;
+	case PIX_RGB16_5_6_5:
+		pp_fmt = PP_PIX_FMT_RGB16_5_6_5;
+		break;
+	case PIX_BGR16_5_5_5:
+		pp_fmt = PP_PIX_FMT_BGR16_5_5_5;
+		break;
+	case PIX_BGR16_5_6_5:
+		pp_fmt = PP_PIX_FMT_BGR16_5_6_5;
+		break;
+	case PIX_RGB32_CUSTOM:
+		pp_fmt = PP_PIX_FMT_RGB32_CUSTOM;
+		break;
+	case PIX_RGB32:
+		pp_fmt = PP_PIX_FMT_RGB32;
+		break;
+	case PIX_BGR32:
+		pp_fmt = PP_PIX_FMT_BGR32;
+		break;
+	default:
+		break;
 	}
 
 	return pp_fmt;
@@ -71,14 +71,14 @@ static uint32_t jpeg_to_pp_pix_format(enum mjpeg_fmt_type fmt) {
 	uint32_t pp_fmt = PP_PIX_FMT_YCBCR_4_2_0_SEMIPLANAR;
 
 	switch (fmt) {
-		case JPEG_YCbCr420: 
-			pp_fmt = PP_PIX_FMT_YCBCR_4_2_0_SEMIPLANAR;
-			break;
-		case JPEG_YCbCr422:
-			pp_fmt = PP_PIX_FMT_YCBCR_4_2_2_SEMIPLANAR;
-			break;
-		default:
-			break;
+	case JPEG_YCbCr420:
+		pp_fmt = PP_PIX_FMT_YCBCR_4_2_0_SEMIPLANAR;
+		break;
+	case JPEG_YCbCr422:
+		pp_fmt = PP_PIX_FMT_YCBCR_4_2_2_SEMIPLANAR;
+		break;
+	default:
+		break;
 	}
 
 	return pp_fmt;
@@ -102,7 +102,7 @@ static int ameba_mjpeg_init(const struct device *dev)
 	}
 
 	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
-	if (ret < 0) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not initialize clock (%d)", ret);
 		return ret;
 	}
@@ -111,10 +111,10 @@ static int ameba_mjpeg_init(const struct device *dev)
 
 	k_mutex_init(&data->lock);
 	cfg->irq_config_func(dev);
-	return ret;
+	return 0;
 }
 
-int ameba_mjpeg_decoder_get_image_info(const struct device *dev, 
+int ameba_mjpeg_decoder_get_image_info(const struct device *dev,
 									struct decoder_input_data *input_data,
 									struct decoder_image_info *out_image_info)
 {

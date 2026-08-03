@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Shared flash0 body for the RTL8730E EVB: same physical flash device,
+ * same boot/slot0/slot1/storage layout as seen by both KM4 (MCUboot) and
+ * CA32 (app). Included from inside each domain's own `flash0: flash@e000020
+ * { reg = <...>; ... }` node -- only `reg` (the per-core RSIP XIP logic
+ * window: 0x0d000020 for KM4, 0x0e000020 for CA32) is NOT shared, since it
+ * genuinely differs per core.
+ */
+
+compatible = "soc-nv-flash";
+erase-block-size = <DT_SIZE_K(4)>;
+write-block-size = <4>;
+status = "okay";
+
+partitions {
+	compatible = "fixed-partitions";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	/* MCUboot KM4 bootloader */
+	boot_partition: partition@0 {
+		label = "bootloader";
+		reg = <BOOT_SLOT_BASE BOOT_SLOT_SIZE>;
+		read-only;
+	};
+
+	/* Primary app slot: KM0 + KM4 + CA32/ATF (1 MB) */
+	slot0_partition: partition@40000 {
+		label = "image-0";
+		reg = <APP_SLOT0_OFFSET APP_SLOT_SIZE>;
+	};
+
+	/* Secondary (update) app slot: same size as slot0 */
+	slot1_partition: partition@140000 {
+		label = "image-1";
+		reg = <APP_SLOT1_OFFSET APP_SLOT_SIZE>;
+	};
+
+	/* VFS storage — after slot1 */
+	storage_partition: partition@240000 {
+		label = "storage";
+		reg = <STORAGE_OFFSET DT_SIZE_K(128)>;
+	};
+};

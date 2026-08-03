@@ -14,7 +14,7 @@
 #define AMEBA_GET_PIN_NUM(pin_mux)   ((pin_mux >> 8) & 0x1f)
 #define AMEBA_GET_PIMNUX_ID(pin_mux) (pin_mux & 0xFF)
 
-#define AMEBA_GPIO_PINNAME(PORT, PIN) (((PORT) << 5) | ((PIN) & 0x1F))
+#define AMEBA_GPIO_PINNAME(port, pin) (((port) << 5) | ((pin) & 0x1F))
 
 static int ameba_configure_pin(const pinctrl_soc_pin_t *pin)
 {
@@ -69,7 +69,7 @@ static int ameba_configure_pin(const pinctrl_soc_pin_t *pin)
 
 int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintptr_t reg)
 {
-	int ret = 0;
+	int ret;
 
 	ARG_UNUSED(reg);
 

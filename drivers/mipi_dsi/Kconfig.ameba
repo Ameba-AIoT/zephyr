@@ -1,0 +1,11 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config MIPI_DSI_AMEBA
+	bool "Realtek Ameba MIPI-DSI Host Controller"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_MIPI_DSI_ENABLED
+	help
+	  Enable the Realtek Ameba MIPI-DSI host controller driver.  Drives the
+	  on-SoC DSI/D-PHY block that feeds the LCDC video output; pairs with
+	  the Ameba LCDC display driver.

@@ -14,6 +14,7 @@
 
 #include <zephyr/drivers/uart.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/pinctrl.h>
 #include <zephyr/irq.h>
 
 #include <zephyr/logging/log.h>
@@ -130,8 +131,7 @@ static void loguart_ameba_irq_tx_enable(const struct device *dev)
 	sts = irq_disable_save();
 
 	data->tx_int_en = true;
-	/* KM4: TX_PATH1 */
-	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, ENABLE);
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_INTR, ENABLE);
 
 	/* Enable IRQ Interrupts according to Previous Status. */
 	irq_enable_restore(sts);
@@ -145,7 +145,7 @@ static void loguart_ameba_irq_tx_disable(const struct device *dev)
 	/* Disable IRQ Interrupts and Save Previous Status. */
 	sts = irq_disable_save();
 
-	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_PATH_1_INTR, DISABLE);
+	LOGUART_INTConfig(LOGUART_DEV, LOGUART_TX_EMPTY_INTR, DISABLE);
 	data->tx_int_en = false;
 
 	/* Enable IRQ Interrupts according to Previous Status. */
@@ -156,8 +156,7 @@ static int loguart_ameba_irq_tx_ready(const struct device *dev)
 {
 	struct loguart_ameba_data *data = dev->data;
 
-	/* KM4: TX_PATH1 */
-	return (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_BIT_TP1F_EMPTY) && data->tx_int_en;
+	return (LOGUART_GetStatus(LOGUART_DEV) & LOGUART_TX_EMPTY_STATUS) && data->tx_int_en;
 }
 
 static int loguart_ameba_irq_tx_complete(const struct device *dev)
@@ -241,8 +240,16 @@ static int loguart_ameba_init(const struct device *dev)
 
 	LOGUART_RxCmd(LOGUART_DEV, DISABLE);
 
+#if !defined(CONFIG_SOC_SERIES_AMEBAD)
+	/* LOGUART_WaitTxComplete is not available on AmebaD (not in ROM or RAM). */
 	LOGUART_WaitTxComplete();
+#endif
+#if defined(CONFIG_SOC_SERIES_AMEBAD)
+	/* AmebaD LOGUART_SetBaud has only one parameter (baudrate) */
+	LOGUART_SetBaud(data->config.baudrate);
+#else
 	LOGUART_SetBaud(LOGUART_DEV, data->config.baudrate);
+#endif
 
 	LOGUART_INT_NP2AP();
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN)
@@ -285,7 +292,7 @@ static void loguart_ameba_isr(const struct device *dev)
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
-static const struct uart_driver_api loguart_ameba_driver_api = {
+static DEVICE_API(uart, loguart_ameba_driver_api) = {
 	.poll_in = loguart_ameba_poll_in,
 	.poll_out = loguart_ameba_poll_out,
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN

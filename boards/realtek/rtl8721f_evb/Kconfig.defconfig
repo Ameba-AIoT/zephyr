@@ -46,8 +46,16 @@ endchoice
 config PM_S2RAM
 	default y
 	select PM_S2RAM_CUSTOM_MARKING
+	select HAS_PM_S2RAM_CUSTOM_MARKING
 
 endif # PM
+
+if MCUBOOT
+
+config LOG_OVERRIDE_LEVEL
+	default 4
+
+endif
 
 if BOOTLOADER_MCUBOOT
 
@@ -57,10 +65,20 @@ config FLASH_BASE_ADDRESS
 
 endif
 
+config BUILD_WITH_TFM
+	default y if TRUSTED_EXECUTION_NONSECURE
+
 if TFM_BL2
 
 config FLASH_BASE_ADDRESS
 	hex
 	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),primary-logic-addr)
+
+endif
+
+if BOARD_RTL8721F_EVB_RTL8721F_MCUBOOT && !MCUBOOT
+
+config BOOTLOADER_MCUBOOT
+	default y
 
 endif

@@ -7,20 +7,13 @@ title: ILI9XXX display controllers common properties.
 description: |
     Ilitek ILI9XXX is a color TFT-LCD controller series.
 
-include: [mipi-dbi-spi-device.yaml, display-controller.yaml]
+include:
+  - lcd-controller.yaml
+  - name: mipi-dbi-spi-device.yaml
+    property-blocklist:
+      - te-delay
 
 properties:
-  pixel-format:
-    type: int
-    default: 0
-    enum:
-      - 0 # RGB565
-      - 1 # RGB888
-    description:
-      Display pixel format. Note that when RGB888 pixel format is selected
-      only 6 color bits are actually used being in practice equivalent to
-      RGB666.
-
   rotation:
     type: int
     default: 0
@@ -38,3 +31,32 @@ properties:
     description:
       Display inversion mode. Every bit is inverted from the frame memory to
       the display.
+
+  red-blue-swap:
+    type: boolean
+    description: |
+      Panel controller expects RGB color channel order (not byte-order) instead of BGR.
+
+  h-mirror:
+    type: boolean
+    description: |
+      Enable horizontal mirroring correction.
+      Used when display appears left-right flipped despite correct rotation value.
+
+  v-mirror:
+    type: boolean
+    description: |
+      Enable vertical mirroring correction.
+      Used when display appears upside-down despite correct rotation value.
+
+  bottom-top-refresh:
+    type: boolean
+    description: |
+      Controls whether panel vertical scanning goes bottom->top, instead of default top->bottom.
+      Only for special refresh scenarios (rarely needed).
+
+  right-left-refresh:
+    type: boolean
+    description: |
+      Controls whether panel horizontal scanning goes right->left, instead of default left->right.
+      Only for special refresh scenarios (rarely needed).

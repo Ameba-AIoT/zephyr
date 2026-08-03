@@ -83,4 +83,41 @@
 			bias-pull-up;
 		};
 	};
+
+	/*
+	 * ADC external channels CH0-CH5 map to dedicated analog pads PA0-PA5.
+	 * The ADC shares its analog front-end with captouch, so the pad uses the
+	 * CAPTOUCH function with the digital input path disabled (matches the SDK
+	 * analogin_init: Pinmux_Config(pin, PINMUX_FUNCTION_CAPTOUCH) +
+	 * PAD_InputCtrl(DISABLE)).
+	 */
+	/omit-if-no-ref/ adc_in0_pa0: adc_in0_pa0 {
+		pinmux = <AMEBA_PINMUX('A', 0, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
+
+	/omit-if-no-ref/ adc_in1_pa1: adc_in1_pa1 {
+		pinmux = <AMEBA_PINMUX('A', 1, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
+
+	/omit-if-no-ref/ adc_in2_pa2: adc_in2_pa2 {
+		pinmux = <AMEBA_PINMUX('A', 2, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
+
+	/omit-if-no-ref/ adc_in3_pa3: adc_in3_pa3 {
+		pinmux = <AMEBA_PINMUX('A', 3, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
+
+	/omit-if-no-ref/ adc_in4_pa4: adc_in4_pa4 {
+		pinmux = <AMEBA_PINMUX('A', 4, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
+
+	/omit-if-no-ref/ adc_in5_pa5: adc_in5_pa5 {
+		pinmux = <AMEBA_PINMUX('A', 5, AMEBA_CAPTOUCH)>;
+		digital-input-disable;
+	};
 };

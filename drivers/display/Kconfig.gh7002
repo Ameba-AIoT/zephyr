@@ -1,0 +1,12 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config GH7002
+	bool "GH7002 MIPI-DSI panel"
+	default y
+	depends on DT_HAS_REALTEK_GH7002_ENABLED
+	select MIPI_DSI
+	help
+	  Enable driver for the GH7002 1024x600 MIPI-DSI panel (Driver IC:
+	  gh7002-01, Screen: hj7001-02). The init sequence and timings are tuned
+	  for the 2-lane RGB888 module on the AmebaSmart (RTL8730E) board.

@@ -1,6 +1,5 @@
-# Copyright (c) 2024 Realtek Semiconductor Corp.
+# Copyright (c) 2026 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
-
 
 description: |
   Ameba Reset and Clock controller node
@@ -15,7 +14,6 @@ properties:
 
   "#clock-cells":
     const: 1
-
 
 clock-cells:
   - idx

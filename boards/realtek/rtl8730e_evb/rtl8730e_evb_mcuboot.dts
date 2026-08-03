@@ -1,0 +1,148 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * RTL8730E EVB — MCUboot KM4 (Cortex-M55) domain.
+ * This DTS is used ONLY for the MCUboot bootloader image (SOC_RTL8730E_KM4).
+ * The CA32 Zephyr application uses rtl8730e_evb.dts instead.
+ */
+
+/dts-v1/;
+
+#include <arm/armv8.1-m.dtsi>
+#include <mem.h>
+#include <freq.h>
+#include "rtl8730e_evb_partitions.h"
+
+/*
+ * KM4 MCUboot SRAM window — bounded by the mask ROM boot loader.
+ *
+ * The ROM (component/soc/amebasmart/rom/rom_hp/ameba_boot_rom.c) only copies a
+ * boot sub-image whose destination passes IS_BOOT_ADDR():
+ *     HS_BOOT_ADDR_START <= DstAddr <= HS_BOOT_ADDR_END
+ * Both bounds are hard-wired in the ROM (hal_platform.h, marked "rom used, can
+ * not change") — the ROM itself uses SRAM above HS_BOOT_ADDR_END while it runs
+ * the copy, so the loader image MUST NOT extend past it.  We DERIVE the region
+ * size from these two bounds rather than hardcoding, so the linker region can
+ * never silently overrun the ROM copy window (matches native KM4_FLOADER_RAM_S:
+ * origin 0x30003020, end 0x3001B000).
+ *
+ * Mirror of hal_platform.h (source of truth — keep in sync if ROM changes):
+ *   HS_SRAM_S_ADDR_START = 0x30000000
+ *   HS_BOOT_ADDR_START   = +0x03000  (0x30003000, image1 load base)
+ *   HS_BOOT_ADDR_END     = +0x1AFFF  (0x3001AFFF, last byte the ROM will place)
+ *   image header         = 0x20      (code/linker RAM begins after the header)
+ */
+#define HS_SRAM_S_ADDR_START  0x30000000
+#define HS_BOOT_ADDR_START    (HS_SRAM_S_ADDR_START + 0x03000)
+#define HS_BOOT_ADDR_END      (HS_SRAM_S_ADDR_START + 0x1AFFF)
+#define KM4_IMG_HEADER_SIZE   0x20
+#define KM4_LOADER_RAM_BASE   (HS_BOOT_ADDR_START + KM4_IMG_HEADER_SIZE)
+#define KM4_LOADER_RAM_SIZE   (HS_BOOT_ADDR_END + 1 - KM4_LOADER_RAM_BASE)
+
+/ {
+	model = "Realtek RTL8730E EVB MCUboot (KM4)";
+	compatible = "realtek,rtl8730e_evb";
+
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		clk_sys: clk_sys {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(230)>;
+		};
+	};
+
+	chosen {
+		zephyr,sram             = &sram0;
+		zephyr,flash            = &flash0;
+		zephyr,flash-controller = &spic;
+		zephyr,code-partition   = &slot0_partition;
+		zephyr,console          = &loguart;
+		zephyr,shell-uart       = &loguart;
+	};
+
+	/* base 0x30003020, size KM4_LOADER_RAM_SIZE = 0x3001B000 - 0x30003020
+	 * = 0x17FE0 (~96 KB).  See the ROM boot-window derivation above.
+	 */
+	sram0: memory@30003020 {
+		compatible = "mmio-sram";
+		reg = <KM4_LOADER_RAM_BASE KM4_LOADER_RAM_SIZE>;
+	};
+
+	psram: memory@60000000 {
+		compatible = "zephyr,memory-region";
+		device_type = "memory";
+		reg = <0x60000000 DT_SIZE_M(64)>;
+		zephyr,memory-region = "PSRAM";
+		status = "disabled";
+	};
+
+	/* KM4 parameters used by mcuboot_action_hook.c → boot_prepare() */
+	zephyr,user {
+		flash-base-phy       = <FLASH_BASE_PHY>;
+		primary-logic-addr   = <KM4_LOGIC_ADDR>;
+		secondary-logic-addr = <KM0_LOGIC_ADDR>;
+		tertiary-logic-addr  = <CA32_LOGIC_ADDR>;
+		/* Consumed only by upstream boot/zephyr/flash_map_extended.c's
+		 * CONFIG_SOC_FAMILY_REALTEK_AMEBA branch (mcuboot's own
+		 * do_boot() flash base). AmebaSmart has no RSIP logic-address
+		 * remap active at mcuboot's own jump time (that is set up
+		 * later, by boot_prepare() above, for the KM4/AP images) —
+		 * so this intentionally equals flash-base-phy, not a
+		 * RSIP-remapped address like G2/Dplus's primary-logic-base.
+		 */
+		primary-logic-base    = <FLASH_BASE_PHY>;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-m55";
+			reg = <0>;
+		};
+	};
+
+	soc {
+		rcc: rcc@42008000 {
+			compatible = "realtek,ameba-rcc";
+			reg = <0x42008000 0x400>;
+			#clock-cells = <1>;
+			status = "okay";
+		};
+
+		loguart: serial@4200c000 {
+			compatible = "realtek,ameba-loguart";
+			reg = <0x4200c000 0x200>;
+			clocks = <&rcc 0>;
+			interrupts = <8 3>;
+			current-speed = <1500000>;
+			status = "okay";
+		};
+
+		/* SPIC flash controller — no interrupt needed for MCUboot (polled) */
+		spic: flash-controller@44000000 {
+			compatible = "realtek,ameba-flash-controller";
+			reg = <0x44000000 0x400>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+
+			flash0: flash@e000020 {
+				reg = <0x0d000020 DT_SIZE_M(6)>;
+#include "rtl8730e_evb_partitions.dtsi"
+			};
+		};
+	};
+};
+
+/* Set NVIC priority bits (matches __NVIC_PRIO_BITS = 3 in cmsis_cpu.h) */
+&nvic {
+	arm,num-irq-priority-bits = <3>;
+};

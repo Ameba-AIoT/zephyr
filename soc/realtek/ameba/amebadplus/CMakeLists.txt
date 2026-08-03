@@ -4,6 +4,12 @@
 zephyr_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_include_directories(.)
 
+# Workaround for ld.bfd 2.35 (asdk-10.3.1): discard .ARM.exidx from libgcc
+# before it reaches the ROMABLE_REGION GROUP. Without this, the SORT() sections
+# in "initlevel" cause a fatal "rom_start has both ordered and unordered sections"
+# error when libgcc 64-bit math objects (_udivmoddi4.o) pull in .ARM.exidx.
+zephyr_linker_sources(SECTIONS SORT_KEY zz ${CMAKE_CURRENT_LIST_DIR}/discard_exidx.ld)
+
 if(CONFIG_MCUBOOT)
   zephyr_linker_sources(ROM_START SORT_KEY 0x0 loader_section.ld)
   zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 loader_ram_section.ld)
@@ -16,7 +22,7 @@ endif()
 zephyr_linker_sources(RAMFUNC_SECTION ${CMAKE_CURRENT_LIST_DIR}/../common/ram_function_section.ld)
 zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
-set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
+set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/../common/linker_cortex_m.ld CACHE INTERNAL "")
 
 set(PYTHON_SCRIPT_ARGS
     --soc ${CONFIG_SOC_SERIES}
@@ -66,7 +72,7 @@ if(BIN_FILES)
     #      so mcuboot.cmake is used to wrapper ${ZEPHYR_BASE}/cmake/mcuboot.cmake with some extra extra_post_build_commands
     #      that needed to be executed exactly after ${ZEPHYR_BASE}/cmake/mcuboot.cmake
     set_target_properties(zephyr_property_target PROPERTIES SIGNING_SCRIPT
-      ${CMAKE_CURRENT_LIST_DIR}/../common/primary_image.cmake)
+      ${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_app_image.cmake)
     set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix app)
     set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name amebadplus)
     set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image

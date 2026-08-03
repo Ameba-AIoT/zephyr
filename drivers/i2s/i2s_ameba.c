@@ -454,7 +454,9 @@ static int i2s_ameba_enable_clock(const struct device *dev)
 	}
 
 	/* enables I2S peripheral */
-	if (clock_control_on(cfg->clock_dev, cfg->clock_subsys)) {
+	int ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable I2S clock");
 		return -EIO;
 	}
@@ -689,8 +691,8 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 		data->rx.state = I2S_STATE_READY;
 	}
 
-	if (i2s_cfg->options & I2S_OPT_FRAME_CLK_SLAVE ||
-	    i2s_cfg->options & I2S_OPT_BIT_CLK_SLAVE) {
+	if (i2s_cfg->options & I2S_OPT_FRAME_CLK_TARGET ||
+	    i2s_cfg->options & I2S_OPT_BIT_CLK_TARGET) {
 		slave = true; /* slave */
 	} else {
 		slave = false; /* master */

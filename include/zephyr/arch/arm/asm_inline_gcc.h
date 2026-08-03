@@ -20,7 +20,7 @@
 
 #include <zephyr/toolchain.h>
 #include <zephyr/types.h>
-#include <zephyr/arch/arm/exception.h>
+#include <zephyr/arch/exception.h>
 #include <cmsis_core.h>
 
 #if defined(CONFIG_CPU_AARCH32_CORTEX_R) || defined(CONFIG_CPU_AARCH32_CORTEX_A)
@@ -56,8 +56,8 @@ static ALWAYS_INLINE unsigned int arch_irq_lock(void)
 	key = __get_BASEPRI();
 	__set_BASEPRI_MAX(_EXC_IRQ_DEFAULT_PRIO);
 	__ISB();
-#elif defined(CONFIG_ARMV7_R) || defined(CONFIG_AARCH32_ARMV8_R) \
-	|| defined(CONFIG_ARMV7_A)
+#elif defined(CONFIG_ARM_A_PROFILE_AARCH32) || defined(CONFIG_ARMV7_R) \
+	|| defined(CONFIG_AARCH32_ARMV8_R)
 	__asm__ volatile(
 		"mrs %0, cpsr;"
 		"and %0, #" STRINGIFY(I_BIT) ";"
@@ -88,8 +88,8 @@ static ALWAYS_INLINE void arch_irq_unlock(unsigned int key)
 #elif defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE)
 	__set_BASEPRI(key);
 	__ISB();
-#elif defined(CONFIG_ARMV7_R) || defined(CONFIG_AARCH32_ARMV8_R) \
-	|| defined(CONFIG_ARMV7_A)
+#elif defined(CONFIG_ARM_A_PROFILE_AARCH32) || defined(CONFIG_ARMV7_R) \
+	|| defined(CONFIG_AARCH32_ARMV8_R)
 	if (key != 0U) {
 		return;
 	}
@@ -104,6 +104,31 @@ static ALWAYS_INLINE bool arch_irq_unlocked(unsigned int key)
 	/* This convention works for both PRIMASK and BASEPRI */
 	return key == 0U;
 }
+
+#ifdef CONFIG_ZERO_LATENCY_IRQS
+
+static ALWAYS_INLINE unsigned int arch_zli_lock(void)
+{
+	unsigned int key;
+
+	key = __get_PRIMASK();
+
+	/*
+	 * The cpsid instruction is self synchronizing within the instruction stream, no need for
+	 * an explicit __ISB().
+	 */
+	__disable_irq();
+
+	return key;
+}
+
+static ALWAYS_INLINE void arch_zli_unlock(unsigned int key)
+{
+	__set_PRIMASK(key);
+	__ISB();
+}
+
+#endif /* CONFIG_ZERO_LATENCY_IRQS */
 
 #ifdef __cplusplus
 }

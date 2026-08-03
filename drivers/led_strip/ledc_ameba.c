@@ -219,7 +219,7 @@ static int ameba_ledc_init(const struct device *dev)
 	}
 
 	err = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
-	if (err != 0) {
+	if (err < 0 && err != -EALREADY) {
 		LOG_ERR("Enable clk %d err %d\n", (uint32_t)cfg->clock_subsys, err);
 		return err;
 	}

@@ -69,6 +69,30 @@ void soc_early_init_hook(void)
 	sys_cache_instr_enable();
 	sys_cache_data_enable();
 
+#ifdef CONFIG_BOOTLOADER_MCUBOOT
+	/*
+	 * Img2EntryFun0 is the boot entry table (section .ram_image2.entry) that
+	 * the Realtek ROM/loader reads to enter this image: RamStartFun (cold-boot
+	 * entry, = z_arm_reset), RamWakeupFun (PG-wake entry) and VectorNS. It is
+	 * initialised data (LMA in flash, VMA pinned to the very start of RAM), so
+	 * its values must be copied flash->RAM at startup.
+	 *
+	 * Zephyr's z_prep_c only copies .data from __data_region_start onward, but
+	 * .ram_image2.entry is linked before __data_region_start, so that copy does
+	 * NOT cover it. Without this memcpy the table stays uninitialised (garbage)
+	 * in RAM and the loader jumps to a bad entry -> boot / PG-wake fails.
+	 * (Regressed with the Zephyr v4.4.1 linker rework linker_cortex_m.ld;
+	 * amebag2 already does the same copy in its soc_early_init_hook.)
+	 */
+	{
+		extern u8 __image2_entry_func_end__[];
+		extern u8 __image2_entry_func_load_start__[];
+
+		memcpy(&__image2_entry_func__, &__image2_entry_func_load_start__,
+		       __image2_entry_func_end__ - __image2_entry_func__);
+	}
+#endif
+
 	XTAL_INIT();
 
 	if (SYSCFG_CHIPType_Get() == CHIP_TYPE_ASIC_POSTSIM) { /* Only Asic need OSC Calibration */

@@ -57,10 +57,20 @@ config FLASH_BASE_ADDRESS
 
 endif
 
+config BUILD_WITH_TFM
+	default y if TRUSTED_EXECUTION_NONSECURE
+
 if TFM_BL2
 
 config FLASH_BASE_ADDRESS
 	hex
 	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),primary-logic-addr)
+
+endif
+
+if BOARD_RTL872XDA_EVB_RTL8721DX_MCUBOOT && !MCUBOOT
+
+config BOOTLOADER_MCUBOOT
+	default y
 
 endif

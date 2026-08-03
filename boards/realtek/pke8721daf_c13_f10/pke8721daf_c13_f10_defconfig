@@ -1,0 +1,6 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+# Configurations in this file only work for plain device pke8721daf_c13_f10
+# Configurations here would overwrite configurations in Kconfig.defconfig
+# Configurations for all pke8721daf_c13_f10 variants(like mcuboot) are supposed to be set in Kconfig.defconfig

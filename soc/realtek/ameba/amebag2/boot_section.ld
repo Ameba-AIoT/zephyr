@@ -17,6 +17,7 @@ SECTION_PROLOGUE(.psram_image2.text.data,,)
 {
 		__image2_backtrace_start__ = .;
 		*(*.sramdram.only.text)
+		*(.wlan.critical.text*)
 
 		. = ALIGN (4);
 		__ipc_table_start__ = .;
@@ -28,3 +29,6 @@ SECTION_PROLOGUE(.psram_image2.text.data,,)
 	. = ALIGN (32);
 } GROUP_LINK_IN(ROMABLE_REGION)
 __image2_entry_func_load_start__ = LOADADDR(.ram_image2.entry);
+
+/* KM4TZ NS MSP stack region limit, required by lib_pmc.a for PMC_BK address */
+PROVIDE(__km4tz_msp_ram_ns_limit__ = 0x20002400);

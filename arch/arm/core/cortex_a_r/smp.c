@@ -5,7 +5,6 @@
 
 #include <zephyr/kernel/thread_stack.h>
 #include <zephyr/kernel.h>
-#include <ksched.h>
 #include <zephyr/arch/arm/cortex_a_r/lib_helpers.h>
 #include <zephyr/drivers/interrupt_controller/gic.h>
 #include <ipi.h>
@@ -14,6 +13,9 @@
 #include "zephyr/kernel/thread_stack.h"
 #include "zephyr/toolchain/gcc.h"
 #include <zephyr/platform/hooks.h>
+#ifdef CONFIG_PM_CPU_OPS
+#include <zephyr/drivers/pm_cpu_ops.h>
+#endif
 
 #define INV_MPID	UINT32_MAX
 
@@ -69,7 +71,7 @@ BUILD_ASSERT(offsetof(struct boot_params, svc_sp) == BOOT_PARAM_SVC_SP_OFFSET);
 BUILD_ASSERT(offsetof(struct boot_params, sys_sp) == BOOT_PARAM_SYS_SP_OFFSET);
 BUILD_ASSERT(offsetof(struct boot_params, voting) == BOOT_PARAM_VOTING_OFFSET);
 
-volatile struct boot_params arm_cpu_boot_params = {
+volatile struct boot_params __aligned(CONFIG_DCACHE_LINE_SIZE) arm_cpu_boot_params = {
 	.mpid = -1,
 	.irq_sp = (char *)(z_interrupt_stacks + CONFIG_ISR_STACK_SIZE),
 	.fiq_sp = (char *)(z_arm_fiq_stack + CONFIG_ARMV7_FIQ_STACK_SIZE),
@@ -92,6 +94,7 @@ extern void z_arm_mpu_init(void);
 extern void z_arm_configure_static_mpu_regions(void);
 #elif defined(CONFIG_ARM_AARCH32_MMU)
 extern int z_arm_mmu_init(void);
+extern int z_arm_mmu_secondary_init(void);
 #endif
 
 /* Called from Zephyr initialization */
@@ -99,18 +102,18 @@ void arch_cpu_start(int cpu_num, k_thread_stack_t *stack, int sz, arch_cpustart_
 {
 	int cpu_count, i, j;
 	uint32_t cpu_mpid = 0;
-	uint32_t master_core_mpid;
+	uint32_t primary_core_mpid;
 
-	/* Now it is on master core */
+	/* Now it is on primary core */
 	__ASSERT(arch_curr_cpu()->id == 0, "");
-	master_core_mpid = MPIDR_TO_CORE(GET_MPIDR());
+	primary_core_mpid = MPIDR_TO_CORE(GET_MPIDR());
 
 	cpu_count = ARRAY_SIZE(cpu_node_list);
 	__ASSERT(cpu_count == CONFIG_MP_MAX_NUM_CPUS,
 		"The count of CPU Cores nodes in dts is not equal to CONFIG_MP_MAX_NUM_CPUS\n");
 
 	for (i = 0, j = 0; i < cpu_count; i++) {
-		if (cpu_node_list[i] == master_core_mpid) {
+		if (cpu_node_list[i] == primary_core_mpid) {
 			continue;
 		}
 		if (j == cpu_num - 1) {
@@ -149,13 +152,21 @@ void arch_cpu_start(int cpu_num, k_thread_stack_t *stack, int sz, arch_cpustart_
 	/* store mpid last as this is our synchronization point */
 	arm_cpu_boot_params.mpid = cpu_mpid;
 
-	sys_cache_data_invd_range(
+	sys_cache_data_flush_range(
 			(void *)&arm_cpu_boot_params,
 			sizeof(arm_cpu_boot_params));
 
-	/*! TODO: Support PSCI
-	 *  \todo Support PSCI
-	 */
+#ifdef CONFIG_SOC_CPU_POWER_ON_HOOK
+	soc_cpu_power_on(cpu_mpid);
+#endif
+
+#ifdef CONFIG_PM_CPU_OPS
+	if (pm_cpu_on(cpu_mpid, (unsigned long)&__start)) {
+		printk("Failed to boot secondary CPU core %d (MPID:%#x)\n",
+		       cpu_num, cpu_mpid);
+		k_panic();
+	}
+#endif
 
 	/* Wait secondary cores up, see arch_secondary_cpu_init */
 	while (arm_cpu_boot_params.fn) {
@@ -187,7 +198,7 @@ void arch_secondary_cpu_init(void)
 	z_arm_mpu_init();
 	z_arm_configure_static_mpu_regions();
 #elif defined(CONFIG_ARM_AARCH32_MMU)
-	z_arm_mmu_init();
+	z_arm_mmu_secondary_init();
 #endif
 
 #ifdef CONFIG_SMP
@@ -200,9 +211,7 @@ void arch_secondary_cpu_init(void)
 	 */
 #endif
 
-#ifdef CONFIG_SOC_PER_CORE_INIT_HOOK
 	soc_per_core_init_hook();
-#endif /* CONFIG_SOC_PER_CORE_INIT_HOOK */
 
 	fn = arm_cpu_boot_params.fn;
 	arg = arm_cpu_boot_params.arg;
@@ -240,7 +249,7 @@ static void send_ipi(unsigned int ipi, uint32_t cpu_bitmap)
 		uint32_t target_mpidr = cpu_map[i];
 		uint8_t aff0;
 
-		if (mpidr == target_mpidr || mpidr == INV_MPID) {
+		if (mpidr == target_mpidr || target_mpidr == INV_MPID) {
 			continue;
 		}
 

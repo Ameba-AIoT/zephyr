@@ -4,6 +4,16 @@
 zephyr_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_include_directories(.)
 
+# ld.bfd 2.38 (shipped with asdk-12.3.1) incorrectly accounts for
+# DWARF debug sections (VMA=0) when computing FLASH region overflow,
+# causing false "section will not fit in region FLASH" errors.
+# Discard debug sections explicitly in the linker script instead of
+# using --strip-debug (which also removes .intList needed by gen_isr_tables).
+# The DISCARD entries are injected via zephyr_linker_sources().
+# Note: CONFIG_FLASH_SIZE is overridden to 32768 in Kconfig.defconfig to
+# work around ld.bfd 2.38 bug where debug sections (VMA=0) are incorrectly
+# counted toward FLASH region overflow. See Kconfig.defconfig for details.
+
 if(CONFIG_MCUBOOT)
   zephyr_linker_sources(ROM_START SORT_KEY 0x0 loader_section.ld)
   zephyr_sources(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_action_hook.c)
@@ -15,7 +25,13 @@ endif()
 zephyr_linker_sources(RAMFUNC_SECTION ${CMAKE_CURRENT_LIST_DIR}/../common/ram_function_section.ld)
 zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
-set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
+# ld.bfd 2.38 (asdk-12.3.1) places .intList* as orphan sections before the
+# SORT_KEY 0x0 so it is processed first, before rom_start, preventing orphan
+# placement in FLASH. This is only needed for ld.bfd >= 2.38.
+# Activate the pre-existing discard_debug.ld: discard DWARF debug sections so
+# ld.bfd 2.38 does not count them toward FLASH region overflow.
+zephyr_linker_sources(SECTIONS ${CMAKE_CURRENT_LIST_DIR}/discard_debug.ld)
+set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/../common/linker_cortex_m.ld CACHE INTERNAL "")
 
 set(PYTHON_SCRIPT_ARGS
     --soc ${CONFIG_SOC_SERIES}
@@ -56,7 +72,7 @@ if(BIN_FILES)
     #      so mcuboot.cmake is used to wrapper ${ZEPHYR_BASE}/cmake/mcuboot.cmake with some extra extra_post_build_commands
     #      that needed to be executed exactly after ${ZEPHYR_BASE}/cmake/mcuboot.cmake
     set_target_properties(zephyr_property_target PROPERTIES SIGNING_SCRIPT
-      ${CMAKE_CURRENT_LIST_DIR}/../common/primary_image.cmake)
+      ${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_app_image.cmake)
     set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix app)
     set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name ${SOC_SERIES})
     set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image

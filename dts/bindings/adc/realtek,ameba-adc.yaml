@@ -27,6 +27,14 @@ properties:
   clocks:
     required: true
 
+  clock-names:
+    required: true
+    description: |
+      Clock names corresponding to the entries in the "clocks" property.
+      - "adc" for the ADC digital logic clock (mandatory on all SoCs)
+      - "ctc" for the CapTouch analog front-end clock (mandatory on
+        amebasmart where the ADC shares its analog circuit with the CTC)
+
   interrupts:
     required: true
 

@@ -279,6 +279,26 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_undef_instruction)
 	pop {r0}
 
 	z_arm_cortex_ar_enter_exc
+
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * Lazy FPU enable.  z_arm_fault_undef_instruction_fp() returns false
+	 * when this fault was triggered by a VFP instruction executed with
+	 * FPEXC.EN=0; in that case it enables the FPU (and spills the previous
+	 * owner's registers to cpu->fp_ctx if needed) so we can unwind and
+	 * re-execute the offending instruction.  If it returns true the fault
+	 * is a real undefined instruction and we fall through to the panic
+	 * handler.
+	 *
+	 * Note: this clobbers r0 set up by z_arm_cortex_ar_enter_exc, so we
+	 * restore r0 = sp (the ESF pointer) before calling the fatal handler.
+	 */
+	bl z_arm_fault_undef_instruction_fp
+	cmp r0, #0
+	beq z_arm_cortex_ar_exit_exc
+	mov r0, sp
+#endif /* CONFIG_FPU_SHARING */
+
 	bl z_arm_fault_undef_instruction
 	b z_arm_cortex_ar_exit_exc
 

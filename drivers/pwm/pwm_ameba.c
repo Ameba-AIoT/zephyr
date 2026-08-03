@@ -257,7 +257,7 @@ int pwm_ameba_init(const struct device *dev)
 
 	/* Enable peripheral */
 	ret = clock_control_on(config->clock_dev, config->clock_subsys);
-	if (ret < 0) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not initialize clock (%d)", ret);
 		return ret;
 	}

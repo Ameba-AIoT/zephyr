@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/mipi_dsi/mipi_dsi.h>
+
+#define ST7701S_WIDTH  480
+#define ST7701S_HEIGHT 800
+
+&mipi_dsi {
+	st7701s: st7701s@0 {
+		compatible = "sitronix,st7701s";
+		reg = <0x0>;
+		reset-gpios = <&gpioa 14 GPIO_ACTIVE_LOW>;
+		data-lanes = <2>;
+		pixel-format = <MIPI_DSI_PIXFMT_RGB888>;
+		width = <ST7701S_WIDTH>;
+		height = <ST7701S_HEIGHT>;
+		status = "okay";
+
+		display-timings {
+			compatible = "zephyr,panel-timing";
+			hsync-len = <4>;
+			hback-porch = <30>;
+			hfront-porch = <30>;
+			vsync-len = <5>;
+			vback-porch = <20>;
+			vfront-porch = <15>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+		};
+	};
+};
+
+&lcdc {
+	status = "okay";
+	width = <ST7701S_WIDTH>;
+	height = <ST7701S_HEIGHT>;
+};

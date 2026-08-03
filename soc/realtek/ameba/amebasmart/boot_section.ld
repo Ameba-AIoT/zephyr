@@ -27,6 +27,14 @@ __km0_ipc_memory_start__ = 0x2301FD00;
       . = ALIGN(4096);
       __image2_backtrace_start__ = .;
       *(*.sramdram.only.text)
+      *(.wlan.critical.text*)
+
+      /* lib_pmc.a a32_pm.o (cpu_suspend/cpu_resume/vPortBackupRegs/...) is in a
+       * .boot section; place it in this R+X, flat-mapped, DRAM-retained block
+       * (REGION_PSRAM_IMAGE2) so it executes and cpu_resume's warm-boot entry
+       * resolves to its physical link address with the MMU off.
+       */
+      KEEP(*(.boot))
 
       . = ALIGN (4);
       __ipc_table_start__ = .;

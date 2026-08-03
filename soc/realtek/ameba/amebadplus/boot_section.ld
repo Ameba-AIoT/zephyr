@@ -17,6 +17,7 @@ SECTION_PROLOGUE(.psram_image2.text.data,,)
 {
 	 __image2_backtrace_start__ = .;
 	 *(*.sramdram.only.text)
+	 *(.wlan.critical.text*)
 
 	 . = ALIGN (32);
 	 __ipc_table_start__ = .;

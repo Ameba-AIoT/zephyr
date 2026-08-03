@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/mipi_dsi/mipi_dsi.h>
+
+#define GH7002_WIDTH  1024
+#define GH7002_HEIGHT 600
+
+&mipi_dsi {
+	gh7002: gh7002@0 {
+		compatible = "realtek,gh7002";
+		reg = <0x0>;
+		reset-gpios = <&gpioa 14 GPIO_ACTIVE_LOW>;
+		data-lanes = <2>;
+		pixel-format = <MIPI_DSI_PIXFMT_RGB888>;
+		width = <GH7002_WIDTH>;
+		height = <GH7002_HEIGHT>;
+		status = "okay";
+
+		display-timings {
+			compatible = "zephyr,panel-timing";
+			hsync-len = <10>;
+			hback-porch = <60>;
+			hfront-porch = <120>;
+			vsync-len = <10>;
+			vback-porch = <10>;
+			vfront-porch = <12>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+		};
+	};
+};
+
+&lcdc {
+	status = "okay";
+	width = <GH7002_WIDTH>;
+	height = <GH7002_HEIGHT>;
+};

@@ -26,57 +26,6 @@
 
 .. _zephyr_4.2:
 
-.. _zephyr_4.2.1:
-
-Zephyr 4.2.1
-############
-
-This is a bugfix release for Zephyr 4.2.0. The following issues are addressed by this release:
-
-* :github:`96197` gPTP sample does not boot with NUCLEO-H563ZI
-* :github:`92393` LIS2DUX12 setting incorrect ODR configuration
-* :github:`93011` stm32u0: interrupt vectors for lpuart1 and lpuart2 are wrong in device tree
-* :github:`93220` Twister tests with coverage enabled crash during startup
-* :github:`93265` Stm32u5x: clock disable in sleep mode fix causing USB HS device initialization stalls
-* :github:`93342` doc: Documentation issue in 'connectivity/networking/api/tftp'
-* :github:`93350` net: tcp: keep-alive "pings" are no longer acknowledged with v4.2.0
-* :github:`93364` tests/subsys/llext fails after tagging 4.2
-* :github:`93424` Missing break after IPV6_MULTICAST_IF option processing
-* :github:`93445` STM32U535/545: dtc error for node wkup-pin@8 referencing non-existent port gpiof
-* :github:`93519` drivers: nxp_lpspi: Large performance degradation
-* :github:`93594` Nicla Vision has bad I2C address for VL53L1X sensor
-* :github:`93611` doc: Documentation issue in 'releases/release-notes-4.2'
-* :github:`93790` drivers: console: posix_arch_console: build warning with ``CONFIG_PRINTK=n``
-* :github:`93792` USB samples not working on ``max32690evkit``
-* :github:`93831` drivers: can: nrf: fix invalid pointer leading to undef behavior
-* :github:`93839` I3C: STM32: Has a Mutex deadlock on DAA Failure
-* :github:`94000` EXT2 fs_stat on mount point fails with a NULL pointer dereference.
-* :github:`94047` Shell device name tab completion for regulator parents show incorrect names
-* :github:`94063` SPI loopback tests failing on MAX32 SoCs.
-* :github:`94083` stm32:  u3:  low clock frequency for the RNG periphera
-* :github:`94093` Build error when OCRAM node is disabled in device tree (status = "disabled") [NXP RT1061]
-* :github:`94107` ppp link-layer address configuration is wrong
-* :github:`94325` iar: incorrect assembler optimzation flag
-* :github:`94473` LVGL Widgets Demo stopped working in v4.1 on mimxrt1060_evk@A
-* :github:`94702` Locally Administered Address (LAA) bit missing for STM32 ethernet driver
-* :github:`94703` Locally Administered Address (LAA) bit set on wrong index for NXP i.MX ethernet driver
-* :github:`94774` modules/picolibc: Roll back unnecessary changes, synchronize with SDK 0.17.4
-* :github:`94812` ``nocache`` data is included in ROM section
-* :github:`94842` iar: Zephyr 4.2 fails with IAR EWARM 9.70.1
-* :github:`94954` Spurious error log "No valid legacy adv to resume" in bt_hci_le_enh_conn_complete when using bt_le_ext_adv_start()
-* :github:`95113` gpio_pin_get_config for STM32 returns wrong flags value for input pins
-* :github:`95146` i2c: stm32: non-RTIO driver fixes on PM and on STM32F7 from Zephyr v4.3
-* :github:`95297` Links to the pyOCD repository are outdated
-* :github:`95456` Zephyr Netstack buffer leaks
-* :github:`95580` Picolibc module and SDK are not in sync for Zephyr 4.2.0
-* :github:`95721` Boards documentation: "arm" Architecture not specified at least for STM32MP13 and STM32N6 boards
-* :github:`95724` drivers: i2c: stm32: build error when using DMAs with st,stm32-i2c-v2 driver
-* :github:`95768` Possible TCP connection leak when creating a socket
-* :github:`95850` Applications do not watch MCUboot key file for changes
-* :github:`96087` TCP connection sends an incorrect seqnum FIN message
-* :github:`96172` arch: arm: switch to privilege stack in SVC handler
-* :github:`96768` incorrect i2c3 base address on stm32f303Xe
-
 Zephyr 4.2.0
 ############
 
@@ -122,6 +71,8 @@ Security Vulnerability Related
 
 The following CVEs are addressed by this release:
 
+* :cve:`2025-12890` `Bluetooth: peripheral: Invalid handling of malformed connection request
+  <https://github.com/zephyrproject-rtos/zephyr/security/advisories/GHSA-8hrf-pfww-83v9>`_
 * :cve:`2025-27809` `TLS clients may unwittingly skip server authentication
   <https://mbed-tls.readthedocs.io/en/latest/security-advisories/mbedtls-security-advisory-2025-03-1/>`_
 * :cve:`2025-27810` `Potential authentication bypass in TLS handshake
@@ -573,7 +524,7 @@ New Boards
 
 * Ai-Thinker Co., Ltd.
 
-   * :zephyr:board:`ai_wb2_12f` (``ai_wb2_12f``)
+   * :zephyr:board:`ai_wb2_12f_kit` (``ai_wb2_12f_kit``)
 
 * Ambiq Micro, Inc.
 
@@ -639,7 +590,7 @@ New Boards
 
 * ITE Tech. Inc.
 
-   * :zephyr:board:`it515xx_evb` (``it515xx_evb``)
+   * ``it515xx_evb``
 
 * KWS Computersysteme Gmbh
 
@@ -678,8 +629,6 @@ New Boards
 * NXP Semiconductors
 
    * :zephyr:board:`frdm_mcxa153` (``frdm_mcxa153``)
-   * :zephyr:board:`frdm_mcxa166` (``frdm_mcxa166``)
-   * :zephyr:board:`frdm_mcxa276` (``frdm_mcxa276``)
    * :zephyr:board:`imx943_evk` (``imx943_evk``)
    * :zephyr:board:`mcx_n9xx_evk` (``mcx_n9xx_evk``)
    * :zephyr:board:`s32k148_evb` (``s32k148_evb``)
@@ -703,7 +652,7 @@ New Boards
 
 * Raytac Corporation
 
-   * :zephyr:board:`raytac_an54l15q_db` (``raytac_an54l15q_db``)
+   * :zephyr:board:`raytac_an54lq_db_15` (``raytac_an54lq_db_15``)
    * :zephyr:board:`raytac_an7002q_db` (``raytac_an7002q_db``)
    * :zephyr:board:`raytac_mdbt50q_cx_40_dongle` (``raytac_mdbt50q_cx_40_dongle``)
 
@@ -806,7 +755,7 @@ New shields
 
 * :ref:`Arduino Giga Display Shield <arduino_giga_display_shield>`
 * :ref:`Arduino Modulino Buttons <arduino_modulino_buttons>`
-* :ref:`Arduino Modulino SmartLEDs <arduino_modulino_smartleds>`
+* :ref:`Arduino Modulino SmartLEDs <arduino_modulino_pixels>`
 * :ref:`DVP 20-pin OV7670 <dvp_20pin_ov7670>`
 * :ref:`EVAL AD4052 ARDZ <eval_ad4052_ardz>`
 * :ref:`EVAL ADXL367 ARDZ <eval_adxl367_ardz>`
@@ -1446,8 +1395,8 @@ Other notable changes
   * 3.6.3: https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.3
   * 3.6.4: https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.4
 
-* Updated TF-M to version 2.1.2 (from 2.1.1). The release notes can be found at:
-  https://trustedfirmware-m.readthedocs.io/en/tf-mv2.1.2/releases/2.1.2.html
+* Updated TF-M to version 2.2.0 (from 2.1.1). The release notes can be found at:
+  https://trustedfirmware-m.readthedocs.io/en/latest/releases/2.2.0.html
 
 * Updated all boards with an external I2C connectors (Qwiic, Stemma, Grove...)
   to use the ``zephyr_i2c`` devicetree label. This allows using the existing

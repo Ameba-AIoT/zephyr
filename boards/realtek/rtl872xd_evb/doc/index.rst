@@ -47,7 +47,7 @@ Realtek HAL requires binary blobs in order work. Run the command below to retrie
 
 .. note::
 
-   It is recommended running the command above after `west update`.
+   It is recommended running the command above after ``west update``.
 
 Building
 ********

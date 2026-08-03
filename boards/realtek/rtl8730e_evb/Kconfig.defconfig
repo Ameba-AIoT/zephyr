@@ -3,6 +3,8 @@
 
 # Configurations here work for all rtl8730e_evb variants
 
+ZEPHYR_USER := zephyr,user
+
 # enable rcc
 config CLOCK_CONTROL
 	default y
@@ -23,3 +25,29 @@ config GPIO
 
 config NOCACHE_MEMORY
 	default y
+
+if BOARD_RTL8730E_EVB
+
+# Default to SMP for the CA32 Zephyr app (dual Cortex-A32 cores).
+# NOT set for the KM4 MCUboot domain (single-core Cortex-M55).
+config SMP
+	default y if SOC_RTL8730E_CA32
+
+config USE_SWITCH
+	default y if SOC_RTL8730E_CA32
+
+# FPU_SHARING lazy-save path pushes ~300 B of VFP regs into the UND/ABT
+# exception stack.  The default 256 B is not enough and causes nested
+# exceptions on the first FPU trap.  1024 B gives comfortable headroom.
+config ARMV7_EXCEPTION_STACK_SIZE
+	default 1024
+
+endif # BOARD_RTL8730E_EVB
+
+if MCUBOOT
+
+config FLASH_BASE_ADDRESS
+	hex
+	default $(dt_node_int_prop_hex,/$(ZEPHYR_USER),flash-base-phy)
+
+endif # MCUBOOT

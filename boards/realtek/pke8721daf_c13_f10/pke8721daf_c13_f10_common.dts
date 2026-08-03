@@ -1,0 +1,78 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <realtek/amebadplus/amebadplus.dtsi>
+#include "pke8721daf_c13_f10-pinctrl.dtsi"
+#include <zephyr/dt-bindings/display/panel.h>
+
+/**
+ * BOOT refers to mcuboot bootloader, at smallest physical address
+ * APP0 refers to km4, is primary image, at bigger physical address
+ * APP1 refers to km0, is secondary image, at smaller physical address
+ */
+
+/* Parameters below are set based on the hardware/rom/custom by user */
+
+#define FLASH_BASE_PHY 0x08000000
+#define ROM_JUMP_ADDR 0x0F800020
+
+/*WARNING: BETTER keep consistent with ameba_layout.ld::KM4_IMG2_XIP exclude header 0x20*/
+#define APP0_LOGIC_ADDR 0x0E000000
+/*WARNING: MUST keep consistent with ameba_layout.ld::KM0_IMG2_XIP exclude header 0x20*/
+#define APP1_LOGIC_ADDR 0x0C000000
+
+#define BOOT_SLOT_BASE 0x0
+#define BOOT_SLOT_SIZE DT_SIZE_K(256) /* 0x40000 */
+
+#define APP_SLOT_SIZE DT_SIZE_K(512) /* 0x80000 */
+
+/* Parameters below are calculated automatically */
+
+#define FLASH_BASE (ROM_JUMP_ADDR - 0x20 - 0x1000) /* 0x20: ameba header, 0x1000: manifest */
+
+/* For merged km4 and km0 */
+#define APP_SLOT0_OFFSET (BOOT_SLOT_BASE   + BOOT_SLOT_SIZE) /* 0x00040000, slot0_partition */
+#define APP_SLOT1_OFFSET (APP_SLOT0_OFFSET + APP_SLOT_SIZE)  /* 0x000C0000, slot1_partition */
+
+/ {
+	model = "RealTek AmebaDplus PKE8721DAF_C13_F10 EVB";
+	compatible = "realtek,pke8721daf_c13_f10";
+
+	chosen {
+		zephyr,console = &loguart;
+		zephyr,shell-uart = &loguart;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,entropy = &trng;
+		zephyr,flash-controller = &spic;
+		zephyr,bt-hci = &bt;
+	};
+
+	zephyr,user {
+		flash-base-phy = <FLASH_BASE_PHY>;
+		primary-logic-base = <(APP0_LOGIC_ADDR - APP_SLOT0_OFFSET)>;
+		primary-logic-addr = <APP0_LOGIC_ADDR>;
+		secondary-logic-addr = <APP1_LOGIC_ADDR>;
+	};
+};
+
+&cpu0 {
+	cpu-power-states = <&pm_cg &pm_pg>;
+};
+
+&loguart {
+	status = "okay";
+};
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};

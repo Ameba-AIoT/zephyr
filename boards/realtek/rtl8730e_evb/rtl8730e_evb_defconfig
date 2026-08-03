@@ -8,3 +8,8 @@
 CONFIG_SERIAL=y
 CONFIG_CONSOLE=y
 CONFIG_UART_CONSOLE=y
+
+# 1 kHz tick balances k_timer_remaining precision with CA32 user-thread overhead.
+# 100 Hz (10 ms tick) is too coarse for the precision tests; 10 kHz exceeds
+# the test's 100 us latency allowance because of user-mode call overhead.
+CONFIG_SYS_CLOCK_TICKS_PER_SEC=1000

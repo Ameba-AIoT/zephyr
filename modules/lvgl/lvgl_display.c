@@ -27,20 +27,9 @@ void lvgl_flush_thread_entry(void *arg1, void *arg2, void *arg3)
 		k_msgq_get(&flush_queue, &flush, K_FOREVER);
 		data = (struct lvgl_disp_data *)lv_display_get_user_data(flush.display);
 
-#ifdef CONFIG_LV_Z_DIRECT_MODE
-		if (lv_display_flush_is_last(flush.display)) {
-			flush.x = 0;
-			flush.y = 0;
-			flush.desc.width = LV_HOR_RES;
-			flush.desc.height = LV_VER_RES;
-			flush.desc.pitch = LV_HOR_RES;
-			flush.desc.frame_incomplete = !lv_display_flush_is_last(flush.display);
-			display_write(data->display_dev, flush.x, flush.y, &flush.desc, flush.buf);
-		}
-#else
 		flush.desc.frame_incomplete = !lv_display_flush_is_last(flush.display);
 		display_write(data->display_dev, flush.x, flush.y, &flush.desc, flush.buf);
-#endif
+
 		k_sem_give(&flush_complete);
 	}
 }
@@ -101,7 +90,7 @@ int set_lvgl_rendering_cb(lv_display_t *display)
 					display);
 		break;
 	case PIXEL_FORMAT_RGB_565:
-	case PIXEL_FORMAT_BGR_565:
+	case PIXEL_FORMAT_RGB_565X:
 		lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
 		lv_display_set_flush_cb(display, lvgl_flush_cb_16bit);
 		lv_display_add_event_cb(display, lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA,
@@ -110,6 +99,12 @@ int set_lvgl_rendering_cb(lv_display_t *display)
 	case PIXEL_FORMAT_L_8:
 		lv_display_set_color_format(display, LV_COLOR_FORMAT_L8);
 		lv_display_set_flush_cb(display, lvgl_flush_cb_8bit);
+		lv_display_add_event_cb(display, lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA,
+					display);
+		break;
+	case PIXEL_FORMAT_AL_88:
+		lv_display_set_color_format(display, LV_COLOR_FORMAT_AL88);
+		lv_display_set_flush_cb(display, lvgl_flush_cb_16bit);
 		lv_display_add_event_cb(display, lvgl_rounder_cb, LV_EVENT_INVALIDATE_AREA,
 					display);
 		break;
@@ -148,21 +143,8 @@ void lvgl_flush_display(struct lvgl_display_flush *request)
 	struct lvgl_disp_data *data =
 		(struct lvgl_disp_data *)lv_display_get_user_data(request->display);
 
-#ifdef CONFIG_LV_Z_DIRECT_MODE
-	if (lv_display_flush_is_last(request->display)) {
-		request->x = 0;
-		request->y = 0;
-		request->desc.width = LV_HOR_RES;
-		request->desc.height = LV_VER_RES;
-		request->desc.pitch = LV_HOR_RES;
-		request->desc.frame_incomplete = !lv_display_flush_is_last(request->display);
-		display_write(data->display_dev, request->x, request->y, &request->desc,
-			      request->buf);
-	}
-#else
 	request->desc.frame_incomplete = !lv_display_flush_is_last(request->display);
 	display_write(data->display_dev, request->x, request->y, &request->desc, request->buf);
-#endif
 	lv_display_flush_ready(request->display);
 #endif
 }

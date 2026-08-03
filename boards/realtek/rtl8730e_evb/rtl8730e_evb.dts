@@ -8,15 +8,28 @@
 
 #include <realtek/amebasmart/amebasmart.dtsi>
 #include "rtl8730e_evb-pinctrl.dtsi"
+#include "rtl8730e_evb_partitions.h"
 
 / {
+	model = "Realtek RTL8730E EVB";
+	compatible = "realtek,rtl8730e_evb";
+
 	chosen {
-		zephyr,sram = &dram0;
-		zephyr,console    = &loguart;
-		zephyr,shell-uart = &loguart;
-		zephyr,flash = &flash0;
+		zephyr,sram             = &dram0;
+		zephyr,console          = &loguart;
+		zephyr,shell-uart       = &loguart;
+		zephyr,flash            = &flash0;
 		zephyr,flash-controller = &spic;
-		zephyr,entropy = &trng;
+		zephyr,entropy          = &trng;
+		zephyr,bt-hci           = &bt;
+		zephyr,code-partition   = &slot0_partition;
+	};
+
+	zephyr,user {
+		flash-base-phy       = <FLASH_BASE_PHY>;
+		/* Passed to boot_prepare() → RSIP_MMU_Config for XIP window setup */
+		primary-logic-addr   = <KM4_LOGIC_ADDR>;
+		secondary-logic-addr = <KM0_LOGIC_ADDR>;
 	};
 };
 
@@ -57,31 +70,16 @@
 	status = "okay";
 };
 
-&flash0 {
-	reg = <0x0e000020 DT_SIZE_M(6)>;
+&bt {
+	status = "okay";
+};
 
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
+/delete-node/ &flash0;
 
-		/* 128 KB - holds boot.bin (~51 KB) with margin */
-		boot_partition: partition@0 {
-			label = "bootloader";
-			reg = <0x00000000 0x00020000>;
-			read-only;
-		};
-
-		/* 2 MB - holds app.bin (KM0+KM4+CA32 ~644 KB)  */
-		slot0_partition: partition@20000 {
-			label = "image-0";
-			reg = <0x00020000 0x00200000>;
-		};
-
-		/* 128 KB - storage for vfs */
-		storage_partition: partition@220000 {
-			label = "storage";
-			reg = <0x00220000 0x00020000>;
-		};
+&spic {
+	flash0: flash@e000020 {
+		/* CA32's own RSIP XIP logic window -- NOT shared with KM4. */
+		reg = <0x0e000020 DT_SIZE_M(6)>;
+#include "rtl8730e_evb_partitions.dtsi"
 	};
 };

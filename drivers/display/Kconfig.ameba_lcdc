@@ -2,13 +2,28 @@
 # SPDX-License-Identifier: Apache-2.0
 
 menuconfig AMEBA_LCDC
-	bool "AMEBA LCD-TFT display controller driver"
+	bool "Realtek Ameba LCDC display controller driver"
 	default y
-	depends on DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
+	depends on DT_HAS_REALTEK_AMEBA_LCDC_ENABLED || DT_HAS_REALTEK_AMEBA_LCDC_DSI_ENABLED
 	select CACHE_MANAGEMENT if CPU_HAS_DCACHE
-	select PINCTRL
+	select PINCTRL if DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
 	help
-	  Enable driver for AMEBA LCD-TFT display controller peripheral.
+	  Enable driver for the Realtek Ameba LCDC display controller.
+	  Supports both parallel-RGB output (AmebaG2, DT compatible
+	  realtek,ameba-lcdc) and MIPI-DSI compositor output (AmebaSmart,
+	  DT compatible realtek,ameba-lcdc-dsi).  The output path is selected
+	  automatically from the devicetree; CONFIG_AMEBA_LCDC is set for both.
+
+config AMEBA_LCDC_RGB
+	bool
+	default y
+	depends on AMEBA_LCDC && DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
+
+config AMEBA_LCDC_DSI
+	bool
+	default y
+	depends on AMEBA_LCDC && DT_HAS_REALTEK_AMEBA_LCDC_DSI_ENABLED
+	select MIPI_DSI
 
 if AMEBA_LCDC
 
@@ -17,14 +32,32 @@ config AMEBA_LCDC_FB_NUM
 	default 2
 	range 0 2
 	help
-	  AMEBA LCDC frame buffer number config:
-	    - 0 frame buffer maintained by application, must write with full screen pixels.
-	    - 1 single frame buffer in ameba lcdc driver.
-	    - 2 double frame buffer in ameba lcdc driver.
+	  AMEBA LCDC frame buffer number config (applies to both the RGB-parallel
+	  and the MIPI-DSI compositor paths):
+	    - 0 frame buffer maintained by application; the driver allocates none, so
+	      the standard display_write() is unsupported and returns -ENOTSUP.
+	    - 1 single frame buffer in the driver.  display_write() renders in place
+	      while the controller is scanning the same buffer, so updates can tear.
+	      On the MIPI-DSI path (AmebaSmart) there is no TE handshake, so this
+	      mode has no tear protection at all; use it only for static or
+	      slow-changing content.
+	    - 2 double frame buffer in the driver (tear-free): writes compose into a
+	      back buffer and the controller flips to it at the next vertical blank.
 
+endif # AMEBA_LCDC
+
+# The input framebuffer pixel format applies to both output paths, but the two
+# paths differ in how a 16-bit pixel is laid out in memory:
+#   * RGB-parallel LCDC (AmebaG2) has two distinct 16-bit hardware layer
+#     formats, RGB565 and BGR565 (R/B channel order), both byte-native.
+#   * MIPI-DSI compositor (AmebaSmart) has a single 16-bit layer format with no
+#     swap control; it reads the framebuffer as native little-endian (R in
+#     bits[15:11]).  That byte layout is what Zephyr/LVGL emit for
+#     PIXEL_FORMAT_BGR_565, so the DSI path exposes only BGR565 for 16-bit and
+#     RGB565 is hidden there.
 choice AMEBA_LCDC_PIXEL_FORMAT
 	prompt "Color pixel format"
-	# default AMEBA_LCDC_RGB888
+	default AMEBA_LCDC_BGR565 if AMEBA_LCDC_DSI
 	default AMEBA_LCDC_RGB565
 	depends on AMEBA_LCDC
 	help
@@ -37,19 +70,24 @@ choice AMEBA_LCDC_PIXEL_FORMAT
 		  (4 bytes per pixel)
 	config AMEBA_LCDC_RGB888
 		bool "RGB888"
+		depends on DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
 		help
 		  One pixel consists of 8-bit red, 8-bit green and 8-bit blue value
-		  (3 bytes per pixel)
+		  (3 bytes per pixel).  RGB-parallel path only; on the MIPI-DSI path
+		  the 24-bit layer stores bytes as B,G,R, which no Zephyr pixel format
+		  matches (there is no BGR888), so RGB888 is hidden there.
 	config AMEBA_LCDC_RGB565
 		bool "RGB565"
+		depends on DT_HAS_REALTEK_AMEBA_LCDC_ENABLED
 		help
 		  One pixel consists of 5-bit red, 6-bit green and 5-bit blue value
-		  (2 bytes per pixel)
+		  (2 bytes per pixel).  RGB-parallel path only; the MIPI-DSI path uses
+		  BGR565 for native little-endian 16-bit framebuffers.
 	config AMEBA_LCDC_BGR565
 		bool "BGR565"
 		help
 		  One pixel consists of 5-bit blue, 6-bit green and 5-bit red value
-		  (2 bytes per pixel)
+		  (2 bytes per pixel) on the RGB-parallel path.  On the MIPI-DSI path
+		  this selects the sole 16-bit layer format, read as native
+		  little-endian (matches Zephyr/LVGL PIXEL_FORMAT_BGR_565).
 endchoice
-
-endif # AMEBA_LCDC

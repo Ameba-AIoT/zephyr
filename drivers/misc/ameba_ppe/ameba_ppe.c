@@ -64,7 +64,7 @@ static int ameba_ppe_init(const struct device *dev)
 	}
 
 	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
-	if (ret < 0) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not initialize clock (%d)", ret);
 		return ret;
 	}
@@ -73,7 +73,7 @@ static int ameba_ppe_init(const struct device *dev)
 	k_mutex_init(&data->lock);
 	cfg->irq_config_func(dev);
 
-	return ret;
+	return 0;
 }
 
 int ameba_ppe_configure_and_transfer(const struct device *dev,

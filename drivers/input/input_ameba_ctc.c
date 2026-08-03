@@ -94,12 +94,14 @@ static int ctc_ameba_init(const struct device *dev)
 		return -ENODEV;
 	}
 
-	if (clock_control_on(config->clock, config->clock_subsys)) {
+	int ret = clock_control_on(config->clock, config->clock_subsys);
+
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable CAPTOUCH clock");
 		return -EIO;
 	}
 
-	int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 
 	if (ret < 0) {
 		return ret;

@@ -46,7 +46,9 @@ static int dmic_ameba_enable_clock(const struct device *dev)
 	}
 
 	/* enables I2S peripheral */
-	if (clock_control_on(config->clock_dev, config->clock_subsys)) {
+	int ret = clock_control_on(config->clock_dev, config->clock_subsys);
+
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable CODEC clock");
 		return -EIO;
 	}
@@ -70,7 +72,7 @@ int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 	i2s_cfg.word_size = cfg->streams->pcm_width;
 	i2s_cfg.channels = cfg->channel.req_num_chan;
 	i2s_cfg.format = I2S_FMT_DATA_FORMAT_I2S;
-	i2s_cfg.options = I2S_OPT_FRAME_CLK_MASTER | I2S_OPT_BIT_CLK_MASTER;
+	i2s_cfg.options = I2S_OPT_FRAME_CLK_CONTROLLER | I2S_OPT_BIT_CLK_CONTROLLER;
 	i2s_cfg.frame_clk_freq = cfg->streams->pcm_rate;
 	i2s_cfg.block_size = data->pcm_mem_size;
 	i2s_cfg.mem_slab = data->pcm_mem_slab;

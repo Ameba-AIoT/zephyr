@@ -9,7 +9,7 @@
 / {
 	chosen {
 		zephyr,sram = &sram0_ns;
-		zephyr,code-partition = &slot0_partition;
+		zephyr,code-partition = &slot0_ns_partition;
 	};
 };
 
@@ -17,7 +17,17 @@
 	status = "okay";
 };
 
-/* 4MB flash */
+/* 4MB flash - TFM BL2 layout, must match the TF-M platform flash_layout.h
+ * (tf-m/platform/ext/target/realtek/rtl872xda_evb/partition/flash_layout.h)
+ * BL2 (MCUboot):             0x000000 - 0x040000 (256 KB)
+ * S  primary   slot0:        0x040000 - 0x080000 (256 KB)
+ * NS primary   slot0_ns:     0x080000 - 0x100000 (512 KB)
+ * S  secondary slot1:        0x100000 - 0x140000 (256 KB)
+ * NS secondary slot1_ns:     0x140000 - 0x1C0000 (512 KB)
+ * PS:          0x256000 - 0x25B000 (20 KB)
+ * ITS:         0x25B000 - 0x25F000 (16 KB)
+ * OTP/NV:      0x25F000 - 0x261000 (8 KB)
+ */
 &flash0 {
 	reg = <0x0e000020 DT_SIZE_M(4)>;
 
@@ -26,22 +36,61 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		/* Reserve 80kB for the bootloader */
+		/* BL2 / MCUboot: 256 KB */
 		boot_partition: partition@0 {
 			label = "bootloader";
-			reg = <0x00000000 0x00014000>;
+			reg = <0x00000000 0x00040000>;
 			read-only;
 		};
 
-		/* Reserve 1968kB for the application in slot 0 */
-		slot0_partition: partition@14000 {
+		/* TFM-S primary (slot0): 256 KB */
+		slot0_partition: partition@40000 {
 			label = "image-0";
-			reg = <0x00014000 0x001EC000>;
+			reg = <0x00040000 0x00040000>;
 		};
 
-		storage_partition: partition@250000 {
-			label = "storage";
-			reg = <0x00250000 0x00006000>;
+		/* NS primary (slot0_ns): 512 KB */
+		slot0_ns_partition: partition@80000 {
+			label = "image-0-ns";
+			reg = <0x00080000 0x00080000>;
 		};
+
+		/* TFM-S secondary (slot1): 256 KB */
+		slot1_partition: partition@100000 {
+			label = "image-1";
+			reg = <0x00100000 0x00040000>;
+		};
+
+		/* NS secondary (slot1_ns): 512 KB */
+		slot1_ns_partition: partition@140000 {
+			label = "image-1-ns";
+			reg = <0x00140000 0x00080000>;
+		};
+
+		/* Protected Storage: 20 KB */
+		tfm_ps_partition: partition@256000 {
+			label = "tfm-ps";
+			reg = <0x00256000 0x00005000>;
+		};
+
+		/* Internal Trusted Storage: 16 KB */
+		tfm_its_partition: partition@25b000 {
+			label = "tfm-its";
+			reg = <0x0025b000 0x00004000>;
+		};
+
+		/* OTP / NV Counters: 8 KB */
+		tfm_otp_partition: partition@25f000 {
+			label = "tfm-otp-nv";
+			reg = <0x0025f000 0x00002000>;
+		};
+
+		storage_partition: partition@261000 {
+			label = "storage";
+			reg = <0x00261000 0x00006000>;
+		};
+		/* tfm PS area       0x256000-0x25b000 */
+		/* tfm ITS area      0x25b000-0x25f000 */
+		/* tfm OTP/NV area   0x25f000-0x261000 */
 	};
 };

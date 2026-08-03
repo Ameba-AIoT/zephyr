@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Sitronix ST7701S MIPI-DSI panel controller.
+
+  Resolution is not fixed by this binding: the active area comes from the
+  standard "width"/"height" properties (via display-controller.yaml), so the
+  same driver serves any ST7701S module by setting those values together with
+  the matching panel timings in the device tree.
+
+  The ST7701S shares the ST7701 controller programming model, including the
+  CMD2 bank-select command (0xFF 0x77 0x01 ...) used to reach the extended
+  register banks; the two differ only in register values, not in the command
+  set.  The built-in initialisation sequence is tuned for the 480RGB x 800
+  module on the AmebaSmart EVB and may need adjustment for other panels using
+  the same controller.
+
+compatible: "sitronix,st7701s"
+
+include: [mipi-dsi-device.yaml, display-controller.yaml]
+
+properties:
+  reset-gpios:
+    type: phandle-array
+    description: |
+      Active-low hardware reset.  The GPIO is driven LOW for 10 ms then
+      HIGH; the panel requires 120 ms after de-assertion before the first
+      command.

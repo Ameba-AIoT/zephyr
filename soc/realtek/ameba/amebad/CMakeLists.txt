@@ -4,11 +4,14 @@
 zephyr_include_directories(${ZEPHYR_BASE}/drivers)
 zephyr_include_directories(.)
 
+# Workaround for ld.bfd 2.35 (asdk-10.3.1): see amebadplus/CMakeLists.txt
+zephyr_linker_sources(SECTIONS SORT_KEY zz ${CMAKE_CURRENT_LIST_DIR}/discard_exidx.ld)
+
 zephyr_sources(soc.c)
 
 zephyr_linker_sources(RAM_SECTIONS SORT_KEY 0x0 boot_section.ld)
 zephyr_linker_sources(SECTIONS psram_section.ld)
-set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/linker.ld CACHE INTERNAL "")
+set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_LIST_DIR}/../common/linker_cortex_m.ld CACHE INTERNAL "")
 
 set(PYTHON_SCRIPT_ARGS
     --soc ${CONFIG_SOC_SERIES}

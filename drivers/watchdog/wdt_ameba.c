@@ -25,14 +25,16 @@ struct wdt_ameba_data {
 };
 
 struct wdt_ameba_config {
-	DEVICE_MMIO_ROM;
+	uint32_t base;
 	void (*irq_config_func)(const struct device *dev);
 	uint32_t eicnt;
 };
 
 static inline WDG_TypeDef *wdt_ameba_get_base(const struct device *dev)
 {
-	return (WDG_TypeDef *)DEVICE_MMIO_GET(dev);
+	const struct wdt_ameba_config *cfg = dev->config;
+
+	return (WDG_TypeDef *)cfg->base;
 }
 
 static void wdt_ameba_isr(const struct device *dev);
@@ -129,8 +131,6 @@ static int wdt_ameba_init(const struct device *dev)
 	data->timeout_installed = false;
 	data->started = false;
 
-	DEVICE_MMIO_MAP(dev, K_MEM_CACHE_NONE);
-
 	config->irq_config_func(dev);
 
 	return 0;
@@ -169,7 +169,7 @@ static DEVICE_API(wdt, wdt_ameba_api) = {
 	WDT_IRQ_CONFIG(n)                                                                          \
 	static struct wdt_ameba_data wdt##n##_data;                                                \
 	static const struct wdt_ameba_config wdt_ameba_config##n = {                               \
-		DEVICE_MMIO_ROM_INIT(DT_DRV_INST(n)),                                              \
+		.base = DT_INST_REG_ADDR(n),                                                       \
 		.irq_config_func = irq_config_##n,                                                 \
 		.eicnt = DT_INST_PROP(n, early_int_cnt),                                           \
 	};                                                                                         \

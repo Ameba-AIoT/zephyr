@@ -8,7 +8,6 @@
 #include <zephyr/drivers/timer/system_timer.h>
 #include <zephyr/irq.h>
 #include <zephyr/sys_clock.h>
-#include <zephyr/spinlock.h>
 #include <zephyr/arch/cpu.h>
 
 #ifdef CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
@@ -16,8 +15,7 @@
 static uint32_t cyc_per_tick;
 #define CYC_PER_TICK cyc_per_tick
 #else
-#define CYC_PER_TICK (uint32_t)(sys_clock_hw_cycles_per_sec() \
-				/ CONFIG_SYS_CLOCK_TICKS_PER_SEC)
+#define CYC_PER_TICK (uint32_t)(sys_clock_hw_cycles_per_sec() / CONFIG_SYS_CLOCK_TICKS_PER_SEC)
 #endif
 
 #if defined(CONFIG_GDBSTUB)
@@ -48,11 +46,11 @@ static uint32_t cyc_per_tick;
  * consecutive set bits coming from the original max values to produce a
  * nicer literal for assembly generation.
  */
-#define CYCLES_MAX_1	((uint64_t)INT32_MAX * (uint64_t)CYC_PER_TICK)
-#define CYCLES_MAX_2	((uint64_t)CYCLE_DIFF_MAX)
-#define CYCLES_MAX_3	MIN(CYCLES_MAX_1, CYCLES_MAX_2)
-#define CYCLES_MAX_4	(CYCLES_MAX_3 / 2 + CYCLES_MAX_3 / 4)
-#define CYCLES_MAX_5	(CYCLES_MAX_4 + LSB_GET(CYCLES_MAX_4))
+#define CYCLES_MAX_1 ((uint64_t)INT32_MAX * (uint64_t)CYC_PER_TICK)
+#define CYCLES_MAX_2 ((uint64_t)CYCLE_DIFF_MAX)
+#define CYCLES_MAX_3 MIN(CYCLES_MAX_1, CYCLES_MAX_2)
+#define CYCLES_MAX_4 (CYCLES_MAX_3 / 2 + CYCLES_MAX_3 / 4)
+#define CYCLES_MAX_5 (CYCLES_MAX_4 + LSB_GET(CYCLES_MAX_4))
 
 #ifdef CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
 /* precompute CYCLES_MAX at driver init to avoid runtime double divisions */
@@ -62,7 +60,6 @@ static uint64_t cycles_max;
 #define CYCLES_MAX CYCLES_MAX_5
 #endif
 
-static struct k_spinlock lock;
 static uint64_t last_cycle;
 static uint64_t last_tick;
 static uint32_t last_elapsed;
@@ -75,7 +72,7 @@ static void arm_arch_timer_compare_isr(const void *arg)
 {
 	ARG_UNUSED(arg);
 
-	k_spinlock_key_t key = k_spin_lock(&lock);
+	k_spinlock_key_t key = sys_clock_lock();
 
 #ifdef CONFIG_ARM_ARCH_TIMER_ERRATUM_740657
 	/*
@@ -90,12 +87,33 @@ static void arm_arch_timer_compare_isr(const void *arg)
 		 * DO NOT modify the compare register's value, DO NOT announce
 		 * elapsed ticks!
 		 */
-		k_spin_unlock(&lock, key);
+		sys_clock_unlock(key);
 		return;
 	}
 #endif /* CONFIG_ARM_ARCH_TIMER_ERRATUM_740657 */
 
 	uint64_t curr_cycle = arm_arch_timer_count();
+
+#ifdef CONFIG_SMP
+	/*
+	 * last_cycle / last_tick / last_elapsed are global and must only be
+	 * updated by one CPU.  Secondary CPUs reprogram their own per-CPU
+	 * compare register and trigger a reschedule (announce 0 ticks) so
+	 * the scheduler can pick up any newly-ready threads, but they do not
+	 * touch the shared accounting state.
+	 */
+	if (arch_curr_cpu()->id != 0) {
+		arm_arch_timer_set_compare(((curr_cycle + CYC_PER_TICK) / CYC_PER_TICK) *
+					   CYC_PER_TICK);
+		arm_arch_timer_set_irq_mask(false);
+#ifdef CONFIG_ARM_ARCH_TIMER_ERRATUM_740657
+		arm_arch_timer_clear_int_status();
+#endif
+		sys_clock_announce_locked(0, key);
+		return;
+	}
+#endif /* CONFIG_SMP */
+
 	uint64_t delta_cycles = curr_cycle - last_cycle;
 	uint32_t delta_ticks = (cycle_diff_t)delta_cycles / CYC_PER_TICK;
 
@@ -133,9 +151,7 @@ static void arm_arch_timer_compare_isr(const void *arg)
 	}
 #endif /* CONFIG_ARM_ARCH_TIMER_ERRATUM_740657 */
 
-	k_spin_unlock(&lock, key);
-
-	sys_clock_announce(delta_ticks);
+	sys_clock_announce_locked(delta_ticks, key);
 }
 
 void sys_clock_set_timeout(int32_t ticks, bool idle)
@@ -148,7 +164,6 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 		return;
 	}
 
-	k_spinlock_key_t key = k_spin_lock(&lock);
 	uint64_t next_cycle;
 
 	if (ticks == K_TICKS_FOREVER) {
@@ -162,7 +177,6 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 
 	arm_arch_timer_set_compare(next_cycle);
 	arm_arch_timer_set_irq_mask(false);
-	k_spin_unlock(&lock, key);
 }
 
 uint32_t sys_clock_elapsed(void)
@@ -171,14 +185,47 @@ uint32_t sys_clock_elapsed(void)
 		return 0;
 	}
 
-	k_spinlock_key_t key = k_spin_lock(&lock);
 	uint64_t curr_cycle = arm_arch_timer_count();
 	uint64_t delta_cycles = curr_cycle - last_cycle;
 	uint32_t delta_ticks = (cycle_diff_t)delta_cycles / CYC_PER_TICK;
 
 	last_elapsed = delta_ticks;
-	k_spin_unlock(&lock, key);
 	return delta_ticks;
+}
+
+/*
+ * Re-synchronise the driver's cycle/tick accounting after the system counter
+ * has been reset by an SoC deep-sleep / power-gating state.
+ *
+ * The driver assumes a free-running counter that started at ~0 at boot, so it
+ * keeps the invariant last_cycle == last_tick * CYC_PER_TICK.  When power-gating
+ * resets the counter back to ~0 on resume, that invariant no longer holds: the
+ * next ISR would compute a bogus (underflowed) delta against the stale
+ * last_cycle, and sys_clock_set_timeout() would program a garbage compare.
+ *
+ * The SoC PM code calls this on wake, re-basing both last_cycle and last_tick
+ * onto the post-reset counter (restoring the invariant) and passing the number
+ * of ticks that elapsed while powered down (measured with an always-on timer)
+ * so that timeouts which should have expired during sleep are serviced.  Pass
+ * elapsed_ticks == 0 if the powered-down duration is unknown.
+ */
+void sys_clock_arm_arch_timer_pm_resync(uint32_t elapsed_ticks)
+{
+	unsigned int key = arch_irq_lock();
+	uint64_t curr_cycle = arm_arch_timer_count();
+
+	last_cycle = (curr_cycle / CYC_PER_TICK) * CYC_PER_TICK;
+	last_tick = last_cycle / CYC_PER_TICK;
+	last_elapsed = 0;
+
+	arm_arch_timer_set_compare(last_cycle + CYC_PER_TICK);
+	arm_arch_timer_enable(true);
+	arm_arch_timer_set_irq_mask(false);
+	arch_irq_unlock(key);
+
+	if (elapsed_ticks != 0U) {
+		sys_clock_announce(elapsed_ticks);
+	}
 }
 
 uint32_t sys_clock_cycle_get_32(void)
@@ -217,9 +264,12 @@ void arch_busy_wait(uint32_t usec_to_wait)
 void smp_timer_init(void)
 {
 	/*
-	 * set the initial status of timer0 of each secondary core
+	 * Set compare to the next tick boundary after the current counter.
+	 * Using last_cycle (set by the primary core) risks pointing to an
+	 * already-elapsed deadline if the secondary core starts up late.
 	 */
-	arm_arch_timer_set_compare(last_cycle + CYC_PER_TICK);
+	arm_arch_timer_set_compare(((arm_arch_timer_count() + CYC_PER_TICK) / CYC_PER_TICK) *
+				   CYC_PER_TICK);
 	arm_arch_timer_enable(true);
 	irq_enable(ARM_ARCH_TIMER_IRQ);
 	arm_arch_timer_set_irq_mask(false);
@@ -229,22 +279,21 @@ void smp_timer_init(void)
 static int sys_clock_driver_init(void)
 {
 
-	IRQ_CONNECT(ARM_ARCH_TIMER_IRQ, ARM_ARCH_TIMER_PRIO,
-		    arm_arch_timer_compare_isr, NULL, ARM_ARCH_TIMER_FLAGS);
+	IRQ_CONNECT(ARM_ARCH_TIMER_IRQ, ARM_ARCH_TIMER_PRIO, arm_arch_timer_compare_isr, NULL,
+		    ARM_ARCH_TIMER_FLAGS);
 	arm_arch_timer_init();
 #ifdef CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
 	cyc_per_tick = sys_clock_hw_cycles_per_sec() / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
 	cycles_max = CYCLES_MAX_5;
 #endif
-	arm_arch_timer_enable(true);
 	last_tick = arm_arch_timer_count() / CYC_PER_TICK;
 	last_cycle = last_tick * CYC_PER_TICK;
 	arm_arch_timer_set_compare(last_cycle + CYC_PER_TICK);
+	arm_arch_timer_enable(true);
 	irq_enable(ARM_ARCH_TIMER_IRQ);
 	arm_arch_timer_set_irq_mask(false);
 
 	return 0;
 }
 
-SYS_INIT(sys_clock_driver_init, PRE_KERNEL_2,
-	 CONFIG_SYSTEM_CLOCK_INIT_PRIORITY);
+SYS_INIT(sys_clock_driver_init, PRE_KERNEL_2, CONFIG_SYSTEM_CLOCK_INIT_PRIORITY);

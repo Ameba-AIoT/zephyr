@@ -12,3 +12,11 @@ config AMEBA_USING_MANIFEST_KEY
 config AMEBA_RSIP_IV_TYPE_IN_TLV
 	hex "Rsip iv type enum value in tlv"
 	default $(AMEBA_RSIP_IV_TYPE_IN_TLV)
+
+if MCUBOOT
+
+config MCUBOOT_ACTION_HOOKS
+	bool
+	default y
+
+endif # MCUBOOT

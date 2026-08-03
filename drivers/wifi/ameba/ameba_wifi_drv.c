@@ -96,7 +96,11 @@ static int ameba_wifi_send(const struct device *dev, struct net_pkt *pkt)
 	}
 
 #if defined(CONFIG_WHC_HOST)
+#if defined(CONFIG_SOC_SERIES_AMEBAD)
+	(void)idx; (void)pkt; (void)pkt_len; /* single-core WiFi: TX handled by WiFi task */
+#else
 	whc_host_send_zephyr(idx, pkt, pkt_len);
+#endif
 #else
 	rltk_wlan_send(idx, pkt, pkt_len);
 #endif

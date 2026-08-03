@@ -783,7 +783,7 @@ static int can_ameba_init(const struct device *dev)
 	}
 
 	err = clock_control_on(can_config->clock_dev, can_config->clock_subsys);
-	if (err != 0) {
+	if (err < 0 && err != -EALREADY) {
 		LOG_ERR("failed to enable CAN clock (err %d)", err);
 		return err;
 	}
@@ -806,7 +806,7 @@ static int can_ameba_init(const struct device *dev)
 	CAN_Cmd(can, ENABLE);
 	k_mutex_init(&can_data->inst_mutex);
 
-	return err;
+	return 0;
 }
 
 DEVICE_API(can, can_ameba_driver_api) = {

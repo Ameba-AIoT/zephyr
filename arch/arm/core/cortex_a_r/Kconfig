@@ -32,16 +32,52 @@ config CPU_CORTEX_A9
 config CPU_CORTEX_A32
 	bool
 	select CPU_AARCH32_CORTEX_A
-	select ARMV7_A
+	select AARCH32_ARMV8_A
+	select CPU_HAS_ICACHE
+	select CPU_HAS_DCACHE
 	help
 	  This option signifies the use of a Cortex-A32 CPU
 
 if CPU_AARCH32_CORTEX_A
 
+config SOC_CPU_POWER_ON_HOOK
+	bool "SoC CPU power-on hook"
+	depends on SMP
+	help
+	  Enable a SoC-provided hook (soc_cpu_power_on) that is called
+	  before PSCI CPU_ON for each secondary CPU.  Use this when the
+	  SoC requires explicit hardware sequencing (power rails, isolation
+	  release) before the secure firmware can boot the secondary core.
+
+config HAS_ARM_SMCCC
+	bool
+	help
+	  Include support for the Secure Monitor Call (SMC) and Hypervisor
+	  Call (HVC) instructions on ARMv8-A AArch32.
+
+config ARM_A_PROFILE_AARCH32
+	bool
+	help
+	  Selected by CPUs that implement the ARM A-profile AArch32
+	  execution state, such as Cortex-A7, Cortex-A9, Cortex-A32.
+
 config ARMV7_A
 	bool
+	select ARM_A_PROFILE_AARCH32
 	select ATOMIC_OPERATIONS_BUILTIN
 	select ISA_ARM
+
+config AARCH32_ARMV8_A
+	bool
+	select ARM_A_PROFILE_AARCH32
+	select HAS_ARM_SMCCC
+	select ATOMIC_OPERATIONS_BUILTIN
+	select ISA_ARM
+	select SCHED_IPI_SUPPORTED if SMP
+	select ARCH_HAS_DIRECTED_IPIS if SMP
+	help
+	  This option signifies the use of an ARMv8-A AArch32 processor
+	  implementation (e.g. Cortex-A32).
 
 config ARMV7_EXCEPTION_STACK_SIZE
 	int "Undefined Instruction and Abort stack size (in bytes)"

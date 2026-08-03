@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-if SOC_RTL8730E
+if SOC_RTL8730E_CA32
 
 config CACHE_MANAGEMENT
 	default y
@@ -13,7 +13,16 @@ config NUM_IRQS
 	default 128 if !GIC_V3_ITS
 
 config SYS_CLOCK_HW_CYCLES_PER_SEC
-	default 25000000
+	# Compile-time fallback; soc_early_init_hook overwrites this with the live
+	# rate (HAL PLL_GetHBUSClk() / 2). See TIMER_READS_ITS_FREQUENCY_AT_RUNTIME.
+	default 51111111
+
+config TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
+	# The CA32 generic-timer rate is the APB clock (HAL PLL_GetHBUSClk() / 2),
+	# set by the PLL/HBUS divider configuration. soc_early_init_hook programs
+	# z_clock_hw_cycles_per_sec from the live HAL value so timing is correct
+	# whatever the PLL setup.
+	default y
 
 config DYNAMIC_INTERRUPTS
 	default y
@@ -21,4 +30,40 @@ config DYNAMIC_INTERRUPTS
 config SOC_PREP_HOOK
 	default y
 
-endif # SOC_RTL8730E
+config SOC_EARLY_INIT_HOOK
+	default y
+
+config TIMEOUT_64BIT
+	default y if SMP
+
+config SOC_CPU_POWER_ON_HOOK
+	default y if SMP
+
+config SOC_PER_CORE_INIT_HOOK
+	default y if SMP
+
+config PM_CPU_OPS
+	default y if SMP
+
+config PM_CPU_OPS_PSCI
+	default y if SMP
+
+config MP_MAX_NUM_CPUS
+	default 2 if SMP
+
+endif # SOC_RTL8730E_CA32
+
+if SOC_RTL8730E_KM4
+
+config CACHE_MANAGEMENT
+	default y
+
+config NUM_IRQS
+	# KM4 HP-core NVIC: ~80 interrupt sources on RTL8730E.
+	default 96
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	# Derived from the /clocks/clk_sys DT node (230 MHz, KM4 NP rate).
+	default $(dt_node_int_prop_int,/clocks/clk_sys,clock-frequency)
+
+endif # SOC_RTL8730E_KM4

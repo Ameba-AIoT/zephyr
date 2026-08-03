@@ -568,7 +568,12 @@ static int i2c_ameba_init(const struct device *dev)
 	int err = 0;
 
 	/*clk enable*/
-	clock_control_on(config->clock_dev, (clock_control_subsys_t)config->clock_subsys);
+	err = clock_control_on(config->clock_dev, (clock_control_subsys_t)config->clock_subsys);
+	if (err < 0 && err != -EALREADY) {
+		LOG_ERR("failed to enable i2c clock: %d", err);
+		return err;
+	}
+
 	/* Configure pinmux  */
 	err = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 	if (err < 0) {

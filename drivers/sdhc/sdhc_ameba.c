@@ -60,7 +60,8 @@ static int sdhc_ameba_activate(const struct device *dev)
 	RCC_PeriphClockSourceSet(SDH, SYS_PLL);
 	RCC_PeriphClockDividerFENSet(SYS_PLL_SDH, 1);
 
-	if (clock_control_on(config->clock_dev, config->clock_subsys)) {
+	ret = clock_control_on(config->clock_dev, config->clock_subsys);
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable SDHC clock");
 		return -EIO;
 	}
@@ -115,7 +116,7 @@ static void sdhc_ameba_init_props(const struct device *dev)
 	props->host_caps.vol_180_support = false;
 	props->host_caps.bus_8_bit_support = false;
 	props->host_caps.high_spd_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
-	props->host_caps.bus_4_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
+	props->bus_4_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
 	props->is_spi = false;
 }
 

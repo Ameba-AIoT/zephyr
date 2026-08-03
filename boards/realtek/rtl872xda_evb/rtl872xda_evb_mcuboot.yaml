@@ -1,0 +1,33 @@
+# Twister platform for the rtl872xda_evb mcuboot variant.
+identifier: rtl872xda_evb/rtl8721dx/mcuboot
+name: Realtek rtl872xda evaluation board (mcuboot variant)
+vendor: realtek
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 512
+flash: 4096
+sysbuild: true
+supported:
+  - pinctrl
+  - serial
+  - console
+  - clock_control
+  - dma
+  - spi
+  - uart
+  - i2c
+  - i2s
+  - gpio
+  - flash
+  - counter
+  - rtc
+  - watchdog
+  - adc
+  - entropy
+  - audio
+  - led
+  - input
+  - pwm

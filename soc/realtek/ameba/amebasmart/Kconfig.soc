@@ -10,11 +10,15 @@ config SOC_SERIES_AMEBASMART
 config SOC_SERIES
 	default "amebasmart" if SOC_SERIES_AMEBASMART
 
-config SOC_RTL8730E
+config SOC_RTL8730E_CA32
 	bool
 	select SOC_SERIES_AMEBASMART
 	select CPU_HAS_NEON
 	select VFP_DP_D32_FP16_FMAC
 
+config SOC_RTL8730E_KM4
+	bool
+	select SOC_SERIES_AMEBASMART
+
 config SOC
-	default "rtl8730e" if SOC_RTL8730E
+	default "rtl8730e" if SOC_RTL8730E_CA32 || SOC_RTL8730E_KM4

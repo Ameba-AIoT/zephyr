@@ -1,0 +1,17 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config ST7701S
+	bool "Sitronix ST7701S MIPI-DSI panel"
+	default y
+	depends on DT_HAS_SITRONIX_ST7701S_ENABLED
+	select MIPI_DSI
+	help
+	  Enable driver for the Sitronix ST7701S MIPI-DSI panel.  The active
+	  resolution is taken from the devicetree width/height properties.
+	  The init sequence is tuned for the target 480x800 panel module.
+
+	  The panel initialises at CONFIG_APPLICATION_INIT_PRIORITY, after both
+	  the MIPI-DSI host and the LCDC controller, so mipi_dsi_attach() finds a
+	  ready host and the host switches the link to video once the panel has
+	  issued its display-on.

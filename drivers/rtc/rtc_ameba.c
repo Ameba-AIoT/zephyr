@@ -186,7 +186,8 @@ static int rtc_ameba_init(const struct device *dev)
 	}
 
 	/* Enable RTC bus clock */
-	if (clock_control_on(cfg->clock_dev, cfg->clock_subsys)) {
+	err = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
+	if (err < 0 && err != -EALREADY) {
 		LOG_ERR("clock op failed");
 		return -EIO;
 	}

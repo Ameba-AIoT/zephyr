@@ -77,7 +77,7 @@ static int counter_ameba_init(const struct device *dev)
 	}
 
 	ret = clock_control_on(cfg->clock_dev, cfg->clock_subsys);
-	if (ret < 0) {
+	if (ret < 0 && ret != -EALREADY) {
 		LOG_ERR("Could not enable counter clock (%d)", ret);
 		return ret;
 	}

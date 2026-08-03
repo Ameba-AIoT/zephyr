@@ -1,0 +1,25 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	aliases {
+		watchdog0 = &wdg;
+	};
+
+	/*
+	 * Retention RAM (RRAM) survives WDG global reset.
+	 * RETENTION_RAM_BASE=0x23020000, RRAM_USER_RSVD at offset 0x118 (16 bytes).
+	 */
+	rram_wdt: memory@23020118 {
+		compatible = "zephyr,memory-region";
+		reg = <0x23020118 0x10>;
+		zephyr,memory-region = "rram_wdt";
+	};
+};
+
+&wdg {
+	status = "okay";
+};
