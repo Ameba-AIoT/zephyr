@@ -9,112 +9,172 @@
 #include <zephyr/spinlock.h>
 LOG_MODULE_REGISTER(os_if_critical);
 
-/*
- * Critical section implementation for SMP (CONFIG_SMP=y) and UP.
- *
- * Design:
- *   - One k_spinlock per RTOS_CRITICAL_LIST component provides fine-grained
- *     mutual exclusion: different subsystems (WiFi, BT, USB…) can proceed
- *     concurrently and only same-component callers serialise against each other.
- *   - k_spinlock disables local IRQs on acquisition and spins the other CPU
- *     on an independent atomic_t, ensuring cross-CPU exclusion.
- *   - Nesting is tracked in per-CPU arrays (outer index = CPU id) so a single
- *     CPU's data sits in the same cache line regardless of which component is
- *     accessed.  After k_spin_lock() local IRQs are off, so the per-CPU arrays
- *     are accessed exclusively by the owning CPU — no further synchronisation.
- *   - The saved IRQ key from k_spin_lock() is also stored per-CPU so that the
- *     unlock restores exactly the IRQ flags that were active when the outermost
- *     critical_enter was called.
- *
- * Cross-component nesting (Enter(A), Enter(B), Exit(B), Exit(A)):
- *   Each component has its own lock.  Enter(B) while holding A calls
- *   k_spin_lock(B) with IRQs already off (A's lock disabled them); the returned
- *   key records "IRQs were already off".  Exit(B) restores that — IRQs stay
- *   off.  Exit(A) restores the original "IRQs were on" key.  Correct.
- *
- * ISR safety:
- *   arch_curr_cpu()->id is valid in ISR context.  k_spin_lock() is safe from
- *   ISRs: it calls arch_irq_lock() (which is idempotent when already off) then
- *   spins.  The nesting check before k_spin_lock() is safe because Zephyr
- *   threads are CPU-pinned during execution and the per-CPU arrays are read
- *   before IRQs are disabled.  A thread cannot migrate CPUs between the read
- *   and the lock, so the CPU-id remains stable.
- *
- * UP builds (CONFIG_SMP=n):
- *   k_spinlock degenerates to arch_irq_lock()/arch_irq_unlock() with no
- *   atomic spin — identical overhead to the original irq_lock() implementation.
- */
+/* SMP: per-component spinlock + per-CPU nesting.  UP: single irq_lock. */
+#ifdef CONFIG_SMP
 
-#define NCPUS CONFIG_MP_MAX_NUM_CPUS
-
-/*
- * Per-component locks (shared across CPUs — one per subsystem).
- * Indexed by RTOS_CRITICAL_LIST component_id.
- */
 static struct k_spinlock critical_locks[RTOS_CRITICAL_MAX];
+static k_spinlock_key_t critical_keys[CONFIG_MP_MAX_NUM_CPUS][RTOS_CRITICAL_MAX];
+static uint32_t ulCriticalNesting[CONFIG_MP_MAX_NUM_CPUS][RTOS_CRITICAL_MAX];
 
-/*
- * Per-CPU state: outer index = CPU id so one CPU's nesting and key data
- * for all components fit in adjacent memory (cache-friendly access pattern).
- */
-static k_spinlock_key_t critical_keys[NCPUS][RTOS_CRITICAL_MAX];
-static uint32_t         ulCriticalNesting[NCPUS][RTOS_CRITICAL_MAX];
+static struct k_spinlock os_critical_lock;
+static k_spinlock_key_t os_critical_key[CONFIG_MP_MAX_NUM_CPUS];
+static uint32_t os_critical_nesting[CONFIG_MP_MAX_NUM_CPUS];
+
+#else /* !CONFIG_SMP */
+
+static unsigned int critical_key;
+static uint32_t critical_nesting;
+
+#endif /* CONFIG_SMP */
 
 int rtos_critical_is_in_interrupt(void)
 {
-#ifdef CONFIG_ARM_CORE_CA32
+#if defined(CONFIG_CPU_AARCH32_CORTEX_A)
 	return (__get_mode() != CPSR_M_USR) && (__get_mode() != CPSR_M_SYS);
-#elif CONFIG_ARM_CORE_CM4
-	return (__get_xPSR() & 0x1FF) != 0;
-#elif defined(CONFIG_RSICV_CORE_KR4)
-	return plic_get_active_irq_id() != 0;
 #else
 	return __get_IPSR() != 0;
 #endif
 }
 
+#ifndef CONFIG_SMP
+static inline void critical_enter(void)
+{
+	if (critical_nesting == 0) {
+		critical_key = irq_lock();
+	}
+	critical_nesting++;
+}
+
+static inline void critical_exit(const char *who)
+{
+	if (critical_nesting == 0) {
+		LOG_ERR("%s: unbalanced exit", who);
+		return;
+	}
+	critical_nesting--;
+	if (critical_nesting == 0) {
+		irq_unlock(critical_key);
+	}
+}
+#endif /* !CONFIG_SMP */
+
 void rtos_critical_enter(uint32_t component_id)
 {
+#ifdef CONFIG_SMP
+	unsigned int flags;
+	unsigned int cpu;
+
 	if (component_id >= RTOS_CRITICAL_MAX) {
 		component_id = RTOS_CRITICAL_DEFAULT;
 	}
 
-	unsigned int cpu = arch_curr_cpu()->id;
+	/* Disable IRQs before reading cpu_id to prevent migration.  Keep them
+	 * disabled through k_spin_lock (avoids TOCTOU on cpu_id).
+	 */
+	flags = arch_irq_lock();
+	cpu = arch_curr_cpu()->id;
 
 	if (ulCriticalNesting[cpu][component_id] == 0) {
-		critical_keys[cpu][component_id] =
-			k_spin_lock(&critical_locks[component_id]);
+		/* First entry: take the spinlock and stash 'flags' (the caller's
+		 * original IRQ state) in its key slot.  We discard the key that
+		 * k_spin_lock returns — it saves "IRQ already disabled" from our
+		 * arch_irq_lock above, not the caller's real state.  The outer-
+		 * most exit will k_spin_unlock with our stashed key, restoring
+		 * the caller's IRQ state via arch_irq_unlock(flags).
+		 */
+		(void)k_spin_lock(&critical_locks[component_id]);
+		critical_keys[cpu][component_id] = (k_spinlock_key_t){.key = (int)flags};
 	}
+	/* Nested entry: IRQs are already disabled by the outer lock, so our
+	 * arch_irq_lock above was a no-op.  Discard 'flags' — the outermost
+	 * key already holds the caller's original IRQ state.
+	 */
 	ulCriticalNesting[cpu][component_id]++;
+#else
+	ARG_UNUSED(component_id);
+	critical_enter();
+#endif
 }
 
 void rtos_critical_exit(uint32_t component_id)
 {
+#ifdef CONFIG_SMP
+	unsigned int cpu;
+
 	if (component_id >= RTOS_CRITICAL_MAX) {
 		component_id = RTOS_CRITICAL_DEFAULT;
 	}
 
-	unsigned int cpu = arch_curr_cpu()->id;
+	cpu = arch_curr_cpu()->id; /* stable: IRQs disabled by held spinlock */
 
 	if (ulCriticalNesting[cpu][component_id] == 0) {
-		/* Unbalanced exit — should not happen */
+		LOG_ERR("%s: unbalanced exit on CPU %u id=%u", __func__, cpu, component_id);
 		return;
 	}
-
 	ulCriticalNesting[cpu][component_id]--;
 	if (ulCriticalNesting[cpu][component_id] == 0) {
-		k_spin_unlock(&critical_locks[component_id],
-			      critical_keys[cpu][component_id]);
+		k_spin_unlock(&critical_locks[component_id], critical_keys[cpu][component_id]);
 	}
+#else
+	ARG_UNUSED(component_id);
+	critical_exit(__func__);
+#endif
 }
 
 uint32_t rtos_get_critical_state(void)
 {
+#ifdef CONFIG_SMP
+	unsigned int flags = arch_irq_lock(); /* stabilize cpu_id */
 	unsigned int cpu = arch_curr_cpu()->id;
 	uint32_t depth = 0;
 
 	for (int i = 0; i < RTOS_CRITICAL_MAX; i++) {
 		depth += ulCriticalNesting[cpu][i];
 	}
+	depth += os_critical_nesting[cpu];
+	arch_irq_unlock(flags);
 	return depth;
+#else
+	return critical_nesting;
+#endif
+}
+
+void __rtos_critical_enter_os(void)
+{
+#ifdef CONFIG_SMP
+	unsigned int flags;
+	unsigned int cpu;
+
+	/* Same locking pattern as rtos_critical_enter — see there for why we
+	 * stash 'flags' in the spinlock key and discard it on nested entry.
+	 */
+	flags = arch_irq_lock();
+	cpu = arch_curr_cpu()->id;
+
+	if (os_critical_nesting[cpu] == 0) {
+		(void)k_spin_lock(&os_critical_lock);
+		os_critical_key[cpu] = (k_spinlock_key_t){.key = (int)flags};
+	}
+	os_critical_nesting[cpu]++;
+#else
+	critical_enter();
+#endif
+}
+
+void __rtos_critical_exit_os(void)
+{
+#ifdef CONFIG_SMP
+	unsigned int cpu = arch_curr_cpu()->id;
+
+	if (os_critical_nesting[cpu] == 0) {
+		LOG_ERR("%s: unbalanced exit on CPU %u", __func__, cpu);
+		return;
+	}
+	os_critical_nesting[cpu]--;
+	if (os_critical_nesting[cpu] == 0) {
+		k_spin_unlock(&os_critical_lock, os_critical_key[cpu]);
+	}
+#else
+	critical_exit(__func__);
+#endif
 }

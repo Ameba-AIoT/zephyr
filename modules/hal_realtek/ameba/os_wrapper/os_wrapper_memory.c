@@ -10,13 +10,13 @@
 LOG_MODULE_REGISTER(os_if_memory);
 
 #if (K_HEAP_MEM_POOL_SIZE > 0)
-#define _SYSTEM_HEAP (&_system_heap)
-extern struct sys_heap _system_heap;
+extern struct k_heap _system_heap;
+#define _SYSTEM_HEAP (&_system_heap.heap)
 #endif
 
 void rtos_mem_init(void)
 {
-	/* Zephyr initializes the system heap automatically. Nothing to do. */
+	/* Zephyr initializes the system heap automatically. */
 }
 
 void rtos_mem_free(void *pbuf)
@@ -51,15 +51,20 @@ void *rtos_mem_zmalloc(uint32_t size)
 
 void *rtos_mem_calloc(uint32_t elementNum, uint32_t elementSize)
 {
-	uint32_t sz = elementNum * elementSize;
+	size_t sz;
 
-	return rtos_mem_zmalloc(sz);
+	if (size_mul_overflow(elementNum, elementSize, &sz)) {
+		return NULL;
+	}
+	return rtos_mem_zmalloc((uint32_t)sz);
 }
 
 void *rtos_mem_realloc(void *pbuf, uint32_t size)
 {
-	struct k_heap *heap, **heap_ref;
-	void *ret;
+	struct k_heap **heap_ref;
+	struct k_heap *heap;
+	void *new_ptr;
+	size_t old_size;
 
 	if (size == 0) {
 		rtos_mem_free(pbuf);
@@ -69,26 +74,26 @@ void *rtos_mem_realloc(void *pbuf, uint32_t size)
 		return rtos_mem_malloc(size);
 	}
 
-	size = CACHE_LINE_ALIGNMENT(size);
+	/* Emulate realloc as malloc + copy + free — sys_heap_aligned_realloc
+	 * doesn't preserve the heap_ref header on relocation.  Read the heap
+	 * pointer that z_alloc_helper stored just before pbuf; query the old
+	 * usable size via pbuf so sys_heap_usable_size subtracts the header.
+	 *
+	 * NOTE: this assumes the Zephyr allocation layout established by
+	 * z_alloc_helper (kernel/mempool.c).  See DEPEND for the compatible
+	 * Zephyr version.
+	 */
+	heap_ref = (struct k_heap **)pbuf;
+	heap = *(--heap_ref);
+	old_size = sys_heap_usable_size(&heap->heap, pbuf);
 
-	heap_ref = pbuf;
-	pbuf = --heap_ref;
-	heap = *heap_ref;
-	if (size_add_overflow(size, sizeof(heap_ref), &size)) {
+	new_ptr = rtos_mem_malloc(size);
+	if (new_ptr == NULL) {
 		return NULL;
 	}
-
-	k_spinlock_key_t key = k_spin_lock(&heap->lock);
-
-	ret = sys_heap_aligned_realloc(&heap->heap, pbuf, CACHE_LINE_SIZE, size);
-	k_spin_unlock(&heap->lock, key);
-
-	if (ret != NULL) {
-		heap_ref = ret;
-		ret = ++heap_ref;
-	}
-
-	return ret;
+	memcpy(new_ptr, pbuf, MIN(old_size, (size_t)size));
+	rtos_mem_free(pbuf);
+	return new_ptr;
 }
 
 uint32_t rtos_mem_get_free_heap_size(void)
@@ -119,4 +124,35 @@ uint32_t rtos_mem_get_minimum_ever_free_heap_size(void)
 	LOG_ERR("%s Not Support", __func__);
 #endif
 	return size;
+}
+
+static void warn_if_non_dram_type(MALLOC_TYPES type, const char *func)
+{
+	if (type == TYPE_TCM || type == TYPE_SRAM) {
+		LOG_WRN_ONCE("%s: TCM/SRAM requested but only DRAM heap available", func);
+	}
+}
+
+void *rtos_heap_types_malloc(uint32_t size, MALLOC_TYPES type)
+{
+	warn_if_non_dram_type(type, __func__);
+	return rtos_mem_malloc(size);
+}
+
+void *rtos_heap_types_zmalloc(uint32_t size, MALLOC_TYPES type)
+{
+	warn_if_non_dram_type(type, __func__);
+	return rtos_mem_zmalloc(size);
+}
+
+void *rtos_heap_types_calloc(uint32_t elementNum, uint32_t elementSize, MALLOC_TYPES type)
+{
+	warn_if_non_dram_type(type, __func__);
+	return rtos_mem_calloc(elementNum, elementSize);
+}
+
+void *rtos_heap_types_realloc(void *pbuf, uint32_t size, MALLOC_TYPES type)
+{
+	warn_if_non_dram_type(type, __func__);
+	return rtos_mem_realloc(pbuf, size);
 }

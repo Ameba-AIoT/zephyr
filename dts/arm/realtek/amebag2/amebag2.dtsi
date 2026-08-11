@@ -76,20 +76,12 @@
 	soc {
 		sram0: memory@20006020 {
 			compatible = "mmio-sram";
-			reg = <0x20006020 DT_SIZE_K(296)>;
+			reg = <0x20006020 0x61fe0>;
 		};
 
-		sram0_ns: memory@2001f020 {
+		sram0_ns: memory@2001e020 {
 			compatible = "mmio-sram";
-			/* NS SRAM for KM4TZ (non-secure state, runs Zephyr NS app).
-			 * S_DATA_SIZE = 96 KB (non-regression default):
-			 *   NS start = S_RAM_ALIAS_BASE(0x20007000) + 96 KB + 0x20 = 0x2001f020
-			 *   NS end   = 0x20068000 (KM4NS_IMG2_RAM_START — hard boundary;
-			 *              the second independent core KM4NS loads firmware there)
-			 *   NS size  = 0x20068000 - 0x2001f020 = 0x48fe0 (~291.97 KB)
-			 * Must stay in sync with NS_RAM_ALIAS_BASE and TOTAL_RAM_SIZE
-			 * in flash_layout.h. */
-			reg = <0x2001f020 0x48fe0>;
+			reg = <0x2001e020 0x49fe0>;
 		};
 
 		psram: memory@60000000 {

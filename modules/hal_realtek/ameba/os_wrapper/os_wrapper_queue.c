@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <stdio.h>
 #include "os_wrapper.h"
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(os_if_queue);
@@ -29,6 +28,7 @@ int rtos_queue_create(rtos_queue_t *pp_handle, uint32_t msg_num, uint32_t msg_si
 
 	if (k_msgq_alloc_init(p_queue, msg_size, msg_num) != 0) {
 		k_free(p_queue);
+		*pp_handle = NULL;
 		return RTK_FAIL;
 	}
 
@@ -38,28 +38,36 @@ int rtos_queue_create(rtos_queue_t *pp_handle, uint32_t msg_num, uint32_t msg_si
 
 int rtos_queue_delete(rtos_queue_t p_handle)
 {
-	int status = RTK_SUCCESS;
-
 	if (p_handle == NULL) {
 		return RTK_FAIL;
 	}
 
 	if (rtos_queue_message_waiting(p_handle) != 0) {
-		status = RTK_FAIL;
-		LOG_ERR("%s <<< The queue is not empty, but the queue has been deleted. >>>",
-			__func__);
+		LOG_WRN("%s: deleting non-empty queue", __func__);
 		k_msgq_purge(p_handle);
 	}
 
-	k_msgq_cleanup(p_handle);
+	/* Retry after purge if cleanup finds waiters. */
+	int ret = k_msgq_cleanup(p_handle);
+
+	if (ret == -EBUSY) {
+		k_msgq_purge(p_handle);
+		ret = k_msgq_cleanup(p_handle);
+	}
+
+	if (ret != 0) {
+		LOG_ERR("%s: cleanup failed (%d), leaking to avoid UAF", __func__, ret);
+		return RTK_FAIL;
+	}
+
 	k_free(p_handle);
-	return status;
+	return RTK_SUCCESS;
 }
 
 uint32_t rtos_queue_message_waiting(rtos_queue_t p_handle)
 {
 	if (p_handle == NULL) {
-		return RTK_SUCCESS;
+		return (uint32_t)RTK_FAIL;
 	}
 
 	return k_msgq_num_used_get(p_handle);
@@ -67,19 +75,21 @@ uint32_t rtos_queue_message_waiting(rtos_queue_t p_handle)
 
 int rtos_queue_send(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 {
-	k_timeout_t wait_ticks;
-
 	if (p_handle == NULL) {
 		return RTK_FAIL;
 	}
 
-	if (wait_ms == 0xFFFFFFFFUL) {
-		wait_ticks = K_FOREVER;
+	k_timeout_t ticks;
+
+	if (rtos_critical_is_in_interrupt() || rtos_get_critical_state() != 0) {
+		ticks = K_NO_WAIT;
+	} else if (wait_ms == 0xFFFFFFFFUL) {
+		ticks = K_FOREVER;
 	} else {
-		wait_ticks = K_MSEC(wait_ms);
+		ticks = K_MSEC(wait_ms);
 	}
 
-	if (k_msgq_put(p_handle, p_msg, wait_ticks) == 0) {
+	if (k_msgq_put(p_handle, p_msg, ticks) == 0) {
 		return RTK_SUCCESS;
 	} else {
 		return RTK_FAIL;
@@ -88,28 +98,52 @@ int rtos_queue_send(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 
 int rtos_queue_send_to_front(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 {
-	ARG_UNUSED(p_handle);
-	ARG_UNUSED(p_msg);
-	ARG_UNUSED(wait_ms);
-	LOG_ERR("%s Not Support", __func__);
+	if (p_handle == NULL) {
+		return RTK_FAIL;
+	}
+
+	if (k_msgq_put_front(p_handle, p_msg) == 0) {
+		return RTK_SUCCESS;
+	}
+
+	/* Queue full.  k_msgq_put_front is non-blocking; emulate blocking
+	 * semantics by polling (matches the wait_ms contract for callers).
+	 */
+	if (rtos_critical_is_in_interrupt() || rtos_get_critical_state() != 0 ||
+	    rtos_sched_get_state() != RTOS_SCHED_RUNNING || wait_ms == 0U) {
+		return RTK_FAIL;
+	}
+
+	const uint32_t POLL_INTERVAL_MS = 1U;
+	int64_t start = k_uptime_get();
+	int64_t deadline = (wait_ms == 0xFFFFFFFFUL) ? INT64_MAX : (start + (int64_t)wait_ms);
+
+	while (k_uptime_get() < deadline) {
+		k_msleep(POLL_INTERVAL_MS);
+		if (k_msgq_put_front(p_handle, p_msg) == 0) {
+			return RTK_SUCCESS;
+		}
+	}
 	return RTK_FAIL;
 }
 
 int rtos_queue_receive(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 {
-	k_timeout_t wait_ticks;
-
 	if (p_handle == NULL) {
 		return RTK_FAIL;
 	}
 
-	if (wait_ms == 0xFFFFFFFFUL) {
-		wait_ticks = K_FOREVER;
+	k_timeout_t ticks;
+
+	if (rtos_critical_is_in_interrupt() || rtos_get_critical_state() != 0) {
+		ticks = K_NO_WAIT;
+	} else if (wait_ms == 0xFFFFFFFFUL) {
+		ticks = K_FOREVER;
 	} else {
-		wait_ticks = K_MSEC(wait_ms);
+		ticks = K_MSEC(wait_ms);
 	}
 
-	if (k_msgq_get(p_handle, p_msg, wait_ticks) == 0) {
+	if (k_msgq_get(p_handle, p_msg, ticks) == 0) {
 		return RTK_SUCCESS;
 	} else {
 		return RTK_FAIL;
@@ -118,17 +152,29 @@ int rtos_queue_receive(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 
 int rtos_queue_peek(rtos_queue_t p_handle, void *p_msg, uint32_t wait_ms)
 {
-	if (p_handle == NULL) {
+	if (p_handle == NULL || p_msg == NULL) {
 		return RTK_FAIL;
-	}
-
-	if (wait_ms != 0) {
-		LOG_ERR("%s does not support waiting.", __func__);
 	}
 
 	if (k_msgq_peek(p_handle, p_msg) == 0) {
 		return RTK_SUCCESS;
-	} else {
+	}
+
+	if (rtos_critical_is_in_interrupt() || rtos_get_critical_state() != 0 ||
+	    rtos_sched_get_state() != RTOS_SCHED_RUNNING || wait_ms == 0U) {
 		return RTK_FAIL;
 	}
+
+	/* k_msgq has no blocking peek — poll with 1 ms sleep. */
+	const uint32_t POLL_INTERVAL_MS = 1U;
+	int64_t start = k_uptime_get();
+	int64_t deadline = (wait_ms == 0xFFFFFFFFUL) ? INT64_MAX : (start + (int64_t)wait_ms);
+
+	while (k_uptime_get() < deadline) {
+		k_msleep(POLL_INTERVAL_MS);
+		if (k_msgq_peek(p_handle, p_msg) == 0) {
+			return RTK_SUCCESS;
+		}
+	}
+	return RTK_FAIL;
 }

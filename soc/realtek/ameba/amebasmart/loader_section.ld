@@ -39,3 +39,11 @@ KEEP(*(.image1.export.symb))
 
 /* Required by the chipinfo library's ChipInfo_PsramBoundary(). */
 __non_secure_psram_end__ = ABSOLUTE(DT_REG_ADDR(DT_NODELABEL(psram)) + DT_REG_SIZE(DT_NODELABEL(psram)));
+
+/*
+ * NP (KM4) image2 entry = KM4_BD_DRAM origin, i.e. the DRAM base plus the
+ * Realtek sub-image header (IMAGE_HEADER_LEN, 0x20) -- see ameba_layout.ld.
+ * The MCUboot image1 has no __image2_entry_func__ of its own; BOOT_WakeFromPG
+ * (PG warm-boot handler) needs it to resume the loaded NP image2's RamWakeupFun.
+ */
+__image2_entry_func__ = ABSOLUTE(DT_REG_ADDR(DT_NODELABEL(psram)) + 0x20);

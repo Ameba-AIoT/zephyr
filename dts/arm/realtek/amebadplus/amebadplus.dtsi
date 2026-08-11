@@ -80,9 +80,9 @@
 			zephyr,memory-region = "KM4_IMG2_ENTRY";
 		};
 
-		sram0: memory@20010020 {
+		sram0: memory@2000b020 {
 			compatible = "mmio-sram";
-			reg = <0x20010020 0x00057fe0>;
+			reg = <0x2000b020 0x5cfe0>;
 		};
 
 		ram_image1_entry: memory@3000a020 {
@@ -91,12 +91,9 @@
 			zephyr,memory-region = "KM4_IMG1_ENTRY";
 		};
 
-		/* NS SRAM base must match NS_RAM_ALIAS_BASE in TF-M flash_layout.h.
-		 * S=192KB: NS_BASE=0x2003B040, NS_SIZE=0x20068000-0x2003B040=179.9KB~0x2CFC0
-		 * Use 0x2cc00 (179KB) to stay safe. */
-		sram0_ns: memory@2003b040 {
+		sram0_ns: memory@2003b020 {
 			compatible = "mmio-sram";
-			reg = <0x2003b040 0x0002cc00>;
+			reg = <0x2003b020 0x2cfe0>;
 		};
 
 		psram: memory@60000000 {

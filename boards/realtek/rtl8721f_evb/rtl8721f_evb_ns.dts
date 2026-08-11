@@ -88,8 +88,5 @@
 			label = "storage";
 			reg = <0x00261000 0x00006000>;
 		};
-		/* tfm PS area       0x256000-0x25b000 */
-		/* tfm ITS area      0x25b000-0x25f000 */
-		/* tfm OTP/NV area   0x25f000-0x261000 */
 	};
 };
