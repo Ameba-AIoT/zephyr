@@ -1,0 +1,53 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * AmebaSmart (RTL8730E) wake sources and idle states for the PM tests, shared
+ * by every board target of this SoC. A board overlay replaces app.overlay
+ * rather than merging with it, so the per-target overlays include this instead
+ * of relying on one.
+ *
+ * TIMER0 is the counter wake source here, unlike on the Cortex-M SoCs: it is
+ * the only low-speed basic timer carrying a wakeup-source-id on this SoC, and
+ * the reason to avoid it there does not apply -- the Zephyr system timer on the
+ * CA32 is the ARM generic timer, not TIM0/SYSTIMER, so driving TIM0 through the
+ * counter API does not disturb the kernel clock.
+ */
+
+/*
+ * Unlike the rtl8721f_evb / rtl872xda_evb board DTS files, rtl8730e_evb.dts
+ * declares no cpu-power-states, so the states have to be attached here. CPU1
+ * must declare them too: without them its pm_policy returns NULL, it never
+ * parks or hotplugs off, and CPU0 hot-spins waiting for it instead of
+ * cluster-power-gating.
+ */
+&cpu0 {
+	cpu-power-states = <&pm_cg &pm_pg>;
+};
+
+&cpu1 {
+	cpu-power-states = <&pm_cg &pm_pg>;
+};
+
+/ {
+	aliases {
+		pm-wake-counter = &timer0;
+		pm-wake-gpio = &gpiob;
+	};
+};
+
+&rtc {
+	status = "okay";
+	wakeup-source;
+};
+
+&gpiob {
+	status = "okay";
+	wakeup-source;
+};
+
+&timer0 {
+	status = "okay";
+	wakeup-source;
+};

@@ -50,7 +50,7 @@
 
 		/* NS primary (slot0_ns): 512 KB */
 		slot0_ns_partition: partition@80000 {
-			label = "image-1-nonsecure";
+			label = "image-0-nonsecure";
 			reg = <0x00080000 0x00080000>;
 		};
 
@@ -62,7 +62,7 @@
 
 		/* NS secondary (slot1_ns): 512 KB */
 		slot1_ns_partition: partition@140000 {
-			label = "image-1-ns";
+			label = "image-1-nonsecure";
 			reg = <0x00140000 0x00080000>;
 		};
 

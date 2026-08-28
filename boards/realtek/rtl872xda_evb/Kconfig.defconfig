@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Realtek Semiconductor Corp.
 # SPDX-License-Identifier: Apache-2.0
 
-# Configurations here work for all rtl8721f_evb variants(like mcuboot)
+# Configurations here work for all rtl872xda_evb variants(like mcuboot)
 
 ZEPHYR_USER := zephyr,user
 
@@ -59,6 +59,14 @@ endif
 
 config BUILD_WITH_TFM
 	default y if TRUSTED_EXECUTION_NONSECURE
+
+if BUILD_WITH_TFM
+
+# IAK provisioned into eFuse 0x380; read in PRoT by ameba_otp.c
+config TFM_INITIAL_ATTESTATION_KEY
+	default y
+
+endif # BUILD_WITH_TFM
 
 if TFM_BL2
 

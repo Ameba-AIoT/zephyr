@@ -96,11 +96,8 @@ static void arm_arch_timer_compare_isr(const void *arg)
 
 #ifdef CONFIG_SMP
 	/*
-	 * last_cycle / last_tick / last_elapsed are global and must only be
-	 * updated by one CPU.  Secondary CPUs reprogram their own per-CPU
-	 * compare register and trigger a reschedule (announce 0 ticks) so
-	 * the scheduler can pick up any newly-ready threads, but they do not
-	 * touch the shared accounting state.
+	 * Secondary CPUs re-arm their own compare and announce 0 ticks to
+	 * trigger a reschedule; they must not touch the shared accounting.
 	 */
 	if (arch_curr_cpu()->id != 0) {
 		arm_arch_timer_set_compare(((curr_cycle + CYC_PER_TICK) / CYC_PER_TICK) *
@@ -121,7 +118,21 @@ static void arm_arch_timer_compare_isr(const void *arg)
 	last_tick += delta_ticks;
 	last_elapsed = 0;
 
-	if (!IS_ENABLED(CONFIG_TICKLESS_KERNEL)) {
+	/*
+	 * CPU0 owns the OS tick.  CNTPCT is shared but CNTP_CVAL is banked, so
+	 * only CPU0 advances last_cycle/last_tick/curr_tick.
+	 *
+	 * CPU0 therefore re-arms one tick ahead and never masks its interrupt,
+	 * instead of using the tickless path: sys_clock_announce() can hand its
+	 * tail - including the final sys_clock_set_timeout() - to a secondary CPU
+	 * (kernel/timeout.c early return), which would leave CPU0's compare
+	 * un-armed and its interrupt masked for good.
+	 *
+	 * Cost is no tickless idle on CPU0.  last_cycle is at the last tick
+	 * boundary at or before now, so the new compare is at most one tick away
+	 * and cannot storm.
+	 */
+	if (!IS_ENABLED(CONFIG_TICKLESS_KERNEL) || IS_ENABLED(CONFIG_SMP)) {
 		uint64_t next_cycle = last_cycle + CYC_PER_TICK;
 
 		arm_arch_timer_set_compare(next_cycle);
@@ -164,6 +175,19 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 		return;
 	}
 
+#ifdef CONFIG_SMP
+	/*
+	 * The OS deadline belongs to CPU0.  CNTP_CVAL is banked, so arming it
+	 * on a secondary CPU would both lose the deadline (its ISR does not
+	 * advance the tick) and stop the periodic tick it needs for
+	 * timeslicing.  CPU0 re-arms every tick, so the deadline is still
+	 * serviced within one tick.
+	 */
+	if (arch_curr_cpu()->id != 0) {
+		return;
+	}
+#endif
+
 	uint64_t next_cycle;
 
 	if (ticks == K_TICKS_FOREVER) {
@@ -189,7 +213,13 @@ uint32_t sys_clock_elapsed(void)
 	uint64_t delta_cycles = curr_cycle - last_cycle;
 	uint32_t delta_ticks = (cycle_diff_t)delta_cycles / CYC_PER_TICK;
 
-	last_elapsed = delta_ticks;
+	/* CNTPCT is shared so the delta is valid anywhere, but the cache is
+	 * part of CPU0's tick accounting.
+	 */
+	if (!IS_ENABLED(CONFIG_SMP) || arch_curr_cpu()->id == 0) {
+		last_elapsed = delta_ticks;
+	}
+
 	return delta_ticks;
 }
 

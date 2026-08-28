@@ -18,6 +18,28 @@
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/power/amebadplus_power.h>
 
+/*
+ * SRAM split for the TF-M split S/NS build (board variant `//ns`, which selects
+ * `zephyr,sram = &sram0_ns`). Derived exactly as TF-M derives NS_RAM_ALIAS_BASE
+ * in modules/tee/tf-m/trusted-firmware-m/platform/ext/target/realtek/
+ * rtl872xda_evb/partition/flash_layout.h -- the two must agree, otherwise the
+ * non-secure image links outside the region TF-M's SAU/MPC opened for it and
+ * faults (SecureFault AUVIOL) the first time it writes its own .data.
+ *
+ * TFM_SRAM_BL2_* is the SDK's IMG1 (bootloader) RAM window, see
+ * modules/hal/realtek/ameba/amebadplus/ameba_layout.ld.
+ *
+ * `sram0` below is a different thing: it is the whole S+NS SRAM as used by the
+ * builds without TF-M (`//mcuboot` and the plain ameba-loader variant), where
+ * the bootloader XIPs from flash and only needs the SDK's 4 KB IMG1 window.
+ */
+#define TFM_SRAM_NS_TOP     0x20068000  /* hard top: KM4NS/second-core image base */
+#define TFM_SRAM_BL2_START  0x2000a000  /* SDK KM4_IMG1_RAM_START */
+#define TFM_SRAM_BL2_SIZE   0x8000      /* SDK KM4_IMG1_SIZE, RAM-resident bootloader */
+#define TFM_S_DATA_SIZE     0x30000     /* TF-M S_DATA_SIZE, non-regression build */
+#define TFM_NS_RAM_BASE     (TFM_SRAM_BL2_START + TFM_SRAM_BL2_SIZE + TFM_S_DATA_SIZE)
+#define TFM_NS_RAM_SIZE     (TFM_SRAM_NS_TOP - TFM_NS_RAM_BASE)
+
 / {
 	cpus {
 		#address-cells = <1>;
@@ -80,6 +102,7 @@
 			zephyr,memory-region = "KM4_IMG2_ENTRY";
 		};
 
+		/* Whole S+NS SRAM; used by the builds without TF-M. */
 		sram0: memory@2000b020 {
 			compatible = "mmio-sram";
 			reg = <0x2000b020 0x5cfe0>;
@@ -91,9 +114,10 @@
 			zephyr,memory-region = "KM4_IMG1_ENTRY";
 		};
 
-		sram0_ns: memory@2003b020 {
+		/* TF-M non-secure SRAM; see TFM_NS_RAM_BASE at the top of this file. */
+		sram0_ns: memory@20042000 {
 			compatible = "mmio-sram";
-			reg = <0x2003b020 0x2cfe0>;
+			reg = <TFM_NS_RAM_BASE TFM_NS_RAM_SIZE>;
 		};
 
 		psram: memory@60000000 {
@@ -360,6 +384,14 @@
 			status = "disabled";
 		};
 
+		/*
+		 * TIMER0 is the ameba system timer (TIM0 in hal_platform.h): the HAL
+		 * runs it free at 32768 Hz and SYSTIMER_TickGet() /
+		 * SYSTIMER_GetPassTick() read it, which the PM code uses to give the
+		 * kernel back the time spent asleep. Driving it as a Zephyr counter
+		 * resets and stops it, so leave this node disabled and pick another
+		 * timer instead (only TIMER4..7 can wake the AP on this SoC).
+		 */
 		timer0: counter@41017000 {
 			compatible = "realtek,ameba-counter";
 			reg = <0x41017000 0x30>;

@@ -574,6 +574,15 @@ static void ameba_wifi_init(struct net_if *iface)
 	if (if_init_idx == STA_WLAN_INDEX) {
 		wlan_int_enable();
 		wifi_init();
+
+		int retries = 1000;
+
+		while (!wifi_is_running(STA_WLAN_INDEX) && retries--) {
+			k_msleep(1);
+		}
+		if (retries < 0) {
+			LOG_ERR("WiFi failed to start after timeout");
+		}
 	}
 
 	/* Start interface when we are actually connected with Wi-Fi network */

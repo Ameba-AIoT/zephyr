@@ -34,6 +34,16 @@ u32 SOC_OSC131_Enable(void)
 {
 	u32 temp;
 
+	/*
+	 * NOTE: this shortcut also skips SDM32K_Enable() and SYSTIMER_Init() below,
+	 * which start the ameba system timer (TIM0) that SYSTIMER_TickGet() and the
+	 * PM code's sleep-time recovery read. Measured on both //ns and //mcuboot the
+	 * RTC clock is still off here, so the shortcut is never taken -- but a caller
+	 * that arrives with it enabled would leave the system timer stopped at 0.
+	 * The SDK splits the two: ameba_app_start.c starts the system timer
+	 * unconditionally in rtc_irq_init() and again in app_start() for the case
+	 * where OSC131 was already brought up (RTC_BIT_FIRST_PON set).
+	 */
 	if (RCC_PeriphClockEnableChk(APBPeriph_RTC_CLOCK)) {
 		return 0;
 	}

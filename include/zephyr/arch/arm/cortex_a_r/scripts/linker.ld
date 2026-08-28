@@ -130,6 +130,17 @@ SECTIONS
     __rom_region_start = RAM_ADDR;
 #endif
 
+#ifndef CONFIG_XIP
+    /*
+     * z_mapped_start must cover everything loaded into RAM: kernel/mmu.c pins
+     * z_mapped_start..z_mapped_end and puts every other page frame in
+     * CONFIG_SRAM_BASE_ADDRESS..+CONFIG_SRAM_SIZE on the free list.  rom_start
+     * holds the exception vector table at CONFIG_SRAM_BASE_ADDRESS, so leaving
+     * it outside this range lets k_mem_map() hand that page out and zero it.
+     */
+    z_mapped_start = __rom_region_start;
+#endif
+
     SECTION_PROLOGUE(rom_start,,)
     {
 
@@ -151,9 +162,6 @@ SECTIONS
     {
         . = ALIGN(_region_min_align);
         __text_region_start = .;
-#ifndef CONFIG_XIP
-        z_mapped_start = .;
-#endif
 
 #include <zephyr/linker/kobject-text.ld>
 

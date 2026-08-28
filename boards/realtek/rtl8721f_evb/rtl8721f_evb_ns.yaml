@@ -1,0 +1,33 @@
+# Twister platform for the rtl8721f_evb TF-M non-secure variant.
+identifier: rtl8721f_evb/rtl8721f/ns
+name: Realtek rtl8721f evaluation board (TF-M non-secure variant)
+vendor: realtek
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 512
+flash: 4096
+supported:
+  - pinctrl
+  - serial
+  - console
+  - clock_control
+  - dma
+  - spi
+  - uart
+  - i2c
+  - i2s
+  - gpio
+  - counter
+  - rtc
+  - watchdog
+  - adc
+  - pwm
+  - flash
+  - entropy
+  - audio
+  - sdhc
+  - can
+  - sensor

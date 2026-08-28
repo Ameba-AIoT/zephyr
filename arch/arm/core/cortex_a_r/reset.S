@@ -407,6 +407,24 @@ _secondary_core:
     mov lr, r0
     msr spsr_cxsf, r0
 
+    /* ACTLR.SMP must be set before the caches or MMU are enabled, and the
+     * secure firmware may have left the D-cache on, so clear SCTLR.C first.
+     */
+    mrc p15, 0, r0, c1, c0, 0   /* read SCTLR */
+    bic r0, r0, #(1 << 2)        /* clear C bit (D-cache disable) */
+    mcr p15, 0, r0, c1, c0, 0   /* write SCTLR */
+    isb
+
+    /* Join the inner-shareable domain: without ACTLR.SMP + Broadcast this
+     * core's cache maintenance is not broadcast and coherency is
+     * UNPREDICTABLE.
+     */
+    mrc p15, 0, r0, c1, c0, 1   /* read ACTLR */
+    orr r0, r0, #(1 << 6)        /* SMP bit */
+    orr r0, r0, #(1 << 0)        /* Broadcast bit */
+    mcr p15, 0, r0, c1, c0, 1   /* write ACTLR */
+    isb
+
 #if defined(CONFIG_FPU) && defined(CONFIG_CPU_HAS_VFP)
     /*
      * Enable FPU (CP10/CP11) access in CPACR before the spin-loop so that
@@ -443,10 +461,10 @@ _secondary_core:
      *
      * Architecture TPIDRURO encoding: bits [31:2] = &_cpu, bits[1:0]=0.
      */
-    ldr r3, =_kernel                 /* r3 = &_kernel = &_kernel.cpus[0] */
-    /* stride = (_kernel size 0x68) / CONFIG_MP_MAX_NUM_CPUS; for 2 CPUs = 0x34 */
-    add r3, r3, #0x34                /* r3 = &_kernel.cpus[1] */
-    mcr p15, 0, r3, c13, c0, 3      /* TPIDRURO = &_kernel.cpus[1] */
+    ldr r3, =_kernel                 /* r3 = &_kernel.cpus[0] */
+    mov r2, #___cpu_t_SIZEOF         /* per-CPU stride, from offsets.h */
+    mla r3, r1, r2, r3               /* r3 = &_kernel.cpus[MPID] */
+    mcr p15, 0, r3, c13, c0, 3      /* TPIDRURO = &_kernel.cpus[MPID] */
 
 _secondary_core_spin:
     ldr r2, =arm_cpu_boot_params
@@ -466,6 +484,7 @@ _secondary_core_spin:
     ldr r8, [r0, #BOOT_PARAM_UDF_SP_OFFSET]
     ldr r9, [r0, #BOOT_PARAM_SVC_SP_OFFSET]
     ldr r10, [r0, #BOOT_PARAM_SYS_SP_OFFSET]
+
     b 2f
 
 _primary_core:

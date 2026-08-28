@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * AmebaDplus (RTL872xDA) wake sources for the PM tests, shared by every
+ * board target of this SoC. A board overlay replaces app.overlay rather than
+ * merging with it, so the per-target overlays include this instead of relying
+ * on one.
+ *
+ * TIMER4 is the counter wake source: only TIMER4..7 are routed to the PMC wake
+ * logic on this SoC, so timer0..timer3 carry no wakeup-source-id and cannot
+ * wake the AP. TIMER0 would be the wrong choice anyway -- it is the ameba
+ * system timer that the SoC PM code reads to recover the time spent asleep, and
+ * driving it through the counter API stops and resets it.
+ */
+
+/ {
+	aliases {
+		pm-wake-counter = &timer4;
+		pm-wake-gpio = &gpiob;
+	};
+};
+
+&rtc {
+	status = "okay";
+	wakeup-source;
+};
+
+&gpiob {
+	status = "okay";
+	wakeup-source;
+};
+
+&timer4 {
+	status = "okay";
+	wakeup-source;
+};

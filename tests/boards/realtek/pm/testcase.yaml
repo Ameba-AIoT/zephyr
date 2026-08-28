@@ -1,0 +1,31 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+common:
+  tags:
+    - pm
+    - realtek
+  depends_on:
+    - counter
+  # Every case power-gates the AP for a second at a time. The AmebaSmart
+  # cluster-PG cycles (CPU1 hotplug + restart on every warm boot) are much slower
+  # than the Cortex-M ones; the whole suite still finished inside two minutes on
+  # hardware, so this is headroom rather than a measured requirement.
+  timeout: 240
+
+tests:
+  # Only the targets where Zephyr owns the wake path. The plain ameba-loader
+  # variant is left out on purpose: there the KM0 image arms the wake sources,
+  # so soc/realtek/ameba/common/pm.c compiles ameba_universal_wakeup_init() out
+  # and nothing here can arm one -- the AP would power down for good.
+  # rtl8730e_evb has no /mcuboot entry: that variant is the KM4 (Cortex-M55)
+  # bootloader image, not a target for the CA32 application this test is.
+  boards.realtek.pm:
+    platform_allow:
+      - rtl8721f_evb/rtl8721f/mcuboot
+      - rtl8721f_evb/rtl8721f/ns
+      - rtl872xda_evb/rtl8721dx/mcuboot
+      - rtl872xda_evb/rtl8721dx/ns
+      - rtl8730e_evb/rtl8730e
+    integration_platforms:
+      - rtl8721f_evb/rtl8721f/ns

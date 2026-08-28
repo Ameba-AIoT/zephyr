@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * AmebaG2 (RTL8721F) wake sources for the PM tests, shared by every board
+ * target of this SoC. A board overlay replaces app.overlay rather than merging
+ * with it, so the per-target overlays include this instead of relying on one.
+ *
+ * TIMER1, not TIMER0: TIMER0 is the ameba system timer that the SoC PM code
+ * reads to recover the time spent asleep, and driving it through the counter
+ * API stops and resets it. TIMER1..3 are equally wake-capable here
+ * (WAKE_SRC_TIMER1..3).
+ */
+
+/ {
+	aliases {
+		pm-wake-counter = &timer1;
+		pm-wake-gpio = &gpiob;
+	};
+};
+
+&rtc {
+	status = "okay";
+	wakeup-source;
+};
+
+&gpiob {
+	status = "okay";
+	wakeup-source;
+};
+
+&timer1 {
+	status = "okay";
+	wakeup-source;
+};
