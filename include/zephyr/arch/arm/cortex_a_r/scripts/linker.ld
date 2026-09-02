@@ -432,3 +432,11 @@ GROUP_END(OCM)
     GROUP_END(RAMABLE_REGION)
 
 }
+
+#ifndef CONFIG_XIP
+/* RAM below z_mapped_start is not pinned by kernel/mmu.c and can be handed out
+ * by k_mem_map(); __rom_region_start holds the exception vector table.
+ */
+ASSERT(z_mapped_start <= __rom_region_start,
+       "z_mapped_start is above the start of the loaded image")
+#endif

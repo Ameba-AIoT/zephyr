@@ -36,32 +36,43 @@ int rtos_queue_create(rtos_queue_t *pp_handle, uint32_t msg_num, uint32_t msg_si
 	return RTK_SUCCESS;
 }
 
+/* k_msgq_cleanup returns -EBUSY while any thread is blocked on the queue;
+ * k_msgq_purge wakes them but they must be scheduled out before cleanup
+ * sees an empty wait_q.  Retry with a short sleep; if still EBUSY the
+ * caller has a bug and we leak rather than free memory in use.
+ */
+#define QUEUE_DELETE_MAX_RETRIES 8
+
 int rtos_queue_delete(rtos_queue_t p_handle)
 {
+	int ret;
+	int i;
+
 	if (p_handle == NULL) {
 		return RTK_FAIL;
 	}
 
 	if (rtos_queue_message_waiting(p_handle) != 0) {
 		LOG_WRN("%s: deleting non-empty queue", __func__);
-		k_msgq_purge(p_handle);
 	}
 
-	/* Retry after purge if cleanup finds waiters. */
-	int ret = k_msgq_cleanup(p_handle);
-
-	if (ret == -EBUSY) {
+	for (i = 0; i < QUEUE_DELETE_MAX_RETRIES; i++) {
 		k_msgq_purge(p_handle);
 		ret = k_msgq_cleanup(p_handle);
+		if (ret == 0) {
+			k_free(p_handle);
+			return RTK_SUCCESS;
+		}
+		if (ret != -EBUSY) {
+			break;
+		}
+		k_msleep(1);
 	}
 
-	if (ret != 0) {
-		LOG_ERR("%s: cleanup failed (%d), leaking to avoid UAF", __func__, ret);
-		return RTK_FAIL;
-	}
-
-	k_free(p_handle);
-	return RTK_SUCCESS;
+	LOG_ERR("%s: cleanup failed (%d) after %d retries, leaking to avoid UAF "
+		"— caller likely has a thread still blocking on this queue",
+		__func__, ret, QUEUE_DELETE_MAX_RETRIES);
+	return RTK_FAIL;
 }
 
 uint32_t rtos_queue_message_waiting(rtos_queue_t p_handle)

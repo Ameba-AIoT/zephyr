@@ -190,6 +190,13 @@ if (CONFIG_BOOTLOADER_MCUBOOT)
     set(ameba_work_dir ${CMAKE_BINARY_DIR}/${ameba_soc_name}_gcc_project)
     set(ameba_tfa_img_dir ${CMAKE_BINARY_DIR}/tfa/project_ap/image)
     set(ameba_blobs_dir ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/amebasmart/bin)
+
+    # AmebaSmart: coex links into KM4 (project_hp); KM0 is never a coex build.
+    if(CONFIG_BT_COEXIST)
+      set(ameba_km4_blob km4_image2_all_coex.bin)
+    else()
+      set(ameba_km4_blob km4_image2_all.bin)
+    endif()
     set(ameba_hal_platform_h ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/amebasmart/source/fwlib/include/hal_platform.h)
 
     set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
@@ -234,13 +241,13 @@ if (CONFIG_BOOTLOADER_MCUBOOT)
               --address ${ameba_km0_rsip_addr} --type image2
       COMMAND ${CMAKE_COMMAND} -E chdir "${ameba_work_dir}"
               ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py
-              rsip -i ${ameba_blobs_dir}/km4_image2_all.bin -o ${ameba_work_dir}/km4_rsip.bin
+              rsip -i ${ameba_blobs_dir}/${ameba_km4_blob} -o ${ameba_work_dir}/km4_rsip.bin
               --address ${ameba_km4_rsip_addr} --type image2
 
       # ARM VT {MSP_RAM_HP, KM4 app_start}, scanned from the plaintext KM4 blob.
       COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py
               amebasmart_boot_assets make-vt
-              --km4-blob ${ameba_blobs_dir}/km4_image2_all.bin
+              --km4-blob ${ameba_blobs_dir}/${ameba_km4_blob}
               --km4-bd-dram-addr ${ameba_layout_km4_bd_dram}
               --hal-platform-header ${ameba_hal_platform_h}
               -o ${ameba_work_dir}/vt.bin

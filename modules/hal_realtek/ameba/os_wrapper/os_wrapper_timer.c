@@ -5,6 +5,7 @@
  */
 
 #include "os_wrapper.h"
+#include "os_wrapper_deferred.h"
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(os_if_timer);
 
@@ -61,36 +62,18 @@ int rtos_timer_create(rtos_timer_t *pp_handle, const char *p_timer_name, uint32_
 	return RTK_SUCCESS;
 }
 
-/* Defer free to sysworkq: k_timer_stop only cancels future expiries; a
- * currently-running expiry_fn (in ISR) may still touch the wrapper.
- * Heap-allocated ctx (contains k_work) is intentionally not freed here —
- * Zephyr writes work->flags after the handler returns.
+/* k_timer_stop cancels future expiries but not an in-flight callback;
+ * defer the free so it runs after any callback has unwound.
  */
-struct rtos_timer_free_ctx {
-	struct k_work work;
-	void *timer;
-	atomic_t in_use;
-};
-
-/* Static slot used when k_malloc fails.  One is enough as sysworkq drains
- * quickly; if both heap and slot are unavailable we fall back to sync free.
- */
-static struct rtos_timer_free_ctx fallback_ctx;
-
-static void deferred_timer_free_handler(struct k_work *work)
+static void finalize_timer_delete(void *timer, void *unused1, void *unused2)
 {
-	struct rtos_timer_free_ctx *ctx = CONTAINER_OF(work, struct rtos_timer_free_ctx, work);
-
-	k_free(ctx->timer);
-	if (ctx == &fallback_ctx) {
-		atomic_set(&ctx->in_use, 0);
-	}
+	ARG_UNUSED(unused1);
+	ARG_UNUSED(unused2);
+	k_free(timer);
 }
 
 int rtos_timer_delete(rtos_timer_t p_handle, uint32_t wait_ms)
 {
-	struct rtos_timer_free_ctx *ctx;
-
 	ARG_UNUSED(wait_ms);
 	if (p_handle == NULL) {
 		return RTK_FAIL;
@@ -98,28 +81,12 @@ int rtos_timer_delete(rtos_timer_t p_handle, uint32_t wait_ms)
 
 	k_timer_stop((struct k_timer *)p_handle);
 
-	ctx = k_malloc(sizeof(*ctx));
-	if (ctx == NULL) {
-		if (atomic_cas(&fallback_ctx.in_use, 0, 1)) {
-			ctx = &fallback_ctx;
-		} else {
-			/* Heap full + fallback busy: sync free (rare UAF risk). */
-			LOG_WRN("%s: OOM and fallback busy, freeing synchronously", __func__);
-			k_free(p_handle);
-			return RTK_SUCCESS;
-		}
-	}
-	ctx->timer = p_handle;
-	k_work_init(&ctx->work, deferred_timer_free_handler);
-	if (k_work_submit(&ctx->work) < 0) {
-		/* Sysworkq full: release fallback slot (if used) and free sync. */
-		if (ctx == &fallback_ctx) {
-			atomic_set(&ctx->in_use, 0);
-		} else {
-			k_free(ctx);
-		}
-		LOG_WRN("%s: k_work_submit failed, freeing synchronously", __func__);
-		k_free(p_handle);
+	if (deferred_submit(finalize_timer_delete, p_handle, NULL, NULL) != 0) {
+		/* Cannot sync-free: k_timer_stop() does not wait for an in-flight
+		 * expiry callback, so freeing here would UAF.  Leak instead; the
+		 * pool should be sized so this is unreachable under normal load.
+		 */
+		LOG_ERR("%s: deferred_submit failed, timer leaked", __func__);
 	}
 	return RTK_SUCCESS;
 }
@@ -218,37 +185,19 @@ _WEAK void init_timer_wrapper(void)
 	LOG_ERR("%s Not Support", __func__);
 }
 
-/* pw (contains k_work) intentionally leaks: Zephyr writes work->flags
- * after handler returns, so we cannot free it inside the handler.
- */
-typedef struct {
-	void (*func)(void *pv_p1, uint32_t ul_p2);
-	void *param1;
-	uint32_t param2;
-} rtos_pended_call_t;
-
-typedef struct {
-	struct k_work work;
-	rtos_pended_call_t *call;
-} rtos_pended_work_t;
-
-static void rtos_pended_work_handler(struct k_work *work)
+/* Trampoline: three-void* slot -> the caller's (void *, uint32_t) signature. */
+static void invoke_pended_call(void *fn, void *p1, void *p2)
 {
-	rtos_pended_work_t *pw = CONTAINER_OF(work, rtos_pended_work_t, work);
-	rtos_pended_call_t *call = pw->call;
+	void (*func)(void *, uint32_t) = (void (*)(void *, uint32_t))fn;
 
-	if (call && call->func) {
-		call->func(call->param1, call->param2);
+	if (func != NULL) {
+		func(p1, (uint32_t)(uintptr_t)p2);
 	}
-	k_free(call);
 }
 
 int rtos_timer_pend_function_call(void (*p_func)(void *, uint32_t), void *pv_p1, uint32_t ul_p2,
 				  uint32_t wait_ms)
 {
-	rtos_pended_call_t *call;
-	rtos_pended_work_t *pw;
-
 	ARG_UNUSED(wait_ms);
 	if (p_func == NULL) {
 		return RTK_FAIL;
@@ -259,33 +208,8 @@ int rtos_timer_pend_function_call(void (*p_func)(void *, uint32_t), void *pv_p1,
 		return RTK_FAIL;
 	}
 
-#if (CONFIG_HEAP_MEM_POOL_SIZE > 0)
-	call = k_malloc(sizeof(rtos_pended_call_t));
-	if (!call) {
-		return RTK_FAIL;
-	}
-	pw = k_malloc(sizeof(rtos_pended_work_t));
-	if (!pw) {
-		k_free(call);
-		return RTK_FAIL;
-	}
-#else
-	LOG_ERR("%s <<< k_malloc not support. >>>", __func__);
-	return RTK_FAIL;
-#endif
-
-	call->func = p_func;
-	call->param1 = pv_p1;
-	call->param2 = ul_p2;
-
-	pw->call = call;
-	k_work_init(&pw->work, rtos_pended_work_handler);
-
-	int ret = k_work_submit(&pw->work);
-
-	if (ret < 0) {
-		k_free(pw);
-		k_free(call);
+	if (deferred_submit(invoke_pended_call, (void *)p_func, pv_p1,
+			    (void *)(uintptr_t)ul_p2) != 0) {
 		return RTK_FAIL;
 	}
 	return RTK_SUCCESS;

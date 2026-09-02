@@ -5,6 +5,7 @@
  */
 
 #include "os_wrapper.h"
+#include "os_wrapper_deferred.h"
 #include <zephyr/kernel_structs.h>
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(os_if_task);
@@ -15,35 +16,15 @@ struct rtos_task_meta {
 	void *tls[1]; /* slot 0 = lwIP */
 };
 
-/* Self-delete via sysworkq: freeing the thread's own stack/k_thread while
- * still running on them is unsafe, and thread_abort_hook runs under the
- * scheduler spinlock (can't call k_free there).  So we submit a work item,
- * abort self; the handler runs on sysworkq, joins the dead thread, then
- * frees everything.  ctx (containing k_work) intentionally leaks: Zephyr
- * writes work->flags after the handler returns.
+/* Sysworkq handler for self-delete: join ensures the k_thread struct is
+ * safe to free.
  */
-struct self_delete_ctx {
-	struct k_work work;
-	k_tid_t thread;
-	void *stack_orig;
-	struct rtos_task_meta *meta;
-	atomic_t in_use;
-};
-
-/* Static fallback for OOM path — avoids leaking meta/stack when heap is full. */
-static struct self_delete_ctx self_delete_fallback;
-
-static void self_delete_handler(struct k_work *work)
+static void reap_self_deleted_thread(void *stack, void *meta, void *thread)
 {
-	struct self_delete_ctx *ctx = CONTAINER_OF(work, struct self_delete_ctx, work);
-
-	k_thread_join(ctx->thread, K_FOREVER);
-	k_free(ctx->stack_orig);
-	k_free(ctx->meta);
-	k_free(ctx->thread);
-	if (ctx == &self_delete_fallback) {
-		atomic_set(&ctx->in_use, 0);
-	}
+	k_thread_join((k_tid_t)thread, K_FOREVER);
+	k_free(stack);
+	k_free(meta);
+	k_free(thread);
 }
 
 int rtos_sched_start(void)
@@ -159,39 +140,21 @@ int rtos_task_delete(rtos_task_t p_handle)
 
 	if (is_self_delete) {
 		struct rtos_task_meta *meta = (struct rtos_task_meta *)p_curr->custom_data;
-		struct self_delete_ctx *ctx = k_malloc(sizeof(*ctx));
 
-		if (ctx == NULL) {
-			/* Heap full: try the static fallback slot. */
-			if (atomic_cas(&self_delete_fallback.in_use, 0, 1)) {
-				ctx = &self_delete_fallback;
-			}
-		}
-		if (ctx && meta) {
-			ctx->thread = p_curr;
-			ctx->stack_orig = meta->stack_orig;
-			ctx->meta = meta;
+		if (meta != NULL) {
+			void *stack_orig = meta->stack_orig;
+
 			p_curr->custom_data = NULL;
-			k_work_init(&ctx->work, self_delete_handler);
-			if (k_work_submit(&ctx->work) < 0) {
-				/* Sysworkq full: nothing safe we can do here.
-				 * Restore in_use so the fallback stays available,
-				 * and log — resources will leak.
+			if (deferred_submit(reap_self_deleted_thread, stack_orig, meta, p_curr) != 0) {
+				/* Running on the stack we would need to free - no
+				 * sync fallback; log and leak.
 				 */
-				LOG_ERR("%s: k_work_submit failed, resources leak", __func__);
-				if (ctx == &self_delete_fallback) {
-					atomic_set(&ctx->in_use, 0);
-				}
-			}
-		} else if (ctx) {
-			/* meta is NULL (thread not from rtos_task_create): free ctx. */
-			if (ctx == &self_delete_fallback) {
-				atomic_set(&ctx->in_use, 0);
-			} else {
-				k_free(ctx);
+				LOG_ERR("%s: deferred_submit failed, resources leak",
+					__func__);
 			}
 		} else {
-			LOG_ERR("%s: no ctx (heap full + fallback busy), meta leaks", __func__);
+			LOG_WRN("%s: self-delete of thread with no wrapper meta",
+				__func__);
 		}
 		k_thread_abort(p_curr);
 		CODE_UNREACHABLE;

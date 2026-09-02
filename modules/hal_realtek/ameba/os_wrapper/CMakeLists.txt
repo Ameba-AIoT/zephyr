@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_sources(
+  os_wrapper_deferred.c
   os_wrapper_memory.c
   os_wrapper_mutex.c
   os_wrapper_queue.c

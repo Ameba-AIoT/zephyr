@@ -8,3 +8,17 @@ config REALTEK_AMEBA_OS_WRAPPER
 	help
 	  Enable the Realtek Ameba OS wrapper abstraction layer.
 	  This provides RTOS abstraction for Ameba HAL drivers.
+
+if REALTEK_AMEBA_OS_WRAPPER
+
+config REALTEK_AMEBA_OS_WRAPPER_DEFERRED_POOL_SIZE
+	int "Deferred-work slots for OS wrapper clean-up"
+	default 4
+	range 1 64
+	help
+	  Static slot pool used to defer clean-up (thread self-delete,
+	  timer delete, pended function call) to the system workqueue.
+	  Caps the number of such operations in flight.  Raise if
+	  os_if_deferred logs "pool exhausted".
+
+endif # REALTEK_AMEBA_OS_WRAPPER

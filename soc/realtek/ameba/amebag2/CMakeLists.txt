@@ -42,6 +42,9 @@ set(PYTHON_SCRIPT_ARGS
 
 if(CONFIG_BT_COEXIST)
     list(APPEND PYTHON_SCRIPT_ARGS --bt-coexist)
+    set(ameba_secondary_blob km4ns_image2_all_coex.bin)  # g2: coex links into KM4NS
+else()
+    set(ameba_secondary_blob km4ns_image2_all.bin)
 endif()
 
 #  west sign
@@ -76,7 +79,7 @@ if(BIN_FILES)
     set_target_properties(zephyr_property_target PROPERTIES ameba_output_prefix app)
     set_target_properties(zephyr_property_target PROPERTIES ameba_soc_name ${SOC_SERIES})
     set_target_properties(zephyr_property_target PROPERTIES origin_secondary_image
-      ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/km4ns_image2_all.bin)
+      ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/${ameba_secondary_blob})
   elseif (CONFIG_MCUBOOT)
     # Generate container key from manifest(raw key)
     #TODO:

@@ -51,15 +51,8 @@ config PM_CPU_OPS_PSCI
 config MP_MAX_NUM_CPUS
 	default 2 if SMP
 
-# Polling TX writes each byte synchronously, so console output is not lost when
-# a core wedges - the interrupt-driven backend loses whatever is still in the TX
-# ring buffer, which makes a hang much harder to analyse.  It also avoids a
-# lost-wakeup window in shell_uart's interrupt-driven path, whose writer/ISR
-# handshake assumes both run on the same CPU while the LOGUART TX interrupt is
-# pinned to Core0.
-choice SHELL_BACKEND_SERIAL_API
-	default SHELL_BACKEND_SERIAL_API_POLLING if SMP
-endchoice
+config SHELL_BACKEND_SERIAL_FORCE_TX_BLOCKING_MODE
+	default y if SMP
 
 endif # SOC_RTL8730E_CA32
 
