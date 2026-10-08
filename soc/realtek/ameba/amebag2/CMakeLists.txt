@@ -21,6 +21,25 @@ else()
   zephyr_sources(soc.c)
   zephyr_library_sources_ifdef(CONFIG_PM ${CMAKE_CURRENT_LIST_DIR}/../common/pm.c
                                ${CMAKE_CURRENT_LIST_DIR}/../common/ameba_lpm_timer.c)
+
+  # In a TF-M build the SOCPS_*Entry() functions lib_pmc.a calls during a sleep are
+  # not secure-world veneers any more, and what they reach faults. Intercept them
+  # rather than patch ameba_pmc.c, which is shared verbatim with the FreeRTOS SDK --
+  # see pmc_veneer_tfm.c for what happens to each one.
+  if(CONFIG_PM AND CONFIG_BUILD_WITH_TFM)
+    zephyr_library_sources(pmc_veneer_tfm.c)
+    foreach(sym
+        SOCPS_PeriPermissionEntry
+        SOCPS_BitPermissionEntry
+        SOCPS_PeriRestoreEntry
+        SOCPS_NVICBackupEntry
+        SOCPS_NVICReFillEntry
+        SOCPS_MPUBackupEntry
+        SOCPS_MPUReFillEntry
+    )
+      zephyr_link_libraries(-Wl,--wrap=${sym})
+    endforeach()
+  endif()
 endif()
 
 zephyr_linker_sources(RAMFUNC_SECTION ${CMAKE_CURRENT_LIST_DIR}/../common/ram_function_section.ld)
@@ -87,20 +106,7 @@ if(BIN_FILES)
     #  1. support more algorithm
     #  2. move these code to common place
     if(CONFIG_AMEBA_USING_MANIFEST_KEY)
-      if (CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
-        set(algorithm ed25519)
-      elseif (CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
-        set(algorithm secp256r1)
-      endif()
-      file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
-      file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5 DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
-      execute_process(COMMAND_ERROR_IS_FATAL ANY
-        COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
-                --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
-                --algorithm ${algorithm}
-                --image image2
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
-      )
+      include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_manifest_key.cmake)
     endif()
     #Invoke mcuboot bootloader generation using cmake
     include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_image.cmake)

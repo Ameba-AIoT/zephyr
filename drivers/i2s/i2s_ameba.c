@@ -532,7 +532,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	}
 
 	SP_InitTypeDef SP_InitStruct;
-	AUDIO_ClockParams Clock_Params;
+	AUDIO_ClockParams Clock_Params = {0};
 	AUDIO_InitParams Init_Params;
 	bool slave;
 
@@ -674,10 +674,52 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 	SP_InitStruct.SP_SetMultiIO = cfg->MultiIO;
 	SP_InitStruct.SP_SR = i2s_cfg->frame_clk_freq;
 	SP_InitStruct.SP_SelChLen = cfg->chn_len;
+
+#if defined(CONFIG_SOC_SERIES_AMEBASMART)
+	/* Enable the chosen I2S PLL, route it to the SPORT and divide it. */
+	switch (Clock_Params.Clock) {
+	case PLL_CLOCK_98P304M:
+		PLL_I2S_98P304M(ENABLE);
+		RCC_PeriphClockSource_SPORT(cfg->index, CKSL_I2S_PLL98M);
+		PLL_I2S_Div(cfg->index, Clock_Params.PLL_DIV);
+		break;
+	case PLL_CLOCK_45P1584M:
+		PLL_I2S_45P158M(ENABLE);
+		RCC_PeriphClockSource_SPORT(cfg->index, CKSL_I2S_PLL45M);
+		PLL_I2S_Div(cfg->index, Clock_Params.PLL_DIV);
+		break;
+	case PLL_CLOCK_24P576M:
+		PLL_I2S_24P576M(ENABLE);
+		RCC_PeriphClockSource_SPORT(cfg->index, CKSL_I2S_PLL24M);
+		PLL_I2S_Div(cfg->index, Clock_Params.PLL_DIV);
+		break;
+	case I2S_CLOCK_XTAL40M:
+		RCC_PeriphClockSource_SPORT(cfg->index, CKSL_I2S_XTAL40M);
+		break;
+	default:
+		LOG_ERR("No SPORT clock for rate %u", i2s_cfg->frame_clk_freq);
+		return -ENOTSUP;
+	}
+	SP_InitStruct.SP_SelClk = Clock_Params.Clock / Clock_Params.PLL_DIV;
+
+	/* SP_CTRL0.MCLK_SEL: 0 is /4, 1 is /2, 2 is /1. */
+	switch (Clock_Params.MCLK_DIV) {
+	case 1:
+		AUDIO_SP_SetMclkDiv(cfg->index, 2);
+		break;
+	case 2:
+		AUDIO_SP_SetMclkDiv(cfg->index, 1);
+		break;
+	default:
+		AUDIO_SP_SetMclkDiv(cfg->index, 0);
+		break;
+	}
+#else
 	SP_InitStruct.SP_SelClk = cfg->clock_mode;
 
 	/* set MCLK */
 	AUDIO_SP_SetMclkDiv(cfg->index, Clock_Params.MCLK_NI, Clock_Params.MCLK_MI);
+#endif
 
 	if ((i2s_cfg->options & I2S_OPT_LOOPBACK) == I2S_OPT_LOOPBACK) {
 		AUDIO_SP_SetSelfLPBK(cfg->index);
@@ -705,6 +747,8 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 
 	AUDIO_SP_SetMasterSlave(cfg->index, slave); /* master:0 slave:1 */
 
+#if !defined(CONFIG_SOC_SERIES_AMEBASMART)
+	/* AmebaSmart has no AUDIO_SP_SetPinMux(); it routes SPORT pins via pinctrl. */
 	if (cfg->MultiIO == 1) {
 		if (dir == I2S_DIR_RX) {
 			switch (i2s_cfg->channels) {
@@ -758,6 +802,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 				AUDIO_SP_SetPinMux(cfg->index, DOUT1_FUNC);
 				AUDIO_SP_SetPinMux(cfg->index, DOUT2_FUNC);
 				AUDIO_SP_SetPinMux(cfg->index, DOUT3_FUNC);
+				break;
 			default:
 				LOG_ERR("Unsupported I2S channel");
 				return -EINVAL;
@@ -770,6 +815,7 @@ static int i2s_ameba_configure(const struct device *dev, enum i2s_dir dir,
 			AUDIO_SP_SetPinMux(cfg->index, DOUT0_FUNC);
 		}
 	}
+#endif /* !CONFIG_SOC_SERIES_AMEBASMART */
 
 	/* Clear Software buffers for next transform. */
 	i2s_purge_stream_buffers(&data->rx, data->rx.cfg.mem_slab, 1, 1);
@@ -1575,6 +1621,8 @@ static int i2s_ameba_initialize(const struct device *dev)
 		return ret;
 	}
 
+#if !defined(CONFIG_SOC_SERIES_AMEBASMART)
+	/* AmebaSmart picks its clock source per sample rate in i2s_ameba_configure(). */
 	switch (cfg->clock_mode) {
 	case PLL_CLOCK_45P1584M:
 		RCC_PeriphClockSource_SPORT(cfg->i2s, CKSL_I2S_CPUPLL);
@@ -1594,6 +1642,7 @@ static int i2s_ameba_initialize(const struct device *dev)
 		LOG_ERR("invalid clock");
 		return -EINVAL;
 	}
+#endif /* !CONFIG_SOC_SERIES_AMEBASMART */
 
 	/* Initialize the buffer queues */
 	k_msgq_init(&data->tx.in_queue, (char *)data->tx_in_msgs, sizeof(void *),

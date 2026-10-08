@@ -91,21 +91,7 @@ if(BIN_FILES)
   if(CONFIG_MCUBOOT)
     # ---- KM4 MCUboot bootloader build ----
     if(CONFIG_AMEBA_USING_MANIFEST_KEY)
-      if(CONFIG_BOOT_SIGNATURE_TYPE_ED25519)
-        set(algorithm ed25519)
-      elseif(CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256)
-        set(algorithm secp256r1)
-      endif()
-      file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project)
-      file(COPY ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/${SOC_SERIES}/manifest.json5
-           DESTINATION ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project/)
-      execute_process(COMMAND_ERROR_IS_FATAL ANY
-        COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py encrypt topem
-                --output-file ${CONFIG_BOOT_SIGNATURE_KEY_FILE}
-                --algorithm ${algorithm}
-                --image image2
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/${SOC_SERIES}_gcc_project
-      )
+      include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_manifest_key.cmake)
     endif()
     include(${CMAKE_CURRENT_LIST_DIR}/../common/mcuboot_image.cmake)
 

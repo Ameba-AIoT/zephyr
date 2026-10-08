@@ -56,11 +56,39 @@ static int dmic_ameba_enable_clock(const struct device *dev)
 	return 0;
 }
 
+/* Each PDM controller carries one L/R pair, so a pair must share hw_chan. */
+static int dmic_ameba_check_channel_map(struct pdm_chan_cfg *channel)
+{
+	uint8_t hw_chan_a, hw_chan_b;
+	enum pdm_lr lr_a, lr_b;
+
+	for (uint8_t chan = 0; chan + 1 < channel->req_num_chan; chan += 2) {
+		dmic_parse_channel_map(channel->req_chan_map_lo, channel->req_chan_map_hi, chan,
+				       &hw_chan_a, &lr_a);
+		dmic_parse_channel_map(channel->req_chan_map_lo, channel->req_chan_map_hi, chan + 1,
+				       &hw_chan_b, &lr_b);
+
+		if (hw_chan_a != hw_chan_b || lr_a == lr_b) {
+			LOG_ERR("channels %u/%u are not an L/R pair on one controller", chan,
+				chan + 1);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 {
 	int ret;
 	const struct dmic_ameba_config *config = dev->config;
 	struct dmic_ameba_data *const data = dev->data;
+
+	/* Check first, so a rejected map leaves the SPORT state machine alone. */
+	ret = dmic_ameba_check_channel_map(&cfg->channel);
+	if (ret != 0) {
+		return ret;
+	}
 
 	/* PCM buffer size */
 	data->pcm_mem_slab = cfg->streams->mem_slab;
@@ -172,10 +200,15 @@ int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_SOC_SERIES_AMEBASMART)
+	/* The codec ADC front-end needs its LDO up before it is programmed. */
+	AUDIO_CODEC_SetLDOMode(POWER_ON);
+#endif /* CONFIG_SOC_SERIES_AMEBASMART */
+
 	AUDIO_CODEC_I2S_StructInit(&I2S_InitStruct);
 	I2S_InitStruct.CODEC_SelRxI2STdm = tdm_mode;
 	I2S_InitStruct.CODEC_SelI2SRxSR = codec_rx_sr;
-	AUDIO_CODEC_Record(I2S0, APP_DMIC_RECORD, &I2S_InitStruct);
+	AUDIO_CODEC_Record(DT_INST_PROP(0, i2s_index), APP_DMIC_RECORD, &I2S_InitStruct);
 
 	/* when sample rate is 96k,the clock need 5M, otherwise the waveform will have burrs */
 	if (codec_rx_sr == SR_96K) {
@@ -188,6 +221,11 @@ int dmic_ameba_configure(const struct device *dev, struct dmic_cfg *cfg)
 	/* ADC digital volume gain*/
 	AUDIO_CODEC_SetADCVolume(ADC1, 0x2f);
 	AUDIO_CODEC_SetADCVolume(ADC2, 0x2f);
+
+	/* The request is honoured as-is. */
+	cfg->channel.act_num_chan = cfg->channel.req_num_chan;
+	cfg->channel.act_chan_map_lo = cfg->channel.req_chan_map_lo;
+	cfg->channel.act_chan_map_hi = cfg->channel.req_chan_map_hi;
 
 	data->state = DMIC_STATE_CONFIGURED;
 
@@ -214,11 +252,33 @@ int dmic_ameba_trigger(const struct device *dev, enum dmic_trigger cmd)
 		}
 		break;
 	case DMIC_TRIGGER_STOP:
-		if (data->state == DMIC_STATE_ACTIVE) {
+		if (data->state == DMIC_STATE_ACTIVE || data->state == DMIC_STATE_PAUSED) {
 			tmp_state = DMIC_STATE_CONFIGURED;
 			i2s_cmd = I2S_TRIGGER_DROP;
 		} else {
 			LOG_ERR("DMIC trigger failed: device is not active\n");
+			return -EIO;
+		}
+		break;
+	case DMIC_TRIGGER_PAUSE:
+		if (data->state == DMIC_STATE_ACTIVE) {
+			tmp_state = DMIC_STATE_PAUSED;
+			/*
+			 * DROP discards the queued blocks, so reads time out
+			 * while paused, and leaves the SPORT ready to restart.
+			 */
+			i2s_cmd = I2S_TRIGGER_DROP;
+		} else {
+			LOG_ERR("DMIC trigger failed: device is not active\n");
+			return -EIO;
+		}
+		break;
+	case DMIC_TRIGGER_RELEASE:
+		if (data->state == DMIC_STATE_PAUSED) {
+			tmp_state = DMIC_STATE_ACTIVE;
+			i2s_cmd = I2S_TRIGGER_START;
+		} else {
+			LOG_ERR("DMIC trigger failed: device is not paused\n");
 			return -EIO;
 		}
 		break;

@@ -24,17 +24,20 @@
 #include "ameba_lpm_timer.h"
 
 /*
- * AmebaG2 only: the power-gate sleep needs a few IPs handed to the non-secure zone
- * while the AP is down, and the register that decides this is secure-only. With the
- * ameba secure world that goes through a PMC_ENTRY veneer; with TF-M it goes through
- * the platform service. See ameba_pmc_tz_ioctl.h.
+ * Parts of a sleep only the secure world can carry out, reached through the TF-M
+ * platform service; ameba_pm_tz_ioctl.h describes each request. AmebaG2 also has
+ * to hand a few IPs to the non-secure zone while the AP is down, the register
+ * deciding that being secure-only.
  */
-#if defined(CONFIG_SOC_SERIES_AMEBAG2) && defined(CONFIG_BUILD_WITH_TFM) &&                        \
-	defined(CONFIG_TFM_PARTITION_PLATFORM)
+#if defined(CONFIG_BUILD_WITH_TFM) && defined(CONFIG_TFM_PARTITION_PLATFORM)
+#if defined(CONFIG_SOC_SERIES_AMEBAG2)
 #define AMEBA_PM_TZ_PPC_HANDOVER 1
+#endif
+#define AMEBA_PM_TZ_SUSPEND 1
+
 #include <tfm_platform_api.h>
 
-#include <ameba_pmc_tz_ioctl.h>
+#include <ameba_pm_tz_ioctl.h>
 #endif
 
 LOG_MODULE_REGISTER(soc_pm, LOG_LEVEL_DBG);
@@ -179,19 +182,18 @@ void pm_sleep_ram_for_wfe(struct CPU_BackUp_TypeDef *bk)
 
 #if defined(AMEBA_PM_TZ_PPC_HANDOVER)
 /*
- * Mirror of the SOCPS_PeriPermissionEntry() calls the hal's AP-side
- * vPortSystemPowerOff() makes around a power-gated sleep. The register is
- * secure-only, so it goes through the TF-M platform service; the secure side only
- * accepts the IPs listed in ameba_pmc_tz_ioctl.h.
+ * Mirror of the SOCPS_PeriPermissionEntry() and SOCPS_BitPermissionEntry() calls
+ * the hal's vPortSystemPowerOff() and SOCPS_SleepCG() make around a sleep. Both
+ * registers are secure-only, so this goes through the TF-M platform service, which
+ * only accepts the IPs listed in ameba_pm_tz_ioctl.h.
  *
- * The release has to be in place before the AP powers down and can only be taken
- * back once it is running again, which is why the two halves sit in pm_state_set()
- * and pm_state_exit_post_ops() rather than around the WFE itself: the secure call
- * needs a context where the TF-M non-secure interface can take its mutex, and by
- * the time lib_pmc.a hands us the sleep hook interrupts are locked and the caches
- * are on their way out.
+ * Issued here rather than from lib_pmc.a's own calls -- intercepted in
+ * amebag2/pmc_veneer_tfm.c -- because it hands us the sleep hook with interrupts
+ * locked and the caches on their way out, where the TF-M non-secure interface
+ * cannot take its mutex. Release before the AP goes down and reclaim after it is
+ * back is all the sequence requires.
  */
-static void pm_tz_ppc_permission(uint32_t ip_mask, bool release)
+static void pm_tz_permission(uint32_t request, uint32_t ip_mask, bool release)
 {
 	struct ameba_pmc_tz_ppc_request req = {
 		.ip_mask = ip_mask,
@@ -203,13 +205,56 @@ static void pm_tz_ppc_permission(uint32_t ip_mask, bool release)
 	};
 	enum tfm_platform_err_t err;
 
-	err = tfm_platform_ioctl(AMEBA_PMC_TZ_IOCTL_PPC_PERMISSION, &in_vec, NULL);
+	err = tfm_platform_ioctl(request, &in_vec, NULL);
 	if (err != TFM_PLATFORM_ERR_SUCCESS) {
-		LOG_ERR("PPC %s of %08x failed: %d", release ? "release" : "reclaim", ip_mask,
-			(int)err);
+		LOG_ERR("%s %s of %08x failed: %d",
+			request == AMEBA_PMC_TZ_IOCTL_BPC_PERMISSION ? "BPC" : "PPC",
+			release ? "release" : "reclaim", ip_mask, (int)err);
 	}
 }
+
+/*
+ * Which bit permissions a state needs handed over; 0 for the states that need no
+ * hand-over at all, deep-sleep among them as its resume path is not ported.
+ */
+static uint32_t pm_tz_bpc_mask(enum pm_state state)
+{
+	switch (state) {
+	case PM_STATE_SUSPEND_TO_IDLE:
+		return AMEBA_PMC_TZ_BPC_CLOCK_GATE;
+	case PM_STATE_SUSPEND_TO_RAM:
+		return AMEBA_PMC_TZ_BPC_POWER_GATE;
+	default:
+		return 0U;
+	}
+}
+
+static void pm_tz_handover(enum pm_state state, bool release)
+{
+	uint32_t bpc_mask = pm_tz_bpc_mask(state);
+
+	if (bpc_mask == 0U) {
+		return;
+	}
+
+	pm_tz_permission(AMEBA_PMC_TZ_IOCTL_BPC_PERMISSION, bpc_mask, release);
+	pm_tz_permission(AMEBA_PMC_TZ_IOCTL_PPC_PERMISSION,
+			 release ? AMEBA_PMC_TZ_PPC_SLEEP_RELEASE : AMEBA_PMC_TZ_PPC_WAKE_RECLAIM,
+			 release);
+}
 #endif /* AMEBA_PM_TZ_PPC_HANDOVER */
+
+#if defined(AMEBA_PM_TZ_SUSPEND)
+static void pm_tz_suspend(void)
+{
+	enum tfm_platform_err_t err;
+
+	err = tfm_platform_ioctl(AMEBA_PM_TZ_IOCTL_SUSPEND, NULL, NULL);
+	if (err != TFM_PLATFORM_ERR_SUCCESS) {
+		LOG_ERR("secure suspend failed: %d", (int)err);
+	}
+}
+#endif /* AMEBA_PM_TZ_SUSPEND */
 
 void pm_state_set(enum pm_state state, uint8_t substate_id)
 {
@@ -232,9 +277,6 @@ void pm_state_set(enum pm_state state, uint8_t substate_id)
 #if defined(AMEBA_PM_ZEPHYR_S2RAM_WAKE)
 		z_arm_save_scb_context(&pm_scb_context);
 #endif
-#if defined(AMEBA_PM_TZ_PPC_HANDOVER)
-		pm_tz_ppc_permission(AMEBA_PMC_TZ_PPC_SLEEP_RELEASE, true);
-#endif
 		break;
 	case PM_STATE_SOFT_OFF: /* Deepsleep */
 		pmu_release_deepwakelock(PMU_OS);
@@ -244,6 +286,21 @@ void pm_state_set(enum pm_state state, uint8_t substate_id)
 		k_cpu_idle();
 		return;
 	}
+
+#if defined(AMEBA_PM_TZ_PPC_HANDOVER)
+	pm_tz_handover(state, true);
+#endif
+
+#if defined(AMEBA_PM_TZ_SUSPEND)
+	/*
+	 * Last secure call before the AP goes down, so that what the secure world
+	 * records and flushes is not overtaken by writes of its own. Only the
+	 * power-gate needs it; clock-gating keeps the core and its caches.
+	 */
+	if (state == PM_STATE_SUSPEND_TO_RAM) {
+		pm_tz_suspend();
+	}
+#endif
 
 	/*
 	 * This is what actually sleeps: pmu_pre_sleep_processing() ends in
@@ -334,9 +391,7 @@ void pm_state_exit_post_ops(enum pm_state state, uint8_t substate_id)
 	 * After irq_unlock() on purpose: this is a secure call, and the TF-M non-secure
 	 * interface is not meant to be entered with interrupts locked.
 	 */
-	if (state == PM_STATE_SUSPEND_TO_RAM) {
-		pm_tz_ppc_permission(AMEBA_PMC_TZ_PPC_WAKE_RECLAIM, false);
-	}
+	pm_tz_handover(state, false);
 #endif
 }
 

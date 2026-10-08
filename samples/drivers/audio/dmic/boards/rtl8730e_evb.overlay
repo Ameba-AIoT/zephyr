@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&dma {
+	status = "okay";
+};
+
+&i2s1 {
+	pinctrl-0 = <&i2s1_default>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+dmic_dev: &codec {
+	pinctrl-0 = <&dmic_default>;
+	pinctrl-names = "default";
+	i2s-index = <1>;
+	status = "okay";
+};

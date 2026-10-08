@@ -29,6 +29,7 @@ supported:
   - adc
   - entropy
   - audio
+  - dmic
   - led
   - input
   - pwm

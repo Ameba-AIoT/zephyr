@@ -82,6 +82,32 @@
 			status = "disabled";
 		};
 
+		usb: usb@40080000 {
+			compatible = "realtek,ameba-usb";
+			reg = <0x40080000 0x20000>;
+			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			status = "disabled";
+		};
+
+		sdhc0: sdhc@400d0000 {
+			compatible = "realtek,ameba-sdhost";
+			reg = <0x400d0000 0x600>;
+			clocks = <&rcc AMEBA_SDH_CLK>;
+			interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			max-bus-freq = <50000000>;
+			min-bus-freq = <400000>;
+			bus-width = <4>;
+			status = "disabled";
+		};
+
+		lcdc: lcdc@400d8000 {
+			compatible = "realtek,ameba-lcdc-dsi";
+			reg = <0x400d8000 0x8000>;
+			clocks = <&rcc AMEBA_LCDC_CLK>;
+			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			status = "disabled";
+		};
+
 		dma: dma@400e0000 {
 			compatible = "realtek,ameba-gdma";
 			reg = <0x400e0000 0x3c0>;
@@ -101,13 +127,6 @@
 			dma-channels = <8>;
 			dma-buf-addr-alignment = <32>;
 			dma-buf-size-alignment = <32>;
-			status = "disabled";
-		};
-
-		usb: usb@40080000 {
-			compatible = "realtek,ameba-usb";
-			reg = <0x40080000 0x20000>;
-			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			status = "disabled";
 		};
 
@@ -135,12 +154,11 @@
 			status = "disabled";
 		};
 
-		i2c0: i2c0@4200f000 {
-			compatible = "realtek,ameba-i2c";
-			reg = <0x4200f000 0x100>;
-			interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			clocks = <&rcc AMEBA_I2C0_CLK>;
-			clock-frequency = <I2C_BITRATE_STANDARD>;
+		mipi_dsi: mipi-dsi@400ea000 {
+			compatible = "realtek,ameba-mipi-dsi";
+			reg = <0x400ea000 0x1000>;
+			clocks = <&rcc AMEBA_LCDC_CLK>;
+			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "disabled";
@@ -165,6 +183,14 @@
 			clock-frequency = <I2C_BITRATE_STANDARD>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		wdg: watchdog@410004c0 {
+			compatible = "realtek,ameba-watchdog";
+			reg = <0x410004c0 0x10>;
+			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			early-int-cnt = <500>;
 			status = "disabled";
 		};
 
@@ -270,6 +296,77 @@
 			clocks = <&rcc AMEBA_TIM13_CLK>;
 			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
 			clock-frequency = <DT_FREQ_M(1)>;
+			status = "disabled";
+		};
+
+		codec: codec@4100b000 {
+			compatible = "realtek,ameba-codec";
+			reg = <0x4100b000 0x830>;
+			clocks = <&rcc AMEBA_AC_CLK>;
+			status = "disabled";
+		};
+
+		i2s0: i2s@4100d000 {
+			compatible = "realtek,ameba-i2s";
+			reg = <0x4100d000 0xa00>;
+			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rcc AMEBA_SPORT0_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			dmas = <&dma 0 13 0>, <&dma 1 15 0>, <&dma 2 14 0>, <&dma 3 16 0>;
+			dma-names = "tx", "rx", "tx_ext", "rx_ext";
+			index = <0>;
+			mclk-multiple = <128>;
+			mclk-fixed-max = <0>;
+			multiio = <0>;
+			chn-len = <4>;
+			mono-stereo = <0>;
+			/* Selects the PLL domain; the rate is chosen per sample rate. */
+			clock-mode = <98304000>;
+			pll-tune = <0>;
+			status = "disabled";
+		};
+
+		/* SPORT1 pairs with the codec I2S1 port for the DMIC capture path. */
+		i2s1: i2s@4100e000 {
+			compatible = "realtek,ameba-i2s";
+			reg = <0x4100e000 0xa00>;
+			interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rcc AMEBA_SPORT1_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			dmas = <&dma 0 17 0>, <&dma 1 19 0>, <&dma 2 18 0>, <&dma 3 20 0>;
+			dma-names = "tx", "rx", "tx_ext", "rx_ext";
+			index = <1>;
+			mclk-multiple = <128>;
+			mclk-fixed-max = <0>;
+			multiio = <0>;
+			chn-len = <4>;
+			mono-stereo = <0>;
+			clock-mode = <98304000>;
+			pll-tune = <0>;
+			status = "disabled";
+		};
+
+		/* SPORT2 supports master and slave mode; SPORT0/1 are master only. */
+		i2s2: i2s@4100f000 {
+			compatible = "realtek,ameba-i2s";
+			reg = <0x4100f000 0xa00>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rcc AMEBA_SPORT2_CLK>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			dmas = <&dma 2 21 0>, <&dma 3 23 0>;
+			dma-names = "tx", "rx";
+			index = <2>;
+			mclk-multiple = <128>;
+			mclk-fixed-max = <0>;
+			/* Single DIN0/DOUT0 pair. */
+			multiio = <0>;
+			chn-len = <4>;
+			mono-stereo = <0>;
+			clock-mode = <98304000>;
+			pll-tune = <0>;
 			status = "disabled";
 		};
 
@@ -411,6 +508,17 @@
 			status = "disabled";
 		};
 
+		i2c0: i2c0@4200f000 {
+			compatible = "realtek,ameba-i2c";
+			reg = <0x4200f000 0x100>;
+			interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			clocks = <&rcc AMEBA_I2C0_CLK>;
+			clock-frequency = <I2C_BITRATE_STANDARD>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		adc: adc@42012000 {
 			compatible = "realtek,ameba-adc";
 			reg = <0x42012000 0xac>;
@@ -442,32 +550,6 @@
 				erase-block-size = <DT_SIZE_K(4)>;
 				write-block-size = <4>;
 			};
-		};
-
-		mipi_dsi: mipi-dsi@400ea000 {
-			compatible = "realtek,ameba-mipi-dsi";
-			reg = <0x400ea000 0x1000>;
-			clocks = <&rcc AMEBA_LCDC_CLK>;
-			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "disabled";
-		};
-
-		lcdc: lcdc@400d8000 {
-			compatible = "realtek,ameba-lcdc-dsi";
-			reg = <0x400d8000 0x8000>;
-			clocks = <&rcc AMEBA_LCDC_CLK>;
-			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			status = "disabled";
-		};
-
-		wdg: watchdog@410004c0 {
-			compatible = "realtek,ameba-watchdog";
-			reg = <0x410004c0 0x10>;
-			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			early-int-cnt = <500>;
-			status = "disabled";
 		};
 
 		gic: interrupt-controller@a0101000 {

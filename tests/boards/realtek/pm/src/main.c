@@ -61,6 +61,21 @@
 #include <cmsis_core.h>
 #endif
 
+/*
+ * The secure world keeps its session state across a power-gate only where the
+ * secure image is resumed rather than rebuilt: amebagreen2, which executes in
+ * place and is re-entered, and AmebaDplus, which is RAM-loaded and has its
+ * partitions' RAM preserved by the bootloader. Elsewhere it re-runs its reset
+ * vector and a volatile key does not outlive the sleep.
+ */
+#if defined(CONFIG_BUILD_WITH_TFM) &&                                                              \
+	(defined(CONFIG_SOC_SERIES_AMEBAG2) || defined(CONFIG_SOC_SERIES_AMEBADPLUS))
+#define PM_KEEPS_SECURE_SESSION 1
+#include <psa/crypto.h>
+#else
+#define PM_KEEPS_SECURE_SESSION 0
+#endif
+
 /* ------------------------------------------------- build-time invariants */
 
 BUILD_ASSERT(IS_ENABLED(CONFIG_PM), "these tests only mean anything with CONFIG_PM");
@@ -724,6 +739,20 @@ ZTEST(realtek_pm, test_suspend_to_ram_rtc)
 	pm_expect_sleep_cycle(PM_STATE_SUSPEND_TO_RAM);
 }
 
+#if PM_COVERS_CLOCK_GATE
+/*
+ * Clock-gating, which nothing else exercises: the residency policy only picks it
+ * for an idle window between its own residency and the deeper state's -- 5.0 to
+ * 7.5 ms as the devicetree stands -- so nothing else ever enters it, and on the
+ * TF-M split build it stayed broken for as long as it was uncovered.
+ */
+ZTEST(realtek_pm, test_suspend_to_idle_counter)
+{
+	counter_wake_arm();
+	pm_expect_sleep_cycle(PM_STATE_SUSPEND_TO_IDLE);
+}
+#endif
+
 /*
  * Repeated power-gating: on the Cortex-M SoCs the first resume used to leave
  * both caches off for good, which stretched the next sleep's gating handshake
@@ -743,6 +772,69 @@ ZTEST(realtek_pm, test_suspend_to_ram_repeated)
 		pm_expect_sleep_cycle(PM_STATE_SUSPEND_TO_RAM);
 	}
 }
+
+#if PM_KEEPS_SECURE_SESSION
+/*
+ * A volatile key lives in the crypto partition's own RAM with no persistent copy,
+ * so it is the sharpest probe for whether the secure world was resumed or
+ * rebuilt: a rebuilt one re-runs psa_crypto_init() and resets the key slots
+ * (measured -136, PSA_ERROR_INVALID_HANDLE).
+ *
+ * Checked through the ciphertext rather than the handle alone, since a slot that
+ * survived by address but lost its material would still accept the handle.
+ * AES-GCM is what the secure world is configured for.
+ */
+ZTEST(realtek_pm, test_volatile_key_survives_power_gate)
+{
+	static const uint8_t key_data[16] = {
+		0x0f, 0x1e, 0x2d, 0x3c, 0x4b, 0x5a, 0x69, 0x78,
+		0x87, 0x96, 0xa5, 0xb4, 0xc3, 0xd2, 0xe1, 0xf0,
+	};
+	static const uint8_t nonce[12] = {
+		0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb,
+	};
+	static const uint8_t plaintext[] = "ameba pm volatile key probe";
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+	uint8_t ct_before[sizeof(plaintext) + 16];
+	uint8_t ct_after[sizeof(plaintext) + 16];
+	size_t len_before;
+	size_t len_after;
+	psa_key_id_t key;
+	psa_status_t rc;
+
+	rc = psa_crypto_init();
+	zassert_equal(rc, PSA_SUCCESS, "psa_crypto_init: %d", rc);
+
+	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT);
+	psa_set_key_algorithm(&attr, PSA_ALG_GCM);
+	psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+	psa_set_key_bits(&attr, 8U * sizeof(key_data));
+	/* Lifetime is left at its default, which is volatile. */
+
+	rc = psa_import_key(&attr, key_data, sizeof(key_data), &key);
+	zassert_equal(rc, PSA_SUCCESS, "psa_import_key: %d", rc);
+
+	rc = psa_aead_encrypt(key, PSA_ALG_GCM, nonce, sizeof(nonce), NULL, 0, plaintext,
+			      sizeof(plaintext), ct_before, sizeof(ct_before), &len_before);
+	zassert_equal(rc, PSA_SUCCESS, "psa_aead_encrypt before the sleep: %d", rc);
+
+	counter_wake_arm();
+	pm_expect_sleep_cycle(PM_STATE_SUSPEND_TO_RAM);
+
+	rc = psa_aead_encrypt(key, PSA_ALG_GCM, nonce, sizeof(nonce), NULL, 0, plaintext,
+			      sizeof(plaintext), ct_after, sizeof(ct_after), &len_after);
+	zassert_equal(rc, PSA_SUCCESS,
+		      "the volatile key did not survive the power-gate (%d): the secure "
+		      "world was rebuilt rather than resumed",
+		      rc);
+	zassert_equal(len_before, len_after);
+	zassert_mem_equal(ct_before, ct_after, len_before,
+			  "the key slot survived the power-gate but its material did not");
+
+	rc = psa_destroy_key(key);
+	zassert_equal(rc, PSA_SUCCESS, "psa_destroy_key: %d", rc);
+}
+#endif
 
 static void *realtek_pm_setup(void)
 {
@@ -766,4 +858,32 @@ static void *realtek_pm_setup(void)
 	return NULL;
 }
 
-ZTEST_SUITE(realtek_pm, NULL, realtek_pm_setup, NULL, NULL, NULL);
+/*
+ * Put back the wake sources the case armed, so the next one sleeps on its own
+ * terms. Cancelling an alarm does not do it: a wakeup-source node is armed in the
+ * PMC once at boot, and the PMC decides what may wake the AP whether or not the
+ * peripheral's own interrupt is unmasked -- so a counter still free running, which
+ * is what counter_start() asks for and what cancelling its alarm deliberately does
+ * not undo, goes on producing wake events and takes the cases after it into never
+ * sleeping at all.
+ */
+static void realtek_pm_after(void *fixture)
+{
+	ARG_UNUSED(fixture);
+
+#if PM_HAS_WAKE_COUNTER
+	if (device_is_ready(counter_dev)) {
+		(void)counter_stop(counter_dev);
+	}
+#endif
+
+	/* A zero mask is how the RTC API spells "disable the alarm"; the callback is
+	 * dropped after it, so the alarm is never live without a handler.
+	 */
+	if (device_is_ready(rtc_dev)) {
+		(void)rtc_alarm_set_time(rtc_dev, 0, 0, NULL);
+		(void)rtc_alarm_set_callback(rtc_dev, 0, NULL, NULL);
+	}
+}
+
+ZTEST_SUITE(realtek_pm, NULL, realtek_pm_setup, NULL, realtek_pm_after, NULL);

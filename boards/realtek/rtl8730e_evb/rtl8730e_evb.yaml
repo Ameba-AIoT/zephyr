@@ -29,3 +29,5 @@ supported:
   - entropy
   - smp
   - pwm
+  - i2s
+  - dmic

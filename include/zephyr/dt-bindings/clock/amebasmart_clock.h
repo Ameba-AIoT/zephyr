@@ -97,6 +97,9 @@ extern "C" {
 /** PSRAM clock in HS domain */
 #define AMEBA_PSRAM_CLK   24
 
+/** AUDIO function enable in HS domain, gates the whole audio block */
+#define AMEBA_AUDIO_CLK   25
+
 /** AC clock in HS domain */
 #define AMEBA_AC_CLK      26
 
@@ -381,7 +384,25 @@ extern "C" {
 /**
  * @brief AC clock peripheral mapping.
  */
-#define AMEBA_AC_PERIPHS      AMEBA_SINGLE_PERIPH(AC)             /* AMEBA_AC_CLK */
+#define AMEBA_AC_PERIPHS                                                                           \
+	[AMEBA_AC_CLK] = {                                                                         \
+		.parent = AMEBA_AUDIO_CLK,                                                         \
+		.cke = APBPeriph_AC_CLOCK,                                                         \
+		.fen = APBPeriph_AC,                                                               \
+	},
+
+/**
+ * @brief AUDIO root function-enable mapping.
+ *
+ * Parent of AMEBA_AC_CLK: APBPeriph_AUDIO gates the audio island that the codec
+ * sits on, and has no CKE bit of its own.
+ */
+#define AMEBA_AUDIO_PERIPHS                                                                        \
+	[AMEBA_AUDIO_CLK] = {                                                                      \
+		.parent = AMEBA_RCC_NO_PARENT,                                                     \
+		.cke = APBPeriph_CLOCK_NULL,                                                       \
+		.fen = APBPeriph_AUDIO,                                                            \
+	},
 
 /**
  * @brief IRDA clock peripheral mapping.
@@ -494,6 +515,7 @@ extern "C" {
 	AMEBA_WLON_PERIPHS                                                                         \
 	AMEBA_PSRAM_PERIPHS                                                                        \
 	AMEBA_AC_PERIPHS                                                                           \
+	AMEBA_AUDIO_PERIPHS                                                                        \
 	AMEBA_IRDA_PERIPHS                                                                         \
 	AMEBA_ECDSA_PERIPHS                                                                        \
 	AMEBA_ED25519_PERIPHS                                                                      \

@@ -32,6 +32,8 @@ properties:
     enum:
       - 0 # i2s0
       - 1 # i2s1
+      - 2 # i2s2 (AmebaSmart SPORT2)
+      - 3 # i2s3 (AmebaSmart SPORT3)
 
   mclk-multiple:
     type: int

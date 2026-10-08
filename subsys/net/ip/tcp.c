@@ -74,12 +74,8 @@ static sys_slist_t tcp_conns = SYS_SLIST_STATIC_INIT(&tcp_conns);
 
 static K_MUTEX_DEFINE(tcp_lock);
 
-/* struct tcp embeds k_work_delayable; k_work_init_delayable() compiles
- * to a NEON VST1.8 with a :64 alignment hint, so the slab must be
- * 8-byte aligned to avoid an Alignment Fault on ARMv7-A.
- */
 K_MEM_SLAB_DEFINE_STATIC(tcp_conns_slab, sizeof(struct tcp),
-				CONFIG_NET_MAX_CONTEXTS, 8);
+				CONFIG_NET_MAX_CONTEXTS, 4);
 
 static struct k_work_q tcp_work_q;
 static K_KERNEL_STACK_DEFINE(work_q_stack, CONFIG_NET_TCP_WORKQ_STACK_SIZE);

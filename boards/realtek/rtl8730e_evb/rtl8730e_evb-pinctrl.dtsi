@@ -68,6 +68,47 @@
 		};
 	};
 
+	/* I2S0 / SPORT0 (0x4100D000). */
+	i2s0_default: i2s0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 14, AMEBA_I2S0)>,  /* MCLK  */
+				 <AMEBA_PINMUX('B', 15, AMEBA_I2S0)>,  /* BCLK  */
+				 <AMEBA_PINMUX('B', 16, AMEBA_I2S0)>,  /* WS    */
+				 <AMEBA_PINMUX('B', 17, AMEBA_I2S0)>;  /* DATA0 */
+		};
+	};
+
+	/* I2S1 / SPORT1 (0x4100E000). */
+	i2s1_default: i2s1_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B',  7, AMEBA_I2S1)>,  /* MCLK  */
+				 <AMEBA_PINMUX('B',  8, AMEBA_I2S1)>,  /* BCLK  */
+				 <AMEBA_PINMUX('B',  9, AMEBA_I2S1)>,  /* WS    */
+				 <AMEBA_PINMUX('B', 10, AMEBA_I2S1)>;  /* DATA0 */
+			bias-disable;
+		};
+	};
+
+	/* I2S2 / SPORT2 (0x4100F000), pinmux group1. */
+	i2s2_default: i2s2_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 21, AMEBA_I2S2)>,  /* BCLK  */
+				 <AMEBA_PINMUX('B', 22, AMEBA_I2S2)>,  /* MCLK  */
+				 <AMEBA_PINMUX('A', 16, AMEBA_I2S2)>,  /* WS    */
+				 <AMEBA_PINMUX('B', 25, AMEBA_I2S2)>,  /* DOUT0 */
+				 <AMEBA_PINMUX('B', 29, AMEBA_I2S2)>;  /* DIN0  */
+			bias-disable;
+		};
+	};
+
+	dmic_default: dmic_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 22, AMEBA_DMIC)>,  /* CLK   */
+				 <AMEBA_PINMUX('B', 21, AMEBA_DMIC)>;  /* DATA0 */
+			bias-disable;
+		};
+	};
+
 	i2c0_default: i2c0_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A',  9, AMEBA_I2C)>,  /* SDA */
@@ -95,6 +136,18 @@
 	pwm0_default: pwm0_default {
 		group1 {
 			pinmux = <AMEBA_PINMUX('A', 7, AMEBA_PWM)>; /* Channel 0 Output Pin */
+			bias-pull-up;
+		};
+	};
+
+	sdhc0_default: sdhc0_default {
+		group1 {
+			pinmux = <AMEBA_PINMUX('B', 28, AMEBA_SDIOH)>,  /* CLK */
+				 <AMEBA_PINMUX('B', 27, AMEBA_SDIOH)>,  /* CMD */
+				 <AMEBA_PINMUX('B', 29, AMEBA_SDIOH)>,  /* D0 */
+				 <AMEBA_PINMUX('B', 30, AMEBA_SDIOH)>,  /* D1 */
+				 <AMEBA_PINMUX('B', 25, AMEBA_SDIOH)>,  /* D2 */
+				 <AMEBA_PINMUX('B', 26, AMEBA_SDIOH)>;  /* D3 */
 			bias-pull-up;
 		};
 	};

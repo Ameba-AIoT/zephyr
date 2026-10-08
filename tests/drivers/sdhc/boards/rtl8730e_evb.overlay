@@ -18,6 +18,6 @@
 &sdhc0 {
 	pinctrl-0 = <&sdhc0_default>;
 	pinctrl-names = "default";
-	cd-gpios = <&gpiob 19 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	cd-gpios = <&gpioc 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 	status = "okay";
 };

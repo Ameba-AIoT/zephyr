@@ -13,7 +13,7 @@ config SOC_SERIES
 config SOC_RTL8730E_CA32
 	bool
 	select SOC_SERIES_AMEBASMART
-	select CPU_HAS_NEON
+	# select CPU_HAS_NEON
 	select VFP_DP_D32_FP16_FMAC
 
 config SOC_RTL8730E_KM4

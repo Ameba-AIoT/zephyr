@@ -19,12 +19,33 @@ set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
 
 if(CONFIG_SOC_SERIES_AMEBAG2)
     set(boot_text_start "__km4tz_boot_text_start__")
+    # AP_BOOT_INDEX: the ROM takes the loader entry from this header
     set(header_value "0x01010101")
     set(ram_1_symbol "${boot_text_start}")
 else()
     set(boot_text_start "__km4_boot_text_start__")
     set(header_value "0xFFFFFFFF")
     set(ram_1_symbol "__ram_start_table_start__")
+endif()
+
+# Emit only the sub-images the ROM walks (amebasmart 1, amebadplus/amebagreen2 2).
+# Secure boot hashes the sub-images the ROM walked, so an extra one breaks it.
+if(CONFIG_SOC_SERIES_AMEBASMART)
+    set(ram_1_cmds "")
+    set(image1_parts ${td}/xip_boot_prepend.bin)
+else()
+    set(ram_1_cmds
+        # 5. extract ram_1
+        COMMAND ${CMAKE_OBJCOPY} -O binary --only-section=.ram_image1.entry
+            ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${td}/ram_1.bin
+        # 6. prepend header to ram_1
+        COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py --post-build-dir ${td} prepend_header
+            --output-file ${td}/ram_1_prepend.bin
+            --input-file ${td}/ram_1.bin
+            --map-file ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
+            --symbol ${ram_1_symbol}
+    )
+    set(image1_parts ${td}/xip_boot_prepend.bin ${td}/ram_1_prepend.bin)
 endif()
 
 set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
@@ -52,19 +73,11 @@ set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
         --map-file ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
         --symbol ${boot_text_start}
         --boot-index ${header_value}
-    # 5. extract ram_1
-    COMMAND ${CMAKE_OBJCOPY} -O binary --only-section=.ram_image1.entry
-        ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} ${td}/ram_1.bin
-    # 6. prepend header to ram_1
-    COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py --post-build-dir ${td} prepend_header
-        --output-file ${td}/ram_1_prepend.bin
-        --input-file ${td}/ram_1.bin
-        --map-file ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.raw.map
-        --symbol ${ram_1_symbol}
+    # 5-6. extract ram_1 and prepend its header (only where the ROM walks 2 sub-images)
+    ${ram_1_cmds}
     # 7. concat
     COMMAND ${CMAKE_COMMAND} -E cat
-        ${td}/xip_boot_prepend.bin
-        ${td}/ram_1_prepend.bin
+        ${image1_parts}
         > ${td}/xip_ram_boot.bin
     # 8. fw pack
     COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_HAL_REALTEK_MODULE_DIR}/ameba/scripts/axf2bin.py --post-build-dir ${td} fw_pack

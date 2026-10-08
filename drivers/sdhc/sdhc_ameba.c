@@ -1,30 +1,31 @@
 /*
- * Copyright (c) 2024 Realtek Semiconductor Corp.
+ * Copyright (c) 2026 Realtek Semiconductor Corp.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT realtek_ameba_sdhc
+#define DT_DRV_COMPAT realtek_ameba_sdhost
 
 /* Include <soc.h> before <ameba_soc.h> to avoid redefining unlikely() macro */
-#include <ameba_soc.h>
 #include <soc.h>
+#include <ameba_soc.h>
 
 #include <zephyr/cache.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/ameba_clock_control.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pinctrl.h>
-#include <zephyr/drivers/reset.h>
 #include <zephyr/drivers/sdhc.h>
 #include <zephyr/kernel.h>
-
-#include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/device_runtime.h>
 #include <zephyr/pm/policy.h>
+
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(sdhc_ameba, CONFIG_SDHC_LOG_LEVEL);
+
 typedef void (*irq_config_func_t)(void);
+typedef int (*sd_sema_fn_t)(uint32_t timeout_ms);
 
 struct sdhc_ameba_config {
 	unsigned int max_freq;             /* Max bus frequency in Hz */
@@ -34,6 +35,8 @@ struct sdhc_ameba_config {
 	uint32_t reg_addr;                 /* Base address of the SDIO peripheral register block */
 	SD_HdlTypeDef *hsd;                /* Pointer to SDIO HAL handle */
 	irq_config_func_t irq_config_func; /* IRQ config function */
+	sd_sema_fn_t sem_take_fn;          /* Per-instance semaphore take callback */
+	sd_sema_fn_t sem_give_isr_fn;      /* Per-instance semaphore give-from-ISR callback */
 	struct gpio_dt_spec cd_gpio;       /* Card detect GPIO pin */
 	const struct pinctrl_dev_config *pcfg; /* Pointer to pin control configuration */
 	const struct device *clock_dev;
@@ -41,24 +44,23 @@ struct sdhc_ameba_config {
 };
 
 struct sdhc_ameba_data {
-	struct k_mutex bus_mutex;     /* Sync between commands */
+	struct k_mutex bus_mutex; /* Sync between commands */
+	struct k_sem transfer_sem;
 	struct sdhc_io host_io;       /* Input/Output host configuration */
-	uint32_t cmd_index;           /* current command opcode */
 	struct sdhc_host_props props; /* current host properties */
 };
 
 static int sdhc_ameba_activate(const struct device *dev)
 {
 	int ret;
-	const struct sdhc_ameba_config *config = (struct sdhc_ameba_config *)dev->config;
+	const struct sdhc_ameba_config *config = dev->config;
 
 	if (!device_is_ready(config->clock_dev)) {
 		LOG_ERR("Clock control device not ready");
 		return -ENODEV;
 	}
 
-	RCC_PeriphClockSourceSet(SDH, SYS_PLL);
-	RCC_PeriphClockDividerFENSet(SYS_PLL_SDH, 1);
+	SDIO_ClockSourceInit();
 
 	ret = clock_control_on(config->clock_dev, config->clock_subsys);
 	if (ret < 0 && ret != -EALREADY) {
@@ -93,7 +95,7 @@ static int sdhc_ameba_sd_init(const struct device *dev)
 		return -EIO;
 	}
 
-	if (SDIOH_Init(hsd->Instance) != HAL_OK) {
+	if (SDIO_HostInit(hsd->Instance) != HAL_OK) {
 		LOG_ERR("Failed to initialize the SDIO device");
 		return -EIO;
 	}
@@ -103,7 +105,7 @@ static int sdhc_ameba_sd_init(const struct device *dev)
 
 static void sdhc_ameba_init_props(const struct device *dev)
 {
-	const struct sdhc_ameba_config *sdhc_config = (const struct sdhc_ameba_config *)dev->config;
+	const struct sdhc_ameba_config *sdhc_config = dev->config;
 	struct sdhc_ameba_data *data = dev->data;
 	struct sdhc_host_props *props = &data->props;
 
@@ -115,19 +117,17 @@ static void sdhc_ameba_init_props(const struct device *dev)
 	props->host_caps.vol_330_support = true;
 	props->host_caps.vol_180_support = false;
 	props->host_caps.bus_8_bit_support = false;
-	props->host_caps.high_spd_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
+	props->host_caps.high_spd_support = true;
 	props->bus_4_bit_support = (sdhc_config->bus_width == SDHC_BUS_WIDTH4BIT);
 	props->is_spi = false;
 }
 
 static int sdhc_ameba_card_busy(const struct device *dev)
 {
-	LOG_DBG("[%s]", __func__);
-
 	const struct sdhc_ameba_config *config = dev->config;
 
 	if (config->hsd->State == SD_STATE_BUSY) {
-		LOG_INF("busy");
+		LOG_DBG("busy");
 	}
 
 	return (config->hsd->State == SD_STATE_BUSY);
@@ -135,11 +135,9 @@ static int sdhc_ameba_card_busy(const struct device *dev)
 
 static int sdhc_ameba_reset(const struct device *dev)
 {
-	LOG_DBG("[%s]", __func__);
-
 	struct sdhc_ameba_data *data = dev->data;
 	const struct sdhc_ameba_config *config = dev->config;
-	u32 res;
+	uint32_t res;
 
 	(void)pm_device_runtime_get(dev);
 	/* Prevent the clocks to be stopped during the request */
@@ -165,6 +163,67 @@ static int sdhc_ameba_reset(const struct device *dev)
 	return res == 0U ? 0 : -EIO;
 }
 
+static int sdhc_ameba_set_data_dir(const struct sdhc_command *cmd,
+				   SDIO_DataInitTypeDef *data_config)
+{
+	switch (cmd->opcode) {
+	case SD_SWITCH:                   /* CMD6 */
+	case MMC_SEND_EXT_CSD:            /* CMD8 for MMC */
+	case SD_READ_SINGLE_BLOCK:        /* CMD17 */
+	case SD_READ_MULTIPLE_BLOCK:      /* CMD18 */
+	case SD_APP_SEND_NUM_WRITTEN_BLK: /* ACMD22 */
+	case SD_APP_SEND_SCR:             /* ACMD51 */
+		data_config->TransDir = SDIO_TRANS_CARD_TO_HOST;
+		break;
+	case SD_WRITE_SINGLE_BLOCK:   /* CMD24 */
+	case SD_WRITE_MULTIPLE_BLOCK: /* CMD25 */
+		data_config->TransDir = SDIO_TRANS_HOST_TO_CARD;
+		break;
+	case SDIO_RW_EXTENDED: /* CMD53 */
+		if (cmd->arg & BIT(SDIO_CMD_ARG_RW_SHIFT)) {
+			data_config->TransDir = SDIO_TRANS_HOST_TO_CARD; /* write */
+		} else {
+			data_config->TransDir = SDIO_TRANS_CARD_TO_HOST; /* read */
+		}
+		break;
+	default:
+		LOG_ERR("Unsupported CMD%d!", cmd->opcode);
+		return -ENOTSUP;
+	}
+	return 0;
+}
+
+static int sdhc_ameba_finish_data_transfer(const struct sdhc_ameba_config *config,
+					   struct sdhc_data *data)
+{
+	if (SD_WaitTransDone(config->hsd, data->timeout_ms * 1000) != HAL_OK) {
+		LOG_ERR("WaitTransDone error!");
+		return -EBUSY;
+	}
+
+	/* Invalidate cache for the received data buffer */
+	LOG_DBG("cache_inva operation: 0x%x(%dbyte)", (uint32_t)data->data,
+		data->block_size * data->blocks);
+	DCache_Invalidate((uint32_t)data->data, data->block_size * data->blocks);
+
+	return 0;
+}
+
+static void sdhc_ameba_read_resp(const struct sdhc_ameba_config *config, struct sdhc_command *cmd)
+{
+	cmd->response[0] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP0);
+	cmd->response[1] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP1);
+	cmd->response[2] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP2);
+	cmd->response[3] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP3);
+
+	if (cmd->opcode == SD_ALL_SEND_CID || cmd->opcode == SD_SEND_CSD) {
+		cmd->response[3] = (cmd->response[3] << 8) | ((cmd->response[2] >> 24) & 0xFF);
+		cmd->response[2] = (cmd->response[2] << 8) | ((cmd->response[1] >> 24) & 0xFF);
+		cmd->response[1] = (cmd->response[1] << 8) | ((cmd->response[0] >> 24) & 0xFF);
+		cmd->response[0] = cmd->response[0] << 8;
+	}
+}
+
 static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd,
 			      struct sdhc_data *data)
 {
@@ -175,9 +234,6 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 	const struct sdhc_ameba_config *config = dev->config;
 	SDIO_CmdInitTypeDef sdmmc_cmdinit;
 	SDIO_DataInitTypeDef data_config;
-	/* 512byte */
-	u8 align_buf[512] __aligned(CACHE_LINE_SIZE);
-	u8 align_buf_alloc = 0;
 
 	__ASSERT_NO_MSG(cmd != NULL);
 
@@ -195,8 +251,6 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 	/* Prevent the clocks to be stopped during the request */
 	pm_policy_state_lock_get(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
 
-	dev_data->cmd_index = cmd->opcode;
-
 	sdmmc_cmdinit.CmdIndex = cmd->opcode;
 	sdmmc_cmdinit.Argument = cmd->arg;
 	/* Native response types (lower 4 bits) */
@@ -213,6 +267,10 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 	}
 
 	if (data) {
+		__ASSERT(((uintptr_t)data->data % CACHE_LINE_SIZE) == 0,
+			 "data->data buffer must be aligned to CACHE_LINE_SIZE (%d)",
+			 CACHE_LINE_SIZE);
+
 		data_config.AutoCmdEn = SDIO_TRANS_AUTO_DIS;
 		data_config.BlockSize = data->block_size;
 		data_config.BlockCnt = data->blocks;
@@ -222,47 +280,18 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 			data_config.TransType = SDIO_TRANS_SINGLE_BLK;
 		}
 		data_config.DmaEn = SDIO_TRANS_DMA_EN;
-		switch (cmd->opcode) {
-		case SD_SWITCH:                   /* CMD6 */
-		case MMC_SEND_EXT_CSD:            /* CMD8 for MMC */
-		case SD_READ_SINGLE_BLOCK:        /* CMD17 */
-		case SD_READ_MULTIPLE_BLOCK:      /* CMD18 */
-		case SD_APP_SEND_NUM_WRITTEN_BLK: /* ACMD22 */
-		case SD_APP_SEND_SCR:             /* ACMD51 */
-			data_config.TransDir = SDIO_TRANS_CARD_TO_HOST;
-			break;
-		case SD_WRITE_SINGLE_BLOCK:   /* CMD24 */
-		case SD_WRITE_MULTIPLE_BLOCK: /* CMD25 */
-			data_config.TransDir = SDIO_TRANS_HOST_TO_CARD;
-			break;
-		case SDIO_RW_EXTENDED: /* CMD53 */
-			if (cmd->arg & BIT(SDIO_CMD_ARG_RW_SHIFT)) {
-				data_config.TransDir = SDIO_TRANS_HOST_TO_CARD; /* write */
-			} else {
-				data_config.TransDir = SDIO_TRANS_CARD_TO_HOST; /* read */
-			}
-			break;
-		default:
-			LOG_ERR("Unsupported CMD%d!", cmd->opcode);
-			res = -ENOTSUP;
+
+		res = sdhc_ameba_set_data_dir(cmd, &data_config);
+		if (res != 0) {
+			LOG_ERR("CMD%d Failed!", cmd->opcode);
+			goto out;
 		}
 
-		/* unaligned buffer addr */
-		LOG_DBG("CACHE_LINE_SIZE %d", CACHE_LINE_SIZE);
-		if ((((uintptr_t)data->data) & (CACHE_LINE_SIZE - 1)) != 0) {
-			align_buf_alloc = 1;
-			if (data->block_size * data->blocks > 512) {
-				LOG_ERR("%s: buf size over 512!!!", __func__);
-			}
-			DCache_CleanInvalidate((u32)align_buf, data->block_size * data->blocks);
-			memcpy(align_buf, data->data, data->block_size * data->blocks);
-		} else {
-			DCache_CleanInvalidate((u32)data->data, data->block_size * data->blocks);
-		}
+		DCache_CleanInvalidate((uint32_t)data->data, data->block_size * data->blocks);
 
 		/* SD_TransPreCheck */
 		/* disable all the normal int without err int */
-		SDIO_ConfigNormIntSig(config->hsd->Instance, 0xFFFFFFFF, DISABLE);
+		SDIO_ConfigNormIntSig(config->hsd->Instance, 0xFFFFFFFFU, DISABLE);
 		/* clear old flags */
 		SDIO_ClearNormSts(config->hsd->Instance, SDIO_GetNormSts(config->hsd->Instance));
 
@@ -270,61 +299,37 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 		config->hsd->State = SD_STATE_BUSY;
 		config->hsd->Context = SD_CONTEXT_DMA;
 		if (cmd->opcode == SD_READ_MULTIPLE_BLOCK) { /* CMD18 */
-			config->hsd->Context |= SD_CONTEXT_WRITE_MULTIPLE_BLOCK;
-		} else if (cmd->opcode == SD_WRITE_MULTIPLE_BLOCK) { /* CMD25 */
 			config->hsd->Context |= SD_CONTEXT_READ_MULTIPLE_BLOCK;
+		}
+		if (cmd->opcode == SD_WRITE_MULTIPLE_BLOCK) { /* CMD25 */
+			config->hsd->Context |= SD_CONTEXT_WRITE_MULTIPLE_BLOCK;
 		}
 
 		SDIO_ConfigData(config->hsd->Instance, &data_config);
-		if (!align_buf_alloc) {
-			res = SDIO_ConfigDMA(config->hsd->Instance, SDIO_SDMA_MODE,
-					     (u32)data->data);
-		} else {
-			res = SDIO_ConfigDMA(config->hsd->Instance, SDIO_SDMA_MODE, (u32)align_buf);
+
+		res = SDIO_ConfigDMA(config->hsd->Instance, SDIO_SDMA_MODE, (uint32_t)data->data);
+		if (res != 0) {
+			LOG_ERR("CMD%d Failed!", cmd->opcode);
+			goto out;
 		}
 
 		SD_PreDMATrans(config->hsd);
 	}
+
 	SDIO_SendCommand(config->hsd->Instance, &sdmmc_cmdinit);
 	res = SDIO_WaitResp(config->hsd->Instance, sdmmc_cmdinit.RespType, cmd->timeout_ms * 1000);
 	if (res == 0 && data) {
-		if (SD_WaitTransDone(config->hsd, data->timeout_ms * 1000) != HAL_OK) {
-			LOG_ERR("%s WaitTransDone error!", __func__);
-			res = -EBUSY;
-		} else {
-			/* enable SDIOHOST_BIT_CARD_INT_SIGNAL_EN int */
-			if (!align_buf_alloc) {
-				LOG_DBG("cache_inva operation: 0x%x(%dbyte)", (u32)data->data,
-					data->block_size * data->blocks);
-				DCache_Invalidate((u32)data->data, data->block_size * data->blocks);
-			} else {
-				LOG_DBG("cache_inva operation: 0x%x(%dbyte)", (u32)align_buf,
-					data->block_size * data->blocks);
-				DCache_Invalidate((u32)align_buf, data->block_size * data->blocks);
-				memcpy(data->data, align_buf, data->block_size * data->blocks);
-			}
-		}
+
+		res = sdhc_ameba_finish_data_transfer(config, data);
 	}
 
 	if (res != 0) {
 		LOG_ERR("CMD%d Failed!", cmd->opcode);
 	} else {
-		cmd->response[0] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP0);
-		cmd->response[1] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP1);
-		cmd->response[2] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP2);
-		cmd->response[3] = SDIO_GetResponse(config->hsd->Instance, SDIO_RESP3);
-
-		if (cmd->opcode == SD_ALL_SEND_CID || cmd->opcode == SD_SEND_CSD) {
-			cmd->response[3] =
-				(cmd->response[3] << 8) | ((cmd->response[2] >> 24) & 0xFF);
-			cmd->response[2] =
-				(cmd->response[2] << 8) | ((cmd->response[1] >> 24) & 0xFF);
-			cmd->response[1] =
-				(cmd->response[1] << 8) | ((cmd->response[0] >> 24) & 0xFF);
-			cmd->response[0] = cmd->response[0] << 8;
-		}
+		sdhc_ameba_read_resp(config, cmd);
 	}
 
+out:
 	pm_policy_state_lock_put(PM_STATE_SUSPEND_TO_IDLE, PM_ALL_SUBSTATES);
 	(void)pm_device_runtime_put(dev);
 	k_mutex_unlock(&dev_data->bus_mutex);
@@ -334,8 +339,6 @@ static int sdhc_ameba_request(const struct device *dev, struct sdhc_command *cmd
 
 static int sdhc_ameba_get_card_present(const struct device *dev)
 {
-	LOG_DBG("[%s]", __func__);
-
 	int res = 0;
 	struct sdhc_ameba_data *dev_data = dev->data;
 	const struct sdhc_ameba_config *config = dev->config;
@@ -364,8 +367,6 @@ static int sdhc_ameba_get_card_present(const struct device *dev)
 
 static int sdhc_ameba_get_host_props(const struct device *dev, struct sdhc_host_props *props)
 {
-	LOG_DBG("[%s]", __func__);
-
 	struct sdhc_ameba_data *data = dev->data;
 
 	memcpy(props, &data->props, sizeof(struct sdhc_host_props));
@@ -374,7 +375,6 @@ static int sdhc_ameba_get_host_props(const struct device *dev, struct sdhc_host_
 
 static int sdhc_ameba_set_io(const struct device *dev, struct sdhc_io *ios)
 {
-	LOG_DBG("[%s]", __func__);
 	int res = 0;
 	struct sdhc_ameba_data *data = dev->data;
 	const struct sdhc_ameba_config *config = dev->config;
@@ -430,7 +430,7 @@ out:
 	return res;
 }
 
-void sdhc_ameba_event_isr(void *param)
+static void sdhc_ameba_event_isr(void *param)
 {
 	const struct device *dev = (struct device *)param;
 	const struct sdhc_ameba_config *config = dev->config;
@@ -440,8 +440,6 @@ void sdhc_ameba_event_isr(void *param)
 
 static int sdhc_ameba_init(const struct device *dev)
 {
-	LOG_DBG("[%s]", __func__);
-
 	int ret;
 	struct sdhc_ameba_data *data = dev->data;
 	const struct sdhc_ameba_config *config = dev->config;
@@ -479,6 +477,8 @@ static int sdhc_ameba_init(const struct device *dev)
 	config->irq_config_func();
 
 	k_mutex_init(&data->bus_mutex);
+	k_sem_init(&data->transfer_sem, 0, 1);
+	SD_SetSema(config->sem_take_fn, config->sem_give_isr_fn);
 
 	return ret;
 }
@@ -500,14 +500,32 @@ static DEVICE_API(sdhc, sdhc_ameba_driver_api) = {
 		irq_enable(DT_INST_IRQN(index));                                                   \
 	}
 
+#define AMEBA_SDHC_SEM_HANDLER(index)                                                              \
+	static int sdhc_ameba_sem_take_##index(uint32_t timeout_ms)                                \
+	{                                                                                          \
+		return k_sem_take(&sdhc_ameba_data_##index.transfer_sem, K_MSEC(timeout_ms)) == 0  \
+			       ? RTK_SUCCESS                                                       \
+			       : RTK_FAIL;                                                         \
+	}                                                                                          \
+	static int sdhc_ameba_sem_give_isr_##index(uint32_t timeout_ms)                            \
+	{                                                                                          \
+		ARG_UNUSED(timeout_ms);                                                            \
+		k_sem_give(&sdhc_ameba_data_##index.transfer_sem);                                 \
+		return RTK_SUCCESS;                                                                \
+	}
+
 #define SDHC_AMEBA_INIT(index)                                                                     \
 	PINCTRL_DT_INST_DEFINE(index);                                                             \
 	AMEBA_SDHC_IRQ_HANDLER(index)                                                              \
 	static SD_HdlTypeDef hsd_##index;                                                          \
+	static struct sdhc_ameba_data sdhc_ameba_data_##index;                                     \
+	AMEBA_SDHC_SEM_HANDLER(index)                                                              \
 	static const struct sdhc_ameba_config sdhc_ameba_config_##index = {                        \
 		.hsd = &hsd_##index,                                                               \
 		.reg_addr = DT_INST_REG_ADDR(index),                                               \
 		.irq_config_func = sdhc_ameba_irq_config_func_##index,                             \
+		.sem_take_fn = sdhc_ameba_sem_take_##index,                                        \
+		.sem_give_isr_fn = sdhc_ameba_sem_give_isr_##index,                                \
 		.bus_width = DT_INST_PROP(index, bus_width),                                       \
 		.power_delay_ms = DT_INST_PROP(index, power_delay_ms),                             \
 		.min_freq = DT_INST_PROP(index, min_bus_freq),                                     \
@@ -517,7 +535,6 @@ static DEVICE_API(sdhc, sdhc_ameba_driver_api) = {
 		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(index)),                            \
 		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(index, idx),           \
 	};                                                                                         \
-	static struct sdhc_ameba_data sdhc_ameba_data_##index;                                     \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(index, sdhc_ameba_init, NULL, &sdhc_ameba_data_##index,              \
 			      &sdhc_ameba_config_##index, POST_KERNEL, CONFIG_SDHC_INIT_PRIORITY,  \
