@@ -297,6 +297,14 @@
 			status = "disabled";
 		};
 
+		otp: otp@40800000 {
+			compatible = "realtek,ameba-otp";
+			reg = <0x40800000 0x8000>;
+			label = "otp";
+			size = <0x800>;
+			status = "disabled";
+		};
+
 		pinctrl: pinctrl@4080a800 {
 			compatible = "realtek,ameba-pinctrl";
 			reg = <0x4080a800 0x200>;

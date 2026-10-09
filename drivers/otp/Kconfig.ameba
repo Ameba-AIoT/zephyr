@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+config OTP_AMEBA
+	bool "Realtek Ameba OTP driver"
+	default y
+	depends on DT_HAS_REALTEK_AMEBA_OTP_ENABLED
+	help
+	  Enable the driver for the OTP physical area of Realtek Ameba SoCs.

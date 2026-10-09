@@ -242,6 +242,14 @@
 			status = "disabled";
 		};
 
+		otp: otp@41000000 {
+			compatible = "realtek,ameba-otp";
+			reg = <0x41000000 0x8000>;
+			label = "otp";
+			size = <0x800>;
+			status = "disabled";
+		};
+
 		ledc: ledc@41008000 {
 			compatible = "realtek,ameba-ledc";
 			reg = <0x41008000 0x100>;

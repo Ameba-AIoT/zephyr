@@ -370,6 +370,14 @@
 			status = "disabled";
 		};
 
+		otp: otp@42000000 {
+			compatible = "realtek,ameba-otp";
+			reg = <0x42000000 0x8000>;
+			label = "otp";
+			size = <0x800>;
+			status = "disabled";
+		};
+
 		rcc: rcc@42008000 {
 			compatible = "realtek,ameba-rcc";
 			#clock-cells = <1>;
