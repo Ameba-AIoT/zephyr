@@ -1382,6 +1382,21 @@ int shell_execute_cmd(const struct shell *sh, const char *cmd);
  */
 int shell_set_root_cmd(const char *cmd);
 
+/**
+ * @brief Raw command line hook, see CONFIG_SHELL_RAW_LINE_HOOK.
+ *
+ * Called in command context with each command line before it is split into
+ * arguments.
+ *
+ * @param[in] sh	Pointer to the shell instance.
+ * @param[in] line	NUL-terminated command line; may be modified.
+ * @param[out] ret	Command return value, used when the line is handled.
+ *
+ * @retval true		Line handled, skip normal command processing.
+ * @retval false	Process the line as a regular shell command.
+ */
+bool shell_raw_line_hook(const struct shell *sh, char *line, int *ret);
+
 /** @brief Set bypass callback.
  *
  * Bypass callback is called whenever data is received. Shell is bypassed and

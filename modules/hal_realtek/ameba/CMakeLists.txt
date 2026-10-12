@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory_ifdef(CONFIG_REALTEK_AMEBA_OS_WRAPPER os_wrapper)
+add_subdirectory_ifdef(CONFIG_REALTEK_AMEBA_AT_SHELL at_cmd)
 
 # west sign
 

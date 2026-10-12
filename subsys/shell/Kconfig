@@ -151,6 +151,13 @@ config SHELL_WILDCARD
 	help
 	  Enables using wildcards: * and ? in the shell.
 
+config SHELL_RAW_LINE_HOOK
+	bool "Raw command line hook"
+	help
+	  Pass each command line to shell_raw_line_hook() before it is split
+	  into arguments, e.g. to accept AT commands at the prompt. The hook
+	  must be provided elsewhere.
+
 config SHELL_MSG_CMD_NOT_FOUND
 	bool "': command not found' message in the shell"
 	default y

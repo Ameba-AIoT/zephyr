@@ -657,6 +657,23 @@ static int execute(const struct shell *sh)
 			    sh->ctx->cmd_buff_len);
 	}
 
+#if defined(CONFIG_SHELL_RAW_LINE_HOOK)
+	{
+		bool handled;
+		int ret_val = 0;
+
+		/* Same context as a command handler, see exec_cmd() */
+		z_flag_cmd_ctx_set(sh, true);
+		z_shell_unlock(sh);
+		handled = shell_raw_line_hook(sh, sh->ctx->cmd_buff, &ret_val);
+		z_shell_lock(sh);
+		z_flag_cmd_ctx_set(sh, false);
+		if (handled) {
+			return ret_val;
+		}
+	}
+#endif
+
 	if (IS_ENABLED(CONFIG_SHELL_WILDCARD)) {
 		z_shell_wildcard_prepare(sh);
 	}

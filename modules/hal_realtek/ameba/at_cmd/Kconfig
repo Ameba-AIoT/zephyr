@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Realtek Semiconductor Corp.
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig REALTEK_AMEBA_AT_SHELL
+	bool "Realtek Ameba AT commands at the shell prompt"
+	depends on SHELL
+	depends on !SOC_SERIES_AMEBAD
+	depends on HEAP_MEM_POOL_SIZE > 0
+	select SHELL_RAW_LINE_HOOK
+	help
+	  Accept AT commands such as "AT+SEC=RSIP_EN,temp" at the shell
+	  prompt. Lines starting with "AT+" go to the AT parser, other
+	  lines are shell commands. Provides shell_raw_line_hook().
+
+if REALTEK_AMEBA_AT_SHELL
+
+config ATCMD_SECURE
+	bool "AT+SEC: RSIP/Secure Boot/RDP/HUK OTP programming"
+	default y
+	help
+	  AT+SEC: RSIP, Secure Boot, RDP and HUK keys and enables. Most
+	  sub-commands are irreversible OTP writes.
+
+endif # REALTEK_AMEBA_AT_SHELL

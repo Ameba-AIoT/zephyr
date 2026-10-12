@@ -22,3 +22,5 @@ config REALTEK_AMEBA_OS_WRAPPER_DEFERRED_POOL_SIZE
 	  os_if_deferred logs "pool exhausted".
 
 endif # REALTEK_AMEBA_OS_WRAPPER
+
+rsource "at_cmd/Kconfig"
