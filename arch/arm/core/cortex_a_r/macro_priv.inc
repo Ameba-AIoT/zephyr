@@ -56,6 +56,23 @@
 	cps #MODE_SYS
 	push {r0-r3, r12, lr}
 
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * Store the caller-saved VFP registers (s0-s15, d16-d31) and FPSCR
+	 * below the basic frame so that the stack holds a complete
+	 * struct arch_esf.  The callee-saved s16-s31 are preserved by any C
+	 * code run from here (AAPCS) and by z_arm_context_switch.
+	 */
+	sub sp, sp, #___fpu_t_SIZEOF
+	mov r0, sp
+	vstmia r0!, {s0-s15}
+#ifdef CONFIG_VFP_FEATURE_REGS_S64_D32
+	vstmia r0!, {d16-d31}
+#endif
+	vmrs r1, fpscr
+	str r1, [r0]
+#endif /* CONFIG_FPU_SHARING */
+
 	/* TODO: EXTRA_EXCEPTION_INFO */
 	mov r0, sp
 

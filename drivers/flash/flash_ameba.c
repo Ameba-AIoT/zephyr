@@ -114,12 +114,12 @@ static int flash_ameba_erase(const struct device *dev, off_t offset, size_t len)
 
 	ret = flash_get_page_info_by_offs(dev, offset, &info);
 	if (ret) {
-		return ret;
+		goto out;
 	}
 	start_sector_offset = info.start_offset;
 	ret = flash_get_page_info_by_offs(dev, offset + len - 1, &info);
 	if (ret) {
-		return ret;
+		goto out;
 	}
 	end_sector_offset = info.start_offset;
 
@@ -128,6 +128,7 @@ static int flash_ameba_erase(const struct device *dev, off_t offset, size_t len)
 		start_sector_offset += NOR_FLASH_SECTOR_SIZE;
 	}
 
+out:
 	flash_ameba_sem_give(dev);
 
 	return ret;

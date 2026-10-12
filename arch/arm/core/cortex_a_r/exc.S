@@ -252,6 +252,18 @@ SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, z_arm_cortex_ar_exit_exc)
 	sub r1, r1, #1
 	strb r1, [r2, #_cpu_offset_to_exc_depth]
 
+#if defined(CONFIG_FPU_SHARING)
+	/* Restore the caller-saved VFP registers stored on exception entry */
+	mov r0, sp
+	vldmia r0!, {s0-s15}
+#ifdef CONFIG_VFP_FEATURE_REGS_S64_D32
+	vldmia r0!, {d16-d31}
+#endif
+	ldr r1, [r0]
+	vmsr fpscr, r1
+	add sp, sp, #___fpu_t_SIZEOF
+#endif /* CONFIG_FPU_SHARING */
+
 	/*
 	 * Restore r0-r3, r12, lr, lr_und and spsr_und from the exception stack
 	 * and return to the current thread.
@@ -279,26 +291,6 @@ SECTION_SUBSEC_FUNC(TEXT, __exc, z_arm_undef_instruction)
 	pop {r0}
 
 	z_arm_cortex_ar_enter_exc
-
-#if defined(CONFIG_FPU_SHARING)
-	/*
-	 * Lazy FPU enable.  z_arm_fault_undef_instruction_fp() returns false
-	 * when this fault was triggered by a VFP instruction executed with
-	 * FPEXC.EN=0; in that case it enables the FPU (and spills the previous
-	 * owner's registers to cpu->fp_ctx if needed) so we can unwind and
-	 * re-execute the offending instruction.  If it returns true the fault
-	 * is a real undefined instruction and we fall through to the panic
-	 * handler.
-	 *
-	 * Note: this clobbers r0 set up by z_arm_cortex_ar_enter_exc, so we
-	 * restore r0 = sp (the ESF pointer) before calling the fatal handler.
-	 */
-	bl z_arm_fault_undef_instruction_fp
-	cmp r0, #0
-	beq z_arm_cortex_ar_exit_exc
-	mov r0, sp
-#endif /* CONFIG_FPU_SHARING */
-
 	bl z_arm_fault_undef_instruction
 	b z_arm_cortex_ar_exit_exc
 

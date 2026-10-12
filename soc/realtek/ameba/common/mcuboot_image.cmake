@@ -16,6 +16,8 @@ set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
     COMMAND ${CMAKE_OBJDUMP} -d ${ZEPHYR_BINARY_DIR}/${KERNEL_ELF_NAME} > ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME}.asm
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/images"
 )
+set_property(GLOBAL APPEND PROPERTY extra_post_build_byproducts
+    ${KERNEL_NAME}.raw.map ${KERNEL_NAME}.asm)
 
 if(CONFIG_SOC_SERIES_AMEBAG2)
     set(boot_text_start "__km4tz_boot_text_start__")

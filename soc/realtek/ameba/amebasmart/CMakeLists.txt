@@ -88,6 +88,8 @@ endif()
 file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/*.bin")
 
 if(BIN_FILES)
+  include(${CMAKE_CURRENT_LIST_DIR}/../common/floader_sboot.cmake)
+
   if(CONFIG_MCUBOOT)
     # ---- KM4 MCUboot bootloader build ----
     if(CONFIG_AMEBA_USING_MANIFEST_KEY)

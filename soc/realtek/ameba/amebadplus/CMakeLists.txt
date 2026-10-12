@@ -44,6 +44,8 @@ endif()
 file(GLOB BIN_FILES "${ZEPHYR_HAL_REALTEK_MODULE_DIR}/zephyr/blobs/ameba/${CONFIG_SOC_SERIES}/bin/*.bin")
 
 if(BIN_FILES)
+  include(${CMAKE_CURRENT_LIST_DIR}/../common/floader_sboot.cmake)
+
   if (CONFIG_BOOTLOADER_MCUBOOT OR CONFIG_TFM_BL2)
   # 1. Create directories
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/amebadplus_gcc_project)

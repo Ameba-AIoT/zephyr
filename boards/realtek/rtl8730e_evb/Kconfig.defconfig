@@ -31,16 +31,24 @@ if BOARD_RTL8730E_EVB
 # Default to SMP for the CA32 Zephyr app (dual Cortex-A32 cores).
 # NOT set for the KM4 MCUboot domain (single-core Cortex-M55).
 config SMP
-	default y if SOC_RTL8730E_CA32
+	default y if SOC_RTL8730E_CA32 && USE_SWITCH
 
 config USE_SWITCH
 	default y if SOC_RTL8730E_CA32
 
-# FPU_SHARING lazy-save path pushes ~300 B of VFP regs into the UND/ABT
-# exception stack.  The default 256 B is not enough and causes nested
-# exceptions on the first FPU trap.  1024 B gives comfortable headroom.
+# The non-USE_SWITCH FPU_SHARING path builds its exception frame, VFP
+# registers included, on the UND/ABT mode stack, which overflows the default
+# 256 B.  USE_SWITCH moves the frame to the SYS stack, so the default is
+# enough there.
 config ARMV7_EXCEPTION_STACK_SIZE
-	default 1024
+	default 1024 if FPU_SHARING && !USE_SWITCH
+
+# With FPU_SHARING every exception frame carries the caller-saved VFP
+# registers (232 B instead of 32 B) and is stacked on the interrupted
+# thread's stack, so the default 320 B idle stack overflows on the first
+# preemption from idle.
+config IDLE_STACK_SIZE
+	default 1024 if FPU_SHARING
 
 endif # BOARD_RTL8730E_EVB
 

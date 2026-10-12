@@ -4,8 +4,31 @@
 description: |
   Realtek Ameba OTP (one-time programmable) memory controller.
 
-  Exposes the OTP physical area as a linear byte array through the Zephyr OTP
-  API. Bits can only be programmed from 1 to 0.
+  The controller exposes two views of the same OTP array, each described by a
+  child node. The driver recognises the children by node name:
+
+    - "physical": the raw OTP bytes. Bits can only be programmed from 1 to 0.
+    - "logical": the logical map, rebuilt from an append-only entry log stored
+      in the first part of the physical area. A logical byte can be rewritten
+      any number of times, but every rewrite consumes physical space that can
+      never be reclaimed. The map also holds factory calibration data (Wi-Fi,
+      BT, ...) that cannot be restored once overwritten.
+
+  Example:
+
+    otp: otp@40800000 {
+        compatible = "realtek,ameba-otp";
+        reg = <0x40800000 0x8000>;
+        status = "disabled";
+
+        otp_physical: physical {
+            address-range = <0x0 0x800>;
+        };
+
+        otp_logical: logical {
+            address-range = <0x0 0x400>;
+        };
+    };
 
 compatible: "realtek,ameba-otp"
 
@@ -15,7 +38,14 @@ properties:
   reg:
     required: true
 
-  size:
-    type: int
-    required: true
-    description: Size of the OTP physical area in bytes.
+child-binding:
+  description: OTP view ("physical" or "logical")
+
+  properties:
+    address-range:
+      type: array
+      required: true
+      description: |
+        Range of the view as <start size>, both in bytes. The offsets used by
+        otp_read() and otp_program() are relative to start, so <0x0 0x400>
+        covers the offsets 0x0 to 0x3ff of the view.

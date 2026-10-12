@@ -40,6 +40,20 @@ SECTION_FUNC(TEXT, z_arm_context_switch)
 
 	stm r2, {r4-r11, sp, lr}
 
+#if defined(CONFIG_FPU_SHARING)
+	/*
+	 * Save the callee-saved VFP registers and FPSCR.  This must be done
+	 * before old->switch_handle is set, as another CPU may then resume the
+	 * old thread.  The caller-saved ones are either dead (cooperative
+	 * switch) or already on the stack in the exception frame (preemption).
+	 */
+	ldr r2, =_thread_offset_to_preempt_float
+	add r2, r1, r2
+	vstmia r2!, {s16-s31}
+	vmrs r3, fpscr
+	str r3, [r2]
+#endif /* CONFIG_FPU_SHARING */
+
 	/* save current thread's exception depth */
 	get_cpu r2
 	ldrb r3, [r2, #_cpu_offset_to_exc_depth]
@@ -72,6 +86,15 @@ SECTION_FUNC(TEXT, z_arm_context_switch)
 	ldr r2, =_thread_offset_to_callee_saved
 	add r2, r0, r2
 	ldm r2, {r4-r11, sp, lr}
+
+#if defined(CONFIG_FPU_SHARING)
+	/* Restore the callee-saved VFP registers and FPSCR of the new thread */
+	ldr r2, =_thread_offset_to_preempt_float
+	add r2, r0, r2
+	vldmia r2!, {s16-s31}
+	ldr r3, [r2]
+	vmsr fpscr, r3
+#endif /* CONFIG_FPU_SHARING */
 
 #if defined (CONFIG_ARM_MPU)
 	/* Re-program dynamic memory map */
@@ -135,12 +158,15 @@ offload:
     add r3, r3, #1
     str r3, [r2, #___cpu_t_nested_OFFSET]
 
-    /* If not nested: switch to IRQ stack and save current sp on it. */
+    /* If not nested: switch to IRQ stack and save current sp on it.
+     * r1 is pushed as padding to match the pop {r0, r1} in
+     * z_arm_cortex_ar_irq_done and keep the IRQ stack 8-byte aligned.
+     */
     cmp r3, #1
     bhi 1f
     mov r0, sp
     cps #MODE_IRQ
-    push {r0}
+    push {r0, r1}
 
 1:
     blx z_irq_do_offload

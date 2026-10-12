@@ -66,6 +66,10 @@ struct _preempt_float {
 	float  s29;
 	float  s30;
 	float  s31;
+#if defined(CONFIG_USE_SWITCH)
+	/* FPSCR control bits must also survive a cooperative switch (AAPCS) */
+	uint32_t fpscr;
+#endif
 #endif /* !_ARM_M_SWITCH */
 };
 #endif

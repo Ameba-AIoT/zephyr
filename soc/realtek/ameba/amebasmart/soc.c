@@ -57,9 +57,12 @@ uint64_t vGetGenericTimerFreq(void)
 	return (uint64_t)z_clock_hw_cycles_per_sec;
 }
 
-/* Flash-programming IPI (SGI#2): quiesce Core1 during XIP flash erase/write. */
+/* Flash-programming IPI (SGI#2): quiesce Core1 during XIP flash erase/write.
+ * Only built when the kernel runs more than one CPU; with a single CPU the
+ * HAL's own interrupt lock in FLASH_Write_Lock() is enough.
+ */
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && (CONFIG_MP_MAX_NUM_CPUS > 1)
 
 /* SGI#2: flash IPI (SGI#0 = sched, SGI#1 = mmcfg, SGI#2 = flash). */
 #define FLASH_PG_SGI 2U
@@ -102,7 +105,7 @@ void vPortGateOtherCore(void)
 
 	/* Send SGI#2 to the other core. */
 	unsigned int this_cpu = arch_curr_cpu()->id;
-	unsigned int other_cpu = (this_cpu + 1U) % (unsigned int)CONFIG_MP_MAX_NUM_CPUS;
+	unsigned int other_cpu = (this_cpu + 1U) % arch_num_cpus();
 
 	gic_raise_sgi(FLASH_PG_SGI, 0ULL, (uint16_t)BIT(other_cpu));
 
@@ -118,7 +121,7 @@ void vPortWakeOtherCore(void)
 	k_spin_unlock(&flash_pg_lock, flash_pg_lock_key);
 }
 
-#else /* !CONFIG_SMP — empty stubs so the HAL section links */
+#else /* no other core to gate: empty stubs so the HAL section links */
 
 void vPortGateOtherCore(void)
 {
@@ -128,7 +131,7 @@ void vPortWakeOtherCore(void)
 {
 }
 
-#endif /* CONFIG_SMP */
+#endif /* CONFIG_SMP && CONFIG_MP_MAX_NUM_CPUS > 1 */
 
 void xlat_flash_region_device(void)
 {
@@ -179,7 +182,7 @@ static int soc_ipc_irq_init(void)
 	IRQ_CONNECT(IPC_AP_IRQ, INT_PRI_MIDDLE, IPC_INTHandler, (uint32_t)IPCAP_DEV, 0);
 	irq_enable(IPC_AP_IRQ);
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && (CONFIG_MP_MAX_NUM_CPUS > 1)
 	IRQ_CONNECT(FLASH_PG_SGI, INT_PRI_MIDDLE, flash_pg_ipi_handler, NULL, 0);
 	irq_enable(FLASH_PG_SGI);
 #endif
@@ -276,7 +279,9 @@ void soc_cpu_power_on(uint32_t cpu_mpid)
 /* Enable per-CPU SGIs on secondary cores. */
 void soc_per_core_init_hook(void)
 {
+#if CONFIG_MP_MAX_NUM_CPUS > 1
 	irq_enable(FLASH_PG_SGI);
+#endif
 #ifdef CONFIG_PM
 	/*
 	 * If this secondary core is warm-booting after cluster power-gating

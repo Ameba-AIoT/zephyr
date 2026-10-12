@@ -106,7 +106,7 @@ EL1_Reset_Handler:
      * after EL1_Reset_Handler regardless of primary/secondary split).
      *
      * When a secondary core (Core1) is kicked from TF-A's mailbox it
-     * arrives here in secure SVC mode.  TF-A may leave SP_UND, SP_ABT,
+     * arrives here in Non-secure SVC mode.  TF-A may leave SP_UND, SP_ABT,
      * SP_SYS, SP_IRQ and SP_FIQ with stale values from a previous boot
      * cycle (preserved in PSRAM across warm resets).  Any exception that
      * fires before the per-CPU stacks are loaded from boot_params will
@@ -407,17 +407,16 @@ _secondary_core:
     mov lr, r0
     msr spsr_cxsf, r0
 
-    /* ACTLR.SMP must be set before the caches or MMU are enabled, and the
-     * secure firmware may have left the D-cache on, so clear SCTLR.C first.
+    /* The firmware may have left the D-cache on; clear SCTLR.C before
+     * touching ACTLR and before the caches/MMU are set up.
      */
     mrc p15, 0, r0, c1, c0, 0   /* read SCTLR */
     bic r0, r0, #(1 << 2)        /* clear C bit (D-cache disable) */
     mcr p15, 0, r0, c1, c0, 0   /* write SCTLR */
     isb
 
-    /* Join the inner-shareable domain: without ACTLR.SMP + Broadcast this
-     * core's cache maintenance is not broadcast and coherency is
-     * UNPREDICTABLE.
+    /* Note: on Cortex-A32 these ACTLR bits are not the SMP/coherency enable;
+     * that is CPUECTLR.SMPEN, which TF-A sets on every reset.
      */
     mrc p15, 0, r0, c1, c0, 1   /* read ACTLR */
     orr r0, r0, #(1 << 6)        /* SMP bit */

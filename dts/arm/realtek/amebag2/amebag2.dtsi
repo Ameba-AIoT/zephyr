@@ -300,9 +300,15 @@
 		otp: otp@40800000 {
 			compatible = "realtek,ameba-otp";
 			reg = <0x40800000 0x8000>;
-			label = "otp";
-			size = <0x800>;
 			status = "disabled";
+
+			otp_physical: physical {
+				address-range = <0x0 0x800>;
+			};
+
+			otp_logical: logical {
+				address-range = <0x0 0x400>;
+			};
 		};
 
 		pinctrl: pinctrl@4080a800 {

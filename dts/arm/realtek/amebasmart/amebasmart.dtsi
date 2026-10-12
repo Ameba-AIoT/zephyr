@@ -373,9 +373,15 @@
 		otp: otp@42000000 {
 			compatible = "realtek,ameba-otp";
 			reg = <0x42000000 0x8000>;
-			label = "otp";
-			size = <0x800>;
 			status = "disabled";
+
+			otp_physical: physical {
+				address-range = <0x0 0x800>;
+			};
+
+			otp_logical: logical {
+				address-range = <0x0 0x400>;
+			};
 		};
 
 		rcc: rcc@42008000 {

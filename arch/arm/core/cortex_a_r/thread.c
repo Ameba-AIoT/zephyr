@@ -148,27 +148,15 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 #endif /* CONFIG_COMPILER_ISA_THUMB2 */
 
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
-	{
-		struct __basic_sf *basic_iframe = iframe;
-		iframe = (struct __basic_sf *)
-			((uintptr_t)iframe - sizeof(struct __fpu_sf));
-		memset(iframe, 0, sizeof(struct __fpu_sf));
+	iframe = (struct __basic_sf *)
+		((uintptr_t)iframe - sizeof(struct __fpu_sf));
+	memset(iframe, 0, sizeof(struct __fpu_sf));
 #if defined(CONFIG_USE_SWITCH)
-		/*
-		 * USE_SWITCH thread birth goes via z_arm_cortex_ar_exit_exc
-		 * which does not pop the FPU frame.  Set psp to the basic
-		 * stack frame so the pop/rfeia sequence finds the correct
-		 * {r0-r3,r12,lr,pc,cpsr} data.  The zeroed FPU area below
-		 * is reserved but not consumed on first entry.
-		 */
-		thread->callee_saved.psp = (uint32_t)basic_iframe;
-#else
-		thread->callee_saved.psp = (uint32_t)iframe;
+	memset(&thread->arch.preempt_float, 0, sizeof(thread->arch.preempt_float));
 #endif
-	}
-#else
+#endif
+
 	thread->callee_saved.psp = (uint32_t)iframe;
-#endif
 	thread->arch.basepri = 0;
 
 	/*
@@ -420,6 +408,15 @@ uint32_t z_check_thread_stack_fail(const uint32_t fault_addr, const uint32_t psp
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 int arch_float_disable(struct k_thread *thread)
 {
+#if defined(CONFIG_USE_SWITCH)
+	/*
+	 * The VFP context is saved eagerly on every exception entry and
+	 * context switch, and the VFP unit is never disabled, so there is no
+	 * per-thread FP state to drop.
+	 */
+	ARG_UNUSED(thread);
+	return -ENOTSUP;
+#else
 	if (thread != _current) {
 		return -EINVAL;
 	}
@@ -448,6 +445,7 @@ int arch_float_disable(struct k_thread *thread)
 	arch_irq_unlock(key);
 
 	return 0;
+#endif /* CONFIG_USE_SWITCH */
 }
 
 int arch_float_enable(struct k_thread *thread, unsigned int options)

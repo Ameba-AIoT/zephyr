@@ -175,9 +175,15 @@
 		otp: otp@480002e4 {
 			compatible = "realtek,ameba-otp";
 			reg = <0x480002e4 0xc>;
-			label = "otp";
-			size = <0x200>;
 			status = "disabled";
+
+			otp_physical: physical {
+				address-range = <0x0 0x200>;
+			};
+
+			otp_logical: logical {
+				address-range = <0x0 0x400>;
+			};
 		};
 
 		pinctrl: pinctrl@48000400 {
