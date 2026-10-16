@@ -408,15 +408,6 @@ uint32_t z_check_thread_stack_fail(const uint32_t fault_addr, const uint32_t psp
 #if defined(CONFIG_FPU) && defined(CONFIG_FPU_SHARING)
 int arch_float_disable(struct k_thread *thread)
 {
-#if defined(CONFIG_USE_SWITCH)
-	/*
-	 * The VFP context is saved eagerly on every exception entry and
-	 * context switch, and the VFP unit is never disabled, so there is no
-	 * per-thread FP state to drop.
-	 */
-	ARG_UNUSED(thread);
-	return -ENOTSUP;
-#else
 	if (thread != _current) {
 		return -EINVAL;
 	}
@@ -436,7 +427,14 @@ int arch_float_disable(struct k_thread *thread)
 
 	thread->base.user_options &= ~K_FP_REGS;
 
+#if !defined(CONFIG_USE_SWITCH)
+	/*
+	 * With USE_SWITCH the VFP state is saved eagerly and the lazy
+	 * undefined-instruction handler is not built, so the VFP must stay
+	 * enabled: only the flag is dropped.
+	 */
 	__set_FPEXC(0);
+#endif
 
 	/* No need to add an ISB barrier after setting the CONTROL
 	 * register; arch_irq_unlock() already adds one.
@@ -445,7 +443,6 @@ int arch_float_disable(struct k_thread *thread)
 	arch_irq_unlock(key);
 
 	return 0;
-#endif /* CONFIG_USE_SWITCH */
 }
 
 int arch_float_enable(struct k_thread *thread, unsigned int options)

@@ -247,7 +247,7 @@ class HardwareMap:
             pty_cmd += f" --remote-server {remote_server}"
 
         # Build runner_params for west flash (amebaflash)
-        runner_params = ["--", "--port", port, "--baudrate", baud]
+        runner_params = ["--no-reset", "--", "--port", port, "--baudrate", baud]
         if remote_server:
             runner_params += ["--remote-server", remote_server]
 

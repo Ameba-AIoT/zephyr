@@ -19,7 +19,7 @@ extern void z_arm_reset(void);
  * (refer to bootloader/mcuboot/boot/zephyr/main.c)
  */
 IMAGE2_ENTRY_SECTION
-RAM_START_FUNCTION Img2EntryFun0 = {
+RAM_START_FUNCTION __used Img2EntryFun0 = {
 	z_arm_reset,
 #if defined(CONFIG_PM) && !defined(CONFIG_BOOTLOADER_MCUBOOT)
 	/* For ameba loader wake from PG, BOOT_WakeFromPG jump to SOCPS_WakeFromPG_AP */

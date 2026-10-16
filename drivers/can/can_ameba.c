@@ -74,8 +74,8 @@ struct can_ameba_data {
 	struct can_driver_data common;
 	struct k_mutex inst_mutex;
 
-	ATOMIC_DEFINE(rx_allocs, CONFIG_CAN_MAX_FILTER);
-	struct can_ameba_rx_filter filters[CONFIG_CAN_MAX_FILTER];
+	ATOMIC_DEFINE(rx_allocs, CONFIG_CAN_AMEBA_MAX_FILTERS);
+	struct can_ameba_rx_filter filters[CONFIG_CAN_AMEBA_MAX_FILTERS];
 	struct k_sem tx_idle;
 	can_tx_callback_t tx_callback;
 	void *tx_user_data;
@@ -760,7 +760,7 @@ static int can_ameba_get_max_filters(const struct device *dev, bool ide)
 	ARG_UNUSED(dev);
 	ARG_UNUSED(ide);
 
-	return CONFIG_CAN_MAX_FILTER;
+	return CONFIG_CAN_AMEBA_MAX_FILTERS;
 }
 
 static int can_ameba_init(const struct device *dev)

@@ -79,10 +79,20 @@ ZTEST_USER(cache_api, test_data_cache_api_user)
 	zassert_true((ret == 0) || (ret == -ENOTSUP));
 }
 
+/*
+ * On Cortex-A AArch32, clearing SCTLR.C turns the kernel's atomics
+ * (LDREX/LDAEX) into non-cacheable exclusive accesses, which abort when the
+ * interconnect does not support them. The kernel needs atomics as soon as
+ * the suite returns, so leave the D-cache enabled there.
+ */
+#define DCACHE_DISABLE_SAFE (!IS_ENABLED(CONFIG_CPU_AARCH32_CORTEX_A))
+
 static void *cache_api_setup(void)
 {
-	sys_cache_data_disable();
-	sys_cache_data_flush_all();
+	if (DCACHE_DISABLE_SAFE) {
+		sys_cache_data_disable();
+		sys_cache_data_flush_all();
+	}
 	sys_cache_data_enable();
 	sys_cache_instr_enable();
 
@@ -91,7 +101,9 @@ static void *cache_api_setup(void)
 
 static void cache_api_teardown(void *unused)
 {
-	sys_cache_data_disable();
+	if (DCACHE_DISABLE_SAFE) {
+		sys_cache_data_disable();
+	}
 	sys_cache_instr_disable();
 }
 

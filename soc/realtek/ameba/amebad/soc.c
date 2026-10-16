@@ -14,8 +14,8 @@
 void z_arm_reset(void);
 
 IMAGE2_ENTRY_SECTION
-RAM_START_FUNCTION Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
-				    (uint32_t)NewVectorTable};
+RAM_START_FUNCTION __used Img2EntryFun0 = {z_arm_reset, NULL, /* BOOT_RAM_WakeFromPG, */
+					   (uint32_t)NewVectorTable};
 
 static void app_vdd1833_detect(void)
 {

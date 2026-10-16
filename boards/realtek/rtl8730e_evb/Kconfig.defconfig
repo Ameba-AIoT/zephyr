@@ -36,19 +36,20 @@ config SMP
 config USE_SWITCH
 	default y if SOC_RTL8730E_CA32
 
-# The non-USE_SWITCH FPU_SHARING path builds its exception frame, VFP
-# registers included, on the UND/ABT mode stack, which overflows the default
-# 256 B.  USE_SWITCH moves the frame to the SYS stack, so the default is
-# enough there.
+# Without USE_SWITCH the FPU_SHARING frame is built on the UND/ABT stack.
 config ARMV7_EXCEPTION_STACK_SIZE
 	default 1024 if FPU_SHARING && !USE_SWITCH
 
-# With FPU_SHARING every exception frame carries the caller-saved VFP
-# registers (232 B instead of 32 B) and is stacked on the interrupted
-# thread's stack, so the default 320 B idle stack overflows on the first
-# preemption from idle.
+# With FPU_SHARING each exception frame stacked on a thread grows by 200 B
+# (VFP registers), so threads need that much more headroom.
 config IDLE_STACK_SIZE
 	default 1024 if FPU_SHARING
+
+config SHELL_STACK_SIZE
+	default 3072 if FPU_SHARING && !OPENTHREAD_SHELL
+
+config BT_LONG_WQ_STACK_SIZE
+	default 2048 if FPU_SHARING && !NO_OPTIMIZATIONS
 
 endif # BOARD_RTL8730E_EVB
 
